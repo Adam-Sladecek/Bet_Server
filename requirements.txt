@@ -1,0 +1,13 @@
+beautifulsoup4
+selenium
+pandas
+rapidfuzz
+python-Levenshtein
+aiohttp
+asyncio
+flask_admin
+flask_sqlalchemy
+flask_migrate
+flask_socketio
+fuzzywuzzy
+sqlalchemy
