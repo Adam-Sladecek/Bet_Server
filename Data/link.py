@@ -47,10 +47,7 @@ def link():
                 if link is None: continue
                 sb2_obj= next((e for e in sb2_data if e["opp_description"] == link["name2"] and e["sport_id"] == link["sport_id"]), None)
                 if sb2_obj is None: continue
-                all_links.extend([
-                    {'first_opportunity_id': sb1_obj["id"], 'second_opportunity_id': sb2_obj["id"]},
-                    {'first_opportunity_id': sb2_obj["id"], 'second_opportunity_id': sb1_obj["id"]}
-                ])
+                all_links.append({'first_opportunity_id': sb1_obj["id"], 'second_opportunity_id': sb2_obj["id"]})
                 sb1_data.remove(sb1_obj)
                 sb2_data.remove(sb2_obj)
             if write_unused:    
