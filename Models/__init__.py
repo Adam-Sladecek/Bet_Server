@@ -1,4 +1,4 @@
-from .models import EventModel, OddModel
+from .models import EventModel, OddModel, RequestModel, ScrapeResultModel
 from .alchemy import db, commit
 from .arbitragebet import Arbitragebet, Arbitragebetdetail
 from .event import Event, EventLink, EventToBeLinked

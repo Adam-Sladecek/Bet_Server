@@ -8,6 +8,25 @@ from Logging import configure_logging, logger
 
 configure_logging()
 
+class EventLink(db.Model): 
+    __tablename__ = 'eventlink'
+    id = db.Column(db.Integer, primary_key=True)
+    first_event_id = db.Column(db.Integer, db.ForeignKey('event.id', ondelete='CASCADE'), nullable=False)
+    second_event_id = db.Column(db.Integer, db.ForeignKey('event.id', ondelete='CASCADE'), nullable=False)
+
+    first_event = db.relationship('Event', uselist=False, foreign_keys=[first_event_id])
+    second_event = db.relationship('Event', uselist=False, foreign_keys=[second_event_id])
+
+class EventToBeLinked(db.Model): 
+    __tablename__ = 'eventtobelinked'
+    id = db.Column(db.Integer, primary_key=True)
+    sport_id = db.Column(db.Integer, nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id', ondelete='CASCADE'), nullable=False)
+    sportsbook_id = db.Column(db.Integer, db.ForeignKey('sportsbook.id'), nullable=False)
+
+    event = db.relationship('Event', uselist=False)
+    sportsbook = db.relationship('Sportsbook', uselist=False)
+
 class Event(db.Model): 
     __tablename__ = 'event'
     id = db.Column(db.Integer, primary_key=True)
@@ -38,7 +57,7 @@ class Event(db.Model):
         
         commit()
 
-    def link_event(self, sportsbook_id: int) -> bool:
+    def link_event(self, sportsbook_id: int) -> tuple[bool, EventToBeLinked]:
         increment = timedelta(hours=1)
         potential_matches = ( db.session.query(Event)
             .filter(Event.sport_id == self.sport_id)
@@ -104,32 +123,12 @@ class Event(db.Model):
                 second_name = event_data.second_name,
             )
             db.session.add(new_event)
-            db.session.commit()
             for sportsbook in sports_books: 
                 if sportsbook.id == sportsbook_id: continue
-                db.session.add(EventToBeLinked(event_id = new_event.id, sportsbook_id = sportsbook.id, sport_id = sport_id))
+                db.session.add(EventToBeLinked(event = new_event, sportsbook_id = sportsbook.id, sport_id = sport_id))
         used_event_ids = [event_data.event_id for event_data in events_list]
         for existing_event in existing_events:
             if existing_event.event_id not in used_event_ids:
                 db.session.delete(existing_event)
 
         commit()
-
-class EventLink(db.Model): 
-    __tablename__ = 'eventlink'
-    id = db.Column(db.Integer, primary_key=True)
-    first_event_id = db.Column(db.Integer, db.ForeignKey('event.id', ondelete='CASCADE'), nullable=False)
-    second_event_id = db.Column(db.Integer, db.ForeignKey('event.id', ondelete='CASCADE'), nullable=False)
-
-    first_event = db.relationship('Event', uselist=False, foreign_keys=[first_event_id])
-    second_event = db.relationship('Event', uselist=False, foreign_keys=[second_event_id])
-
-class EventToBeLinked(db.Model): 
-    __tablename__ = 'eventtobelinked'
-    id = db.Column(db.Integer, primary_key=True)
-    sport_id = db.Column(db.Integer, nullable=False)
-    event_id = db.Column(db.Integer, db.ForeignKey('event.id', ondelete='CASCADE'), nullable=False)
-    sportsbook_id = db.Column(db.Integer, db.ForeignKey('sportsbook.id'), nullable=False)
-
-    event = db.relationship('Event', uselist=False)
-    sportsbook = db.relationship('Sportsbook', uselist=False)

@@ -32,17 +32,24 @@ class Opportunity(db.Model):
 
     @staticmethod
     def get_relevant_opportunity(odd: OddModel, sport_id: int, sportsbook_id: int) -> OddModel:
-        opportunity = db.session.query(Opportunity).filter_by(
+        query = db.session.query(Opportunity).filter_by(
             sportsbook_id=sportsbook_id, 
             sport_id=sport_id, 
             tip_type = odd.tip_type,
             opp_number = odd.opp_number,
             market_id = odd.market_id,
             bet_order = odd.bet_order,
-            ).first()
+            )
+        
+        if sportsbook_id != 5: 
+            query = query.filter_by(
+                opp_description = odd.opp_description
+            )
+
+        opportunity = query.first()
+
         if opportunity:
             odd.opportunity_id = opportunity.id
-            odd.opp_description = opportunity.opp_description
             return odd     
         return None
 

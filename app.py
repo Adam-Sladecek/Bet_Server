@@ -1,9 +1,12 @@
-from flask import Flask
+from flask import Flask, jsonify, request
 from flask_migrate import Migrate
 from flask_socketio import SocketIO, emit
 from flask_admin import Admin
 from Models import *
 from datetime import datetime, timedelta
+from Logging import configure_logging, logger
+import threading
+from Scrapes import scrape
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database2.db'  # Use your preferred database
@@ -11,6 +14,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'your_jwt_secret_key'  # Change this to a secure key
 app.config['SECRET_KEY'] = 'your_secret_key'  # Change this to a secure key for SocketIO
 db.init_app(app)
+
+configure_logging()
 
 migrate = Migrate(app, db, render_as_batch=True)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -28,14 +33,82 @@ admin.add_view(OddView(Odd, db.session))
 admin.add_view(ArbitragebetView(Arbitragebet, db.session))
 admin.add_view(ArbitragebetDetailView(Arbitragebetdetail, db.session))
 
-# @app.route('/update_events', methods=['POST'])
+# @app.route('/events', methods=['POST'])
 # def update_events():
-#     pass
+#     try:
+#         json_data = request.get_json()
+#         sport_id = json_data['sport_id']
+#         sportsbook_id = json_data['sportsbook_id']
+#         events = [EventModel(**event_data) for event_data in json_data['events']]
+#         Event.update_events(events, sport_id, sportsbook_id)
+#         return jsonify({'message': 'Events updated.'}), 200
+    
+#     except Exception as e:
+#         logger.error(str(e)) 
+#         return jsonify({'error': str(e)}), 400
 
-# @app.route('/update_odds', methods=['POST'])
+# @app.route('/odds', methods=['POST'])
 # def update_odds():
-#     pass
+#     try:
+#         json_data = request.get_json()
+#         sport_id = json_data['sport_id']
+#         sportsbook_id = json_data['sportsbook_id']
+#         odd_dictionary = {key: [OddModel(**odd_data) for odd_data in odds_list] for key, odds_list in json_data['odds_dict'].items()}
+#         Odd.update_odds(odd_dictionary, sport_id, sportsbook_id)
+#         return jsonify({'message': 'Odds updated.'}), 200
+    
+#     except Exception as e:
+#         logger.error(str(e))
+#         return jsonify({'error': str(e)}), 400
+    
+scrape_task_running = False
+scrape_event = None
+scrape_thread = None
 
+@app.route('/start', methods=['GET']) # socket
+async def start_scrape():
+    try:
+        print("Starting scrape.")  
+        sportsbooks = db.Query(Sportsbook).filter_by(selected=True).all()
+        sports = db.Query(Sport).filter_by(selected=True).all()
+        global scrape_task_running, scrape_thread, scrape_event
+        if not scrape_task_running:
+            scrape_event = threading.Event()
+            number_of_drivers = 5
+            scrape_thread = threading.Thread(target=scrape, args=(sportsbooks, sports, scrape_event, number_of_drivers))
+            scrape_thread.start()
+        print("Scrape started.")      
+        return jsonify({'started': True}) , 200
+    
+    except Exception as e:
+        logger.error(str(e))
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/end', methods=['GET']) # socket
+def end_scrape():
+    try:
+        print("Ending scrape.")  
+        global scrape_task_running, scrape_event, scrape_thread, ending_scrape
+        if scrape_task_running:
+            ending_scrape = True
+            scrape_event.set()
+            scrape_thread.join()
+        ending_scrape = False 
+        return jsonify({'ended': True}), 200
+    
+    except Exception as e:
+        logger.error(str(e))
+        return jsonify({'error': str(e)}), 400
+    
+@app.route('/sportsbooks', methods=['GET']) # socket
+def get_sportsbooks_with_urls():
+    try:
+        
+        return jsonify([{'ended': True}]), 200
+    
+    except Exception as e:
+        logger.error(str(e))
+        return jsonify({'error': str(e)}), 400    
 
 # # SocketIO event example
 # @socketio.on('message')
@@ -96,10 +169,10 @@ if __name__ == '__main__':
     with open('app.log', 'w'):
         pass
     with app.app_context():
-        # db.drop_all()
-        # db.create_all()
-        # Sport.populate()
-        # Opportunity.populate()
+        db.drop_all()
+        db.create_all()
+        Sport.populate()
+        Opportunity.populate()
         add_events()
     socketio.run(app, debug=True)
 

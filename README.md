@@ -8,15 +8,9 @@ Install dependencies for Python >3.6 :
 pip install -r requirements.txt
 ```
 
-run server from Web_Scraping/Server:
+run server from Scraping_Server_V3:
 
 ```bash
 python app.py --ngrok=1
-
-```
-run client from Client/Scraping_Client:
-
-```bash
-npm start
 
 ```

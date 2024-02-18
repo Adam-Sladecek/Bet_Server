@@ -8,7 +8,7 @@ class SporttypeView(ModelView):
 
 class SportView(ModelView):
     column_display_pk = True  
-    column_list = ['id', 'name', 'sport_type_id']        
+    column_list = ['id', 'name', 'sport_type_id', 'selected']        
 
 class OpportunityView(ModelView):
     column_display_pk = True 

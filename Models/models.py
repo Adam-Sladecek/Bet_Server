@@ -22,3 +22,18 @@ class OddModel:
     opp_number: str
     bet_order: int
     opportunity_id: int 
+
+@dataclass(frozen=True)
+class RequestModel: 
+    sport_name: str
+    sport_id: int
+    sport_type_id: int
+    sportsbook_id: int
+    sportsbook_name: str
+    url: str
+    is_tipos_more: bool
+
+@dataclass(frozen=True)
+class ScrapeResultModel: 
+    success: bool
+    request: RequestModel

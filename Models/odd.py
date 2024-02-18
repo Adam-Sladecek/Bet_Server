@@ -18,6 +18,7 @@ class Odd(db.Model):
     __tablename__ = 'odd'
     id = db.Column(db.Integer, primary_key=True)
     bet_id = db.Column(db.Integer, nullable=False)
+    tip_type = db.Column(db.String(3))
     odd = db.Column(db.Numeric(precision=6, scale=2), nullable=False)
     event_id = db.Column(db.Integer, db.ForeignKey('event.event_id', ondelete='CASCADE'), nullable=False)
     sportsbook_id = db.Column(db.Integer, db.ForeignKey('event.sportsbook_id'), nullable=False)
@@ -28,9 +29,9 @@ class Odd(db.Model):
     def update_odds(odd_dictionary: dict[int, list[OddModel]], sport_id: int, sportsbook_id: int):
         for event_id, odds in odd_dictionary.items():
             existing_odds = db.session.query(Odd).filter_by(sportsbook_id=sportsbook_id, event_id=event_id).all()
-            existing_odds_dict = {odd.bet_id: odd for odd in existing_odds}
+            existing_odds_dict = {(odd.bet_id, odd.tip_type): odd for odd in existing_odds}
             for odd in odds:
-                if odd.bet_id in existing_odds_dict:
+                if (odd.bet_id, odd.tip_type) in existing_odds_dict:
                     existing_odd = existing_odds_dict[odd.bet_id]
                     existing_odd.odd = odd.odd
                     continue
@@ -42,12 +43,17 @@ class Odd(db.Model):
                     continue
                 new_odd = Odd(
                     bet_id = result.bet_id,
+                    tip_type = result.tip_type,
                     sportsbook_id = result.sportsbook_id,
                     event_id = result.event_id,
                     odd = result.odd,
                     opportunity_id = result.opportunity_id
                 )
                 db.session.add(new_odd)
+        used_odd_ids = [(odd.bet_id, odd.tip_type) for odd in existing_odds]
+        for existing_odd in existing_odds:
+            if (existing_odd.bet_id, existing_odd.tip_type) not in used_odd_ids:
+                db.session.delete(existing_odd)        
         commit()
 
     @classmethod

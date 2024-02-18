@@ -7,6 +7,8 @@ class Sport(db.Model):
     __tablename__ = 'sport'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(20), unique=True, nullable=False)
+    selected = db.Column(db.Boolean, default=False)
+    url = db.Column(db.String(20), nullable=False)
     sport_type_id = db.Column(db.Integer, db.ForeignKey('sporttype.id'), nullable=False)
     sport_type = db.relationship('Sporttype')
 

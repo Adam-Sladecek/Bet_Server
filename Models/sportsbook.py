@@ -4,6 +4,7 @@ class Sportsbook(db.Model):
     __tablename__ = 'sportsbook'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
+    selected = db.Column(db.Boolean, default=False)
     tenis_url = db.Column(db.String(50), nullable=False)
     darts_url = db.Column(db.String(50), nullable=False)
     cricket_url = db.Column(db.String(50), nullable=False)
