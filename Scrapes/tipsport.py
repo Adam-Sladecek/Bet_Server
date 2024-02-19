@@ -1,6 +1,8 @@
 import aiohttp 
 import asyncio
 import queue
+
+import requests
 from Models import EventModel, OddModel, RequestModel, Event, Odd, ScrapeResultModel
 from datetime import datetime
 import threading
@@ -80,8 +82,8 @@ def get_events(result, request: RequestModel) -> tuple[list[int], dict[int, list
                 formatted_time = dt_object.strftime('%d/%m/%Y %H:%M:%S')
                 time = datetime.strptime(formatted_time, '%d/%m/%Y %H:%M:%S')    
                 names[match["id"]] = [match["nameFull"], *short_names]
-                match_ids.append(match["id"])
-                events.append(EventModel(match["id"], request.sportsbook_id, request.sport_id, time, short_names[0], short_names[1]))
+                match_ids.append(int(match["id"]))
+                events.append(EventModel(match["id"], request.sportsbook_id, request.sport_id, time.isoformat(), short_names[0], short_names[1]))
             except:
                 continue
     return match_ids, names, events
@@ -128,16 +130,18 @@ def get_bets(details, request: RequestModel, names: dict[int, list[tuple[str, st
                     odds[match_id].append(OddModel(
                             bet_id = cell["id"],
                             odd = cell["odd"],
+                            market_id="0",
                             event_id = match_id,
                             sportsbook_id = request.sportsbook_id,
                             opp_description = description,
                             tip_type = "X", 
-                            opp_number = cell["oppNumber"]
+                            opp_number = cell["oppNumber"],
+                            bet_order=0,
+                            opportunity_id=0
                         ))  
     return odds   
 
 async def tipsport_getData(request: RequestModel, result_queue: queue.Queue, logger: logging.Logger, test: bool = False):
-
     try:
         url_numbers = {
             'tenis-43': 43, 
@@ -160,13 +164,25 @@ async def tipsport_getData(request: RequestModel, result_queue: queue.Queue, log
         matchIds, names, events = await getData(request.url, url_numbers[request.url], session_id, request)
         details_promise = get_details(request.url, matchIds, session_id, request, names)
         if not test: 
-            calc_thread = threading.Thread(target = Event.update_events, args = (events, request.sport_id, request.sportsbook_id))
-            calc_thread.start()
+            event_update_obj = {
+                "data" : {
+                    'events': [event.__dict__ for event in events],
+                    'sport_id': request.sport_id,
+                    'sportsbook_id': request.sportsbook_id,
+                },
+                "url": "http://127.0.0.1:5000/events"
+            }
+            result_queue.put(event_update_obj)
             details = await details_promise
-            calc_thread.join()
-            odd_thread = threading.Thread(target = Odd.update_odds, args = (details, request.sport_id, request.sportsbook_id))
-            odd_thread.start()
-            odd_thread.join()
+            odd_update_obj = {
+                "data" : {
+                'odd_model_dict': {key: [odd.__dict__ for odd in value] for key, value in details.items()},
+                'sport_id': request.sport_id,
+                'sportsbook_id': request.sportsbook_id,
+                },
+                "url": "http://127.0.0.1:5000/odds"
+            }
+            result_queue.put(odd_update_obj)
             scrape_result = ScrapeResultModel(
                 success = True,
                 request = request

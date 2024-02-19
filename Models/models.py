@@ -6,7 +6,7 @@ class EventModel:
     event_id: int
     sportsbook_id: int
     sport_id: int
-    date_time: datetime
+    date_time: str
     first_name: str
     second_name: str
 

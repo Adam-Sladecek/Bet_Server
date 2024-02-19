@@ -1,10 +1,10 @@
 import aiohttp 
 import asyncio
 import queue
-from Models import EventModel, OddModel, RequestModel, Event, Odd, ScrapeResultModel
+from Models import EventModel, OddModel, RequestModel, ScrapeResultModel
 from datetime import datetime
-import threading
 import logging
+import requests
 
 async def getData(order: str, url: str):
     responses = []
@@ -33,7 +33,7 @@ async def get_details(result_dict: dict[int, tuple[int,int]], request: RequestMo
             for result in results:
                 try:
                     name1, name2 = result["bets"][0]["participants"]
-                    event_id = result["sportEvents"][0]["sportEventId"]
+                    event_id = int(result["sportEvents"][0]["sportEventId"])
                     odds[event_id] = []
                 except:
                     continue    
@@ -59,7 +59,9 @@ async def get_details(result_dict: dict[int, tuple[int,int]], request: RequestMo
                             market_id = market_id,
                             opp_description = description,
                             tip_type = tip, 
-                            bet_order = bet_order
+                            bet_order = bet_order,
+                            opp_number="0",
+                            opportunity_id=0
                         ))          
     return odds       
 
@@ -67,6 +69,7 @@ def getInfoForDetails(detail_ids: list[tuple[int,int]], resultjson, events: list
     for bet in resultjson[0]['bets']:
         try:
             for box in resultjson[0]['boxes']:
+                if box["boxId"] in ["superoffer", "superchance"]: raise
                 if bet['sportEventId'] in box["sportEventIds"]:
                     box_id = box["boxId"]
                     break
@@ -74,7 +77,7 @@ def getInfoForDetails(detail_ids: list[tuple[int,int]], resultjson, events: list
             formatted_time = dt_object.strftime('%d/%m/%Y %H:%M:%S')
             time = datetime.strptime(formatted_time, '%d/%m/%Y %H:%M:%S')
             names = bet['participants']
-            events.append(EventModel(bet['sportEventId'], request.sportsbook_id, request.sport_id, time, names[0], names[1]))
+            events.append(EventModel(bet['sportEventId'], request.sportsbook_id, request.sport_id, time.isoformat(), names[0], names[1]))
             detail_ids.append((box_id, bet['sportEventId']))
         except: 
             continue    
@@ -99,13 +102,25 @@ async def nike_getData(request: RequestModel, result_queue: queue.Queue, logger:
             counter += 1
         details_promise = get_details({request.sport_id: detail_ids}, request)
         if not test: 
-            calc_thread = threading.Thread(target = Event.update_events, args = (events, request.sport_id, request.sportsbook_id))
-            calc_thread.start()
+            event_update_obj = {
+                "data" : {
+                    'events': [event.__dict__ for event in events],
+                    'sport_id': request.sport_id,
+                    'sportsbook_id': request.sportsbook_id,
+                },
+                "url": "http://127.0.0.1:5000/events"
+            }
+            result_queue.put(event_update_obj)
             details = await details_promise
-            calc_thread.join()
-            odd_thread = threading.Thread(target = Odd.update_odds, args = (details, request.sport_id, request.sportsbook_id))
-            odd_thread.start()
-            odd_thread.join()
+            odd_update_obj = {
+                "data" : {
+                'odd_model_dict': {key: [odd.__dict__ for odd in value] for key, value in details.items()},
+                'sport_id': request.sport_id,
+                'sportsbook_id': request.sportsbook_id,
+                },
+                "url": "http://127.0.0.1:5000/odds"
+            }
+            result_queue.put(odd_update_obj)
             scrape_result = ScrapeResultModel(
                 success = True,
                 request = request

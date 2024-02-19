@@ -1,6 +1,6 @@
 from .alchemy import db, commit
 from sqlalchemy import and_, or_
-from datetime import timedelta
+from datetime import timedelta, datetime
 from .models import EventModel
 from .sportsbook import Sportsbook
 from fuzzywuzzy import fuzz
@@ -36,7 +36,7 @@ class Event(db.Model):
     first_name = db.Column(db.String(30), nullable=False)
     second_name = db.Column(db.String(50), nullable=False)
     sport_id = db.Column(db.Integer, db.ForeignKey('sport.id'), nullable=False)
-    odds = db.relationship('Odd', backref='event', primaryjoin="and_(Event.event_id == Odd.event_id, Event.sportsbook_id == Odd.sportsbook_id)")
+    odds = db.relationship('Odd', back_populates='event', primaryjoin="and_(Event.event_id == Odd.event_id, Event.sportsbook_id == Odd.sportsbook_id)")
     sport = db.relationship('Sport', uselist=False)
     sportsbook = db.relationship('Sportsbook', uselist=False)
 
@@ -106,19 +106,19 @@ class Event(db.Model):
     
     @staticmethod
     def update_events(events_list: list[EventModel], sport_id: int, sportsbook_id: int):
-        sports_books = db.session.query(Sportsbook).all()
+        sports_books = db.session.query(Sportsbook).filter_by(selected=True).all()
         existing_events = db.session.query(Event).filter_by(sport_id=sport_id, sportsbook_id=sportsbook_id).all()
         existing_events_dict = {event.event_id: event for event in existing_events}
         for event_data in events_list:
             if event_data.event_id in existing_events_dict:
                 existing_event = existing_events_dict[event_data.event_id]
-                existing_event.date_time = event_data.date_time
+                existing_event.date_time = datetime.fromisoformat(event_data.date_time)
                 continue
             new_event = Event(
                 sport_id = event_data.sport_id,
                 sportsbook_id = event_data.sportsbook_id,
                 event_id = event_data.event_id,
-                date_time = event_data.date_time,
+                date_time = datetime.fromisoformat(event_data.date_time),
                 first_name = event_data.first_name,
                 second_name = event_data.second_name,
             )

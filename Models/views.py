@@ -31,6 +31,7 @@ class EventToBeLinkedView(ModelView):
     
 class OddView(ModelView):
     column_display_pk = True  
+    column_list = ['id', 'bet_id', 'tip_type', 'odd', 'event_id']    
 
 class ArbitragebetView(ModelView):
     column_display_pk = True  

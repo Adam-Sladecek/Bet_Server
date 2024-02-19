@@ -42,7 +42,16 @@ async def get_details(result_dict):
                             description = bet["headerDetail"] + " " + odd["name"]
                             if "tip" not in odd: continue
                             tip = odd["tip"] # TODO: replace like in doxxet, add sportsbookid
-                            opps.append({"id" : counter, "market_id" : bet["marketId"], "opp_description": description.replace(name1, "*1*").replace(name2, "*2*").replace("  ", " "), "tip_type": tip, "bet_order": int(bet["betOrder"]), "sport_id": key, "sportsbook_id": 3})
+                            opps.append({
+                                "id" : counter, 
+                                "market_id" : bet["marketId"], 
+                                "opp_description": description.replace(name1, "*1*").replace(name2, "*2*").replace("  ", " "), 
+                                "tip_type": tip, 
+                                "bet_order": int(bet["betOrder"]), 
+                                "sport_id": key, 
+                                "sportsbook_id": 5, 
+                                "opp_number": "0"
+                            })
                             counter += 1
                             continue
                     if bet["rows"] != 1: continue
@@ -51,7 +60,16 @@ async def get_details(result_dict):
                         description = bet["headerDetail"] + " " + odd["name"]
                         if "tip" not in odd: continue
                         tip = odd["tip"]
-                        opps.append({"id" : counter, "market_id" : bet["marketId"], "opp_description": description.replace(name1, "*1*").replace(name2, "*2*").replace("  ", " "), "tip_type": tip, "bet_order": int(bet["betOrder"]), "sport_id": key, "sportsbook_id": 3})
+                        opps.append({
+                            "id" : counter, 
+                            "market_id" : bet["marketId"], 
+                            "opp_description": description.replace(name1, "*1*").replace(name2, "*2*").replace("  ", " "), 
+                            "tip_type": tip, 
+                            "bet_order": int(bet["betOrder"]), 
+                            "sport_id": key, 
+                            "sportsbook_id": 5,
+                            "opp_number": "0"
+                        })
                         counter += 1
     return opps       
 

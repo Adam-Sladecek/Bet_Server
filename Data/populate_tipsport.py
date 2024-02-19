@@ -117,7 +117,16 @@ def get_opportunities(all_details, all_names):
                         description = description.replace("  ", " ").strip()
                         if (description, key) in used_touples: continue
                         used_touples.add((description, key))
-                        all_opportunities.append({"id": len(all_opportunities) + 1, "tip_type": "X", "opp_number": cell["oppNumber"], "opp_description": description, "sport_id": key, "sportsbook_id": 4})
+                        all_opportunities.append({
+                            "id": len(all_opportunities) + 1, 
+                            "tip_type": "X", 
+                            "opp_number": cell["oppNumber"], 
+                            "opp_description": description, 
+                            "sport_id": key, 
+                            "sportsbook_id": 6, 
+                            "market_id": "0",
+                            "bet_order": 0
+                        })
     return all_opportunities                            
     # except Exception as ex: 
     #     return []                    

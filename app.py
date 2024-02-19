@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from Logging import configure_logging, logger
 import threading
 from Scrapes import scrape
+from time import sleep
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database2.db'  # Use your preferred database
@@ -64,19 +65,19 @@ admin.add_view(ArbitragebetDetailView(Arbitragebetdetail, db.session))
 scrape_task_running = False
 scrape_event = None
 scrape_thread = None
-
 @app.route('/start', methods=['GET']) # socket
-async def start_scrape():
+def start_scrape():
     try:
         print("Starting scrape.")  
-        sportsbooks = db.Query(Sportsbook).filter_by(selected=True).all()
-        sports = db.Query(Sport).filter_by(selected=True).all()
+        sportsbooks = db.session.query(Sportsbook).filter_by(selected=True).all()
+        sports = db.session.query(Sport).filter_by(selected=True).all()
         global scrape_task_running, scrape_thread, scrape_event
         if not scrape_task_running:
             scrape_event = threading.Event()
             number_of_drivers = 5
             scrape_thread = threading.Thread(target=scrape, args=(sportsbooks, sports, scrape_event, number_of_drivers))
             scrape_thread.start()
+            scrape_task_running = True
         print("Scrape started.")      
         return jsonify({'started': True}) , 200
     
@@ -93,6 +94,7 @@ def end_scrape():
             ending_scrape = True
             scrape_event.set()
             scrape_thread.join()
+            scrape_task_running = False
         ending_scrape = False 
         return jsonify({'ended': True}), 200
     
@@ -100,16 +102,63 @@ def end_scrape():
         logger.error(str(e))
         return jsonify({'error': str(e)}), 400
     
-@app.route('/sportsbooks', methods=['GET']) # socket
-def get_sportsbooks_with_urls():
+
+@app.route('/events', methods=['POST']) # socket
+def update_events():
     try:
-        
-        return jsonify([{'ended': True}]), 200
+        data = request.json
+        events_data = data.get('events', [])
+        sport_id = data.get('sport_id')
+        sportsbook_id = data.get('sportsbook_id')
+        events = [EventModel(**event_data) for event_data in events_data]
+
+        with app.app_context():
+            with db.session.begin():
+                Event.update_events(events, sport_id, sportsbook_id)
+
+        return jsonify({'updated': True}), 200
+
+    except Exception as e:
+        logger.error(str(e))
+        return jsonify({'error': str(e)}), 400
+                
+@app.route('/odds', methods=['POST']) # socket
+def update_odds():
+    try:
+        data = request.json
+        sport_id = data.get('sport_id')
+        sportsbook_id = data.get('sportsbook_id')
+        incoming_odd_model_dict = data.get('odd_model_dict', {})
+        odd_model_dict = {}
+        for key, value in incoming_odd_model_dict.items():
+            odd_models = [OddModel(**odd_data) for odd_data in value]
+            odd_model_dict[int(key)] = odd_models
+
+        with app.app_context():
+            with db.session.begin():
+                Odd.update_odds(odd_model_dict, sport_id, sportsbook_id)
+        return jsonify({'updated': True}) , 200
     
     except Exception as e:
         logger.error(str(e))
-        return jsonify({'error': str(e)}), 400    
-
+        return jsonify({'error': str(e)}), 400
+    
+@app.route('/scrape', methods=['GET']) # socket
+def scrape_sport():
+    try:
+        sport_id = int(request.args.get('sport_id'))
+        with app.app_context():
+            with db.session.begin():
+                Event.link_all_events(sport_id)
+        with app.app_context():
+            with db.session.begin():        
+                Odd.get_arbitrage_odds(sport_id)
+        return jsonify({'updated': True}) , 200
+    
+    except Exception as e:
+        logger.error(str(e))
+        return jsonify({'error': str(e)}), 400  
+       
 # # SocketIO event example
 # @socketio.on('message')
 # def handle_message(data):
@@ -168,12 +217,21 @@ if __name__ == '__main__':
     # if len(sys.argv) > 1 and sys.argv[1] == '--populate':
     with open('app.log', 'w'):
         pass
+    # with app.app_context():
+    #     db.drop_all()
+    #     db.create_all()
+    #     Sport.populate()
+    #     Opportunity.populate()
+        # add_events()
     with app.app_context():
-        db.drop_all()
-        db.create_all()
-        Sport.populate()
-        Opportunity.populate()
-        add_events()
+        with db.session.begin():
+            db.session.query(Event).delete()
+            db.session.query(EventToBeLinked).delete()
+            db.session.query(EventLink).delete()
+            db.session.query(Odd).delete()
+            db.session.query(Arbitragebet).delete()
+            db.session.query(Arbitragebetdetail).delete()
+            commit()
     socketio.run(app, debug=True)
 
 # TODO: each odd should have unique opportunity

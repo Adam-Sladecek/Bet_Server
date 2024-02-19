@@ -14,7 +14,7 @@ def scrape(sportsbooks: list[Sportsbook], sports: list[Sport], event: threading.
     result_queue = Queue(maxsize=len(sports) * (len(sportsbooks) + 1))
     driver_threads = [threading.Thread(target = get_sportsbook_data, args = (scrape_queue, result_queue, event, logger)) for _ in range(number_of_drivers)]  
     tipos_included = len([sportsbook for sportsbook in sportsbooks if sportsbook.name == 'Tipos']) > 0
-    group_results_thread = threading.Thread(target = group_results, args = (scrape_queue, result_queue, event, len(sportsbooks), tipos_included))    
+    group_results_thread = threading.Thread(target = group_results, args = (scrape_queue, result_queue, event, logger, len(sportsbooks), tipos_included))    
     for thread in driver_threads:
         thread.start()
     group_results_thread.start()

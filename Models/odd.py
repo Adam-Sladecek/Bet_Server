@@ -22,6 +22,7 @@ class Odd(db.Model):
     odd = db.Column(db.Numeric(precision=6, scale=2), nullable=False)
     event_id = db.Column(db.Integer, db.ForeignKey('event.event_id', ondelete='CASCADE'), nullable=False)
     sportsbook_id = db.Column(db.Integer, db.ForeignKey('event.sportsbook_id'), nullable=False)
+    event = db.relationship('Event', uselist=False, back_populates='odds', primaryjoin="and_(Odd.event_id == Event.event_id, Odd.sportsbook_id == Event.sportsbook_id)")
     opportunity_id = db.Column(db.Integer, db.ForeignKey('opportunity.id'), nullable=False)
     opportunity = db.relationship('Opportunity', uselist=False)
 
@@ -31,8 +32,9 @@ class Odd(db.Model):
             existing_odds = db.session.query(Odd).filter_by(sportsbook_id=sportsbook_id, event_id=event_id).all()
             existing_odds_dict = {(odd.bet_id, odd.tip_type): odd for odd in existing_odds}
             for odd in odds:
+                if not odd.event_id: continue
                 if (odd.bet_id, odd.tip_type) in existing_odds_dict:
-                    existing_odd = existing_odds_dict[odd.bet_id]
+                    existing_odd = existing_odds_dict[(odd.bet_id, odd.tip_type)]
                     existing_odd.odd = odd.odd
                     continue
                 result = Opportunity.get_relevant_opportunity(odd, sport_id, sportsbook_id)    

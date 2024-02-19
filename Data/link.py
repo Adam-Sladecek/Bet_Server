@@ -18,21 +18,21 @@ def link():
     all_opps = group_links()
     all_links = []
     triplets = [
-        ["nike", 3, "doxxbet", 6, True],
-        ["nike", 3, "ifortuna", 2, False],
-        ["nike", 3, "tipsport", 4, False],
-        ["nike", 3, "tipos", 5, False],
-        ["nike", 3, "betfair", 1, False],
-        ["doxxbet", 6, "ifortuna", 2, False],
-        ["doxxbet", 6, "tipsport", 4, False],
-        ["doxxbet", 6, "tipos", 5, False],
-        ["doxxbet", 6, "betfair", 1, False],
-        ["ifortuna", 2, "tipsport", 4, False],
-        ["ifortuna", 2, "tipos", 5, False],
-        ["ifortuna", 2, "betfair", 1, False],
-        ["tipsport", 4, "tipos", 5, False],
-        ["tipsport", 4, "betfair", 1, False],
-        ["tipos", 5, "betfair", 1, False],
+        ["nike", 5, "doxxbet", 1, True],
+        ["nike", 5, "ifortuna", 2, False],
+        ["nike", 5, "tipsport", 6, False],
+        ["nike", 5, "tipos", 3, False],
+        ["nike", 5, "betfair", 4, False],
+        ["doxxbet", 1, "ifortuna", 2, False],
+        ["doxxbet", 1, "tipsport", 6, False],
+        ["doxxbet", 1, "tipos", 3, False],
+        ["doxxbet", 1, "betfair", 4, False],
+        ["ifortuna", 2, "tipsport", 6, False],
+        ["ifortuna", 2, "tipos", 3, False],
+        ["ifortuna", 2, "betfair", 4, False],
+        ["tipsport", 6, "tipos", 3, False],
+        ["tipsport", 6, "betfair", 4, False],
+        ["tipos", 3, "betfair", 4, False],
     ]
     with open("Data/link.json", encoding="utf-8") as link_file:
         link_contents = link_file.read()
