@@ -84,6 +84,7 @@ def link_all_events(sport_id: int):
             obj.delete()
         else:
             obj.tried_to_link = True   
+            obj.save()
         if matching_object:
             deleted_links.add(matching_object.id)
             matching_object.delete()
@@ -287,6 +288,7 @@ def link_odds(sport_id: int):
             obj.delete()
             continue
         obj.tried_to_link = True
+        obj.save()
 
     OddLink.objects.bulk_create(odd_links)
 
@@ -299,6 +301,7 @@ def link_odd(odd: Odd, odds_to_be_linked: list[OddToBeLinked]) -> tuple[bool, Od
         'second_opportunity'
     ).all()
     potential_opportunity_links_dict = {(opportunity_link.first_opportunity.id, opportunity_link.second_opportunity.id): True for opportunity_link in potential_opportunity_links}
+    if not len(potential_opportunity_links_dict) : return False, None  
     potential_event_links = EventLink.objects.filter(
         models.Q(first_event=odd.event) |
         models.Q(second_event=odd.event)
@@ -307,10 +310,11 @@ def link_odd(odd: Odd, odds_to_be_linked: list[OddToBeLinked]) -> tuple[bool, Od
         'second_event'
     ).all()
     potential_event_links_dict = {(event_link.first_event.id, event_link.second_event.id): True for event_link in potential_event_links}
+    if not len(potential_event_links_dict) : return False, None  
     for potential_odd in odds_to_be_linked:
-        opportunity_link_exists = potential_opportunity_links_dict[(odd.opportunity.id, potential_odd.odd.opportunity.id)] or potential_opportunity_links_dict[(potential_odd.odd.opportunity.id, odd.opportunity.id)]
-        event_link_exists = potential_event_links_dict[(odd.event.id, potential_odd.odd.event.id)] or potential_event_links_dict[(potential_odd.odd.event.id, odd.event.id)]
-        if opportunity_link_exists and event_link_exists:
+        opportunity_link_exists = potential_opportunity_links_dict.get((odd.opportunity.id, potential_odd.odd.opportunity.id)) or potential_opportunity_links_dict.get((potential_odd.odd.opportunity.id, odd.opportunity.id))
+        event_link_exists = potential_event_links_dict.get((odd.event.id, potential_odd.odd.event.id)) or potential_event_links_dict.get((potential_odd.odd.event.id, odd.event.id))
+        if opportunity_link_exists and event_link_exists and potential_odd.id is not None:
             return True, potential_odd
     return False, None    
 
@@ -328,11 +332,11 @@ def get_arbitrage_odds(sport_id: int):
     )
     pairs_with_arbitrage = potential_odd_pairs.annotate(
         first_odd_arbitrage=ExpressionWrapper(
-            Value(100.0) / F('first_odd__odd_odd'),
+            Value(100.0) / F('first_odd__odd'),
             output_field=FloatField()
         ),
         second_odd_arbitrage=ExpressionWrapper(
-            Value(100.0) / F('second_odd__odd_odd'),
+            Value(100.0) / F('second_odd__odd'),
             output_field=FloatField()
         ),
         total_arbitrage=Sum(F('first_odd_arbitrage') + F('second_odd_arbitrage'))
@@ -353,18 +357,20 @@ def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
         if (oddlink.first_odd.id, oddlink.second_odd.id) in arbitrage_bets_dict:
             arbitrage_bet = arbitrage_bets_dict[(oddlink.first_odd.id, oddlink.second_odd.id)]
             arbitrage_bet.updated = datetime.now()
+            arbitrage_bet.save()
             details = arbitrage_bet.details
             details[0].odd = oddlink.first_odd.odd
             details[0].ammount = stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.first_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
             details[1].odd = oddlink.second_odd.odd
             details[1].ammount = stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.second_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
+            details[0].save()
+            details[1].save()
             continue
 
         new_bet = ArbitrageBet(
             updated=datetime.now(),
             first_odd_id=oddlink.first_odd.id,
             second_odd_id=oddlink.second_odd.id,
-            sport=sport,
             sport_name=sport.name,
             profit=get_profit(odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
         )

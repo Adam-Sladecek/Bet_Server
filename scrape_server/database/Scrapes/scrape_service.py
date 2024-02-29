@@ -21,8 +21,8 @@ def get_sportsbook_data(scrape_queue: queue.Queue, result_queue: queue.Queue, ev
             try:
                 request = scrape_queue.get(timeout=1)
             except queue.Empty:
-                raise
-                # continue
+                # raise
+                continue
 
             args = (request,)
             events, odds = asyncio.run(targets[request.sportsbook_name](*args, test=False))
