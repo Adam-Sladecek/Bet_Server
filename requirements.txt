@@ -11,3 +11,8 @@ flask_migrate
 flask_socketio
 fuzzywuzzy
 sqlalchemy
+django-environ
+psycopg2
+djangorestframework
+django-cors-headers
+django-silk

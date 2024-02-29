@@ -65,7 +65,7 @@ admin.add_view(ArbitragebetDetailView(Arbitragebetdetail, db.session))
 scrape_task_running = False
 scrape_event = None
 scrape_thread = None
-@app.route('/start', methods=['GET']) # socket
+@app.route('/start', methods=['GET'])
 def start_scrape():
     try:
         print("Starting scrape.")  
@@ -85,7 +85,7 @@ def start_scrape():
         logger.error(str(e))
         return jsonify({'error': str(e)}), 400
 
-@app.route('/end', methods=['GET']) # socket
+@app.route('/end', methods=['GET'])
 def end_scrape():
     try:
         print("Ending scrape.")  
@@ -217,12 +217,12 @@ if __name__ == '__main__':
     # if len(sys.argv) > 1 and sys.argv[1] == '--populate':
     with open('app.log', 'w'):
         pass
-    # with app.app_context():
-    #     db.drop_all()
-    #     db.create_all()
-    #     Sport.populate()
-    #     Opportunity.populate()
-        # add_events()
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+        Sport.populate()
+        Opportunity.populate()
+        add_events()
     with app.app_context():
         with db.session.begin():
             db.session.query(Event).delete()

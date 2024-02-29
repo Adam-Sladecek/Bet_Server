@@ -14,3 +14,7 @@ run server from Scraping_Server_V3:
 python app.py --ngrok=1
 
 ```
+
+python manage.py populate
+
+python manage.py runserver
