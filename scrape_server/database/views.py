@@ -56,5 +56,6 @@ def delete_event(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
     
-# TODO: add sockets
+# TODO: add sockets and ngrok
+# TODO: add test and store testing data
 # TODO: users and JWT authorization
