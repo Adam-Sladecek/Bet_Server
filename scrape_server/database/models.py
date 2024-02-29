@@ -69,7 +69,7 @@ class Odd(models.Model):
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE)
 
-class OddLink(models.Model): # check if cascade works
+class OddLink(models.Model):
     first_odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='first_odd_links')
     second_odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='second_odd_links')
 
