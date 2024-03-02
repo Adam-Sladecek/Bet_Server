@@ -69,7 +69,7 @@ def get_relevant_opportunities(odds: list[OddModel], sport_id: int, sportsbook_i
 
 @transaction.atomic
 def link_all_events(sport_id: int):
-    events_to_be_linked = EventToBeLinked.objects.filter(tried_to_link=False, sport_id=sport_id).select_related(
+    events_to_be_linked = EventToBeLinked.objects.filter(sport_id=sport_id).select_related(
         'event', 
         'sportsbook'
     ).all()
@@ -78,13 +78,9 @@ def link_all_events(sport_id: int):
         if obj.id in deleted_links: continue
         event = obj.event
         sportsbook = obj.sportsbook
-        success, matching_object = link_event(event, sportsbook.id)
-        if success:
-            deleted_links.add(obj.id)
-            obj.delete()
-        else:
-            obj.tried_to_link = True   
-            obj.save()
+        matching_object = link_event(event, sportsbook.id)
+        deleted_links.add(obj.id)
+        obj.delete()
         if matching_object:
             deleted_links.add(matching_object.id)
             matching_object.delete()
@@ -112,7 +108,7 @@ def link_event(event: Event, sportsbook_id: int) -> tuple[bool, EventToBeLinked]
 
     if best_event and best_score >= 70:
         existing_match = EventLink.objects.filter(
-            first_event__sport_id=event.sport.id
+            sport_id=event.sport.id
             ).filter(
             models.Q(first_event=best_event, second_event__sportsbook_id=event.sportsbook.id) |
             models.Q(second_event=best_event, first_event__sportsbook_id=event.sportsbook.id)
@@ -139,26 +135,27 @@ def link_event(event: Event, sportsbook_id: int) -> tuple[bool, EventToBeLinked]
                 existing_match.first_event = event
                 existing_match.score = best_score
                 existing_match.save()
-            return True, None    
+            return None    
         elif not existing_match:
             event_link = EventLink(
                 first_event=event,
                 second_event=best_event,
-                score = best_score
+                score=best_score,
+                sport_id=event.sport.id
             )
             event_link.save()
 
             matching_object = EventToBeLinked.objects.filter(
                 event=best_event,
-                sportsbook_id=event.sportsbook.id,
+                sportsbook=event.sportsbook,
                 sport_id=event.sport.id
             ).first()
 
             if matching_object:
-                return True, matching_object
-            return True, None
+                return matching_object
+            return None
 
-    return False, None 
+    return None 
         
 @transaction.atomic
 def update_events(events_list: list[EventModel], sport_id: int, sportsbook_id: int):
@@ -246,12 +243,23 @@ def update_odds(odd_dictionary: dict[int, list[OddModel]], sport_id: int, sports
                 odd=odd.odd,
                 opportunity=opportunity
             )
-            new_odd_to_be_linked = OddToBeLinked(
-                odd = new_odd,
-                sport_id = sport_id
-            )
+            for link in opportunity.first_opportunity_links.all():
+                new_odd_to_be_linked = OddToBeLinked(
+                    odd = new_odd,
+                    sport_id = sport_id, 
+                    opportunity_link = link,
+                    event=event
+                )
+                new_odds_to_be_linked.append(new_odd_to_be_linked)
+            for link in opportunity.second_opportunity_links.all():
+                new_odd_to_be_linked = OddToBeLinked(
+                    odd = new_odd,
+                    sport_id = sport_id, 
+                    opportunity_link = link,
+                    event=event
+                )
+                new_odds_to_be_linked.append(new_odd_to_be_linked)    
             new_odds.append(new_odd)
-            new_odds_to_be_linked.append(new_odd_to_be_linked)
             continue
 
         odd_dict = asdict(odd)
@@ -266,61 +274,35 @@ def update_odds(odd_dictionary: dict[int, list[OddModel]], sport_id: int, sports
 
 @transaction.atomic
 def link_odds(sport_id: int):
-    odds_to_be_linked = OddToBeLinked.objects.filter(tried_to_link=False, sport_id=sport_id).select_related(
-        'odd', 
-        'odd__opportunity',
-        'odd__event'
-    ).all()
-    deleted_links = set()
-    odd_links = []
-    for obj in odds_to_be_linked:
-        if obj.id in deleted_links: continue
-        odd = obj.odd
-        success, matching_object = link_odd(odd, odds_to_be_linked)
-        if success and matching_object:
-            odd_links.append(OddLink(
-                first_odd = odd,
-                second_odd = matching_object.odd
-            ))
-            deleted_links.add(obj.id)
-            deleted_links.add(matching_object.id)
-            matching_object.delete()
-            obj.delete()
-            continue
-        obj.tried_to_link = True
-        obj.save()
-
-    OddLink.objects.bulk_create(odd_links)
-
-def link_odd(odd: Odd, odds_to_be_linked: list[OddToBeLinked]) -> tuple[bool, OddToBeLinked]:
-    potential_opportunity_links = OpportunityLink.objects.filter(
-        models.Q(first_opportunity=odd.opportunity) |
-        models.Q(second_opportunity=odd.opportunity)
-    ).select_related(
-        'first_opportunity', 
-        'second_opportunity'
-    ).all()
-    potential_opportunity_links_dict = {(opportunity_link.first_opportunity.id, opportunity_link.second_opportunity.id): True for opportunity_link in potential_opportunity_links}
-    if not len(potential_opportunity_links_dict) : return False, None  
-    potential_event_links = EventLink.objects.filter(
-        models.Q(first_event=odd.event) |
-        models.Q(second_event=odd.event)
-    ).select_related(
+    event_links = EventLink.objects.filter(sport_id=sport_id).select_related(
         'first_event', 
         'second_event'
     ).all()
-    potential_event_links_dict = {(event_link.first_event.id, event_link.second_event.id): True for event_link in potential_event_links}
-    if not len(potential_event_links_dict) : return False, None  
-    for potential_odd in odds_to_be_linked:
-        opportunity_link_exists = potential_opportunity_links_dict.get((odd.opportunity.id, potential_odd.odd.opportunity.id)) or potential_opportunity_links_dict.get((potential_odd.odd.opportunity.id, odd.opportunity.id))
-        event_link_exists = potential_event_links_dict.get((odd.event.id, potential_odd.odd.event.id)) or potential_event_links_dict.get((potential_odd.odd.event.id, odd.event.id))
-        if opportunity_link_exists and event_link_exists and potential_odd.id is not None:
-            return True, potential_odd
-    return False, None    
-
+    deleted_links = set()
+    odd_links = []
+    for event_link in event_links: 
+        first_oddstobelinked = event_link.first_event.oddstobelinked.all()
+        second_oddstobelinked = event_link.second_event.oddstobelinked.all()
+        for odd_to_be_linked_1 in first_oddstobelinked:
+            if odd_to_be_linked_1.id in deleted_links: continue
+            for odd_to_be_linked_2 in second_oddstobelinked:
+                if odd_to_be_linked_2.id in deleted_links: continue
+                if odd_to_be_linked_1.opportunity_link == odd_to_be_linked_2.opportunity_link:
+                    odd_links.append(OddLink(
+                        first_odd = odd_to_be_linked_1.odd,
+                        second_odd = odd_to_be_linked_2.odd,
+                        sport_id = sport_id,
+                        opportunity_link = odd_to_be_linked_1.opportunity_link
+                    ))
+                    deleted_links.add(odd_to_be_linked_1.id)
+                    deleted_links.add(odd_to_be_linked_2.id)
+                    odd_to_be_linked_1.delete()
+                    odd_to_be_linked_2.delete()
+    OddLink.objects.bulk_create(odd_links)
+  
 @transaction.atomic
 def get_arbitrage_odds(sport_id: int):
-    potential_odd_pairs = OddLink.objects.filter(first_odd__event__sport_id=sport_id).select_related(
+    potential_odd_pairs = OddLink.objects.filter(sport_id=sport_id).select_related(
         'first_odd', 
         'second_odd',
         'first_odd__opportunity',
@@ -371,6 +353,7 @@ def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
             updated=datetime.now(),
             first_odd_id=oddlink.first_odd.id,
             second_odd_id=oddlink.second_odd.id,
+            sport_id=sport.id,
             sport_name=sport.name,
             profit=get_profit(odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
         )

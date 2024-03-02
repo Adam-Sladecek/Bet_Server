@@ -26,12 +26,12 @@ class EventLink(models.Model):
     first_event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='first_event_links')
     second_event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='second_event_links')
     score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    sport_id = models.IntegerField(default=None)
 
 class EventToBeLinked(models.Model):
     sport_id = models.IntegerField()
     event = models.ForeignKey('Event', on_delete=models.CASCADE)
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
-    tried_to_link = models.BooleanField(default=False)
     class Meta:
         indexes = [
             models.Index(fields=['sport_id']),
@@ -72,11 +72,23 @@ class Odd(models.Model):
 class OddLink(models.Model):
     first_odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='first_odd_links')
     second_odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='second_odd_links')
+    sport_id = models.IntegerField(default=None)
+    opportunity_link = models.ForeignKey('OpportunityLink', on_delete=models.CASCADE, default=None)
+    
+    def delete(self, *args, **kwargs):
+        if self.first_odd:
+            OddToBeLinked.objects.create(odd=self.second_odd, sport_id=self.sport_id, opportunity_link=self.opportunity_link, event=self.second_odd.event)
+        if self.second_odd:
+            OddToBeLinked.objects.create(odd=self.first_odd, sport_id=self.sport_id, opportunity_link=self.opportunity_link, event=self.first_odd.event)
+        
+        super().delete(*args, **kwargs)
 
 class OddToBeLinked(models.Model):
     odd = models.ForeignKey('Odd', on_delete=models.CASCADE)
-    tried_to_link = models.BooleanField(default=False)
     sport_id = models.IntegerField()
+    opportunity_link = models.ForeignKey('OpportunityLink', on_delete=models.CASCADE, default=None)
+    event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='oddstobelinked', default=None)
+
     class Meta:
         indexes = [
             models.Index(fields=['sport_id']),

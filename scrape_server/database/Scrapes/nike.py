@@ -44,7 +44,10 @@ async def get_details(result_dict: dict[int, tuple[int,int]], request: RequestMo
                         if bet["rows"] != 1 or len(bet["selectionGrid"][0]) != 2: continue
                         array = bet["selectionGrid"][0]    
                     for odd in array: 
-                        if not odd["enabled"] or odd["locked"] or "tip" not in odd: continue
+                        try:
+                            if not odd["enabled"] or odd["locked"] or "tip" not in odd: continue
+                        except Exception as ex:
+                            continue
                         description = bet["headerDetail"] + " " + odd["name"]
                         tip = odd["tip"]
                         description = description.replace(name1, "*1*").replace(name2, "*2*").replace("  ", " ")
@@ -66,17 +69,19 @@ def getInfoForDetails(detail_ids: list[tuple[int,int]], resultjson, events: list
     for bet in resultjson[0]['bets']:
         try:
             for box in resultjson[0]['boxes']:
-                if box["boxId"] in ["superoffer", "superchance"]: raise
+                box_id = None
+                if box["boxId"] in ["superoffer", "superchance"]: continue
                 if bet['sportEventId'] in box["sportEventIds"]:
                     box_id = box["boxId"]
                     break
+            if not box_id: continue    
             time = datetime.fromisoformat(bet['expirationTime'])
             # formatted_time = dt_object.strftime('%d/%m/%Y %H:%M:%S')
             # time = datetime.strptime(formatted_time, '%d/%m/%Y %H:%M:%S')
             names = bet['participants']
             events.append(EventModel(int(bet['sportEventId']), request.sportsbook_id, request.sport_id, time, names[0], names[1]))
             detail_ids.append((box_id, bet['sportEventId']))
-        except: 
+        except Exception as ex: 
             continue    
     return detail_ids, events
 

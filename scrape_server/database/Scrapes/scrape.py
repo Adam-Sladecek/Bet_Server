@@ -17,8 +17,8 @@ def scrape(sportsbooks: list[Sportsbook], sports: list[Sport], event: threading.
     for thread in driver_threads:
         thread.start()
     group_results_thread.start()
-    for sportsbook in sportsbooks: 
-        for sport in sports: 
+    for sport in sports: 
+        for sportsbook in sportsbooks:
             if sport.sport_type_id == 2 and sportsbook.name == 'Tipos':
                 url_parts = getattr(sportsbook, sport.url).split('?')
                 url = f'{url_parts[0]}?gameId=20&{url_parts[1]}'
@@ -29,3 +29,4 @@ def scrape(sportsbooks: list[Sportsbook], sports: list[Sport], event: threading.
     group_results_thread.join()
     print('Main function done.')    
     return None
+#create tool that will allow creating opportunity links
