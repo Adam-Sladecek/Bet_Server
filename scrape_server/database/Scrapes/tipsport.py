@@ -3,6 +3,9 @@ from .dataclass_models import EventModel, OddModel, RequestModel
 from datetime import datetime
 from .common import getCommonDriver
 import json
+from .scripts import get_existing_odds, update_events
+from ..models import Odd
+from decimal import Decimal
 
 def getData(driver, url: str, sport_id: int, request: RequestModel) -> tuple[list[int], dict[int, list[tuple[str, str, str]]], list[EventModel]]:
     result = get_response(driver, url, sport_id)
@@ -45,14 +48,13 @@ def get_response(driver, url: str, sport_id: int):
         parsed_data = None
     return parsed_data
 
-async def get_details(driver, matchIds: list[int], request: RequestModel, names: dict[int, list[tuple[str, str, str]]]) -> dict[int, list[OddModel]]:
+async def get_details(driver, matchIds: list[int]) -> list:
     results = []
     tasks = []
     for matchId in matchIds: 
         tasks.append(asyncio.create_task(get_detail_response(driver, matchId)))
     results = await asyncio.gather(*tasks)
-    mapped_result = get_bets(results, request, names)
-    return mapped_result
+    return results
 
 async def get_detail_response(driver, matchId: int):
     post_script = f"""
@@ -94,8 +96,7 @@ def get_events(result, request: RequestModel) -> tuple[list[int], dict[int, list
                 short_names = match["name"].split(" - ")
                 if len(short_names) != 2:
                     short_names = match["name"].split("-")
-                    if len(short_names) != 2:
-                        continue
+                    if len(short_names) != 2: continue
                 dt_object = datetime.fromisoformat(match['datetimeClosed'])  
                 names[match["id"]] = [match["nameFull"], *short_names]
                 match_ids.append(int(match["id"]))
@@ -104,27 +105,31 @@ def get_events(result, request: RequestModel) -> tuple[list[int], dict[int, list
                 continue
     return match_ids, names, events
     
-def get_bets(details, request: RequestModel, names: dict[int, list[tuple[str, str, str]]]) -> dict[int, list[OddModel]]:
-    odds: dict[int, list[OddModel]] = {} 
-    if details is None: return None
+def get_bets(details, request: RequestModel, names: dict[int, list[tuple[str, str, str]]]) -> tuple[list[OddModel], list[Odd], list[Odd]]:
+    odds_to_create: list[OddModel] = []
+    odds_to_update: list[Odd] = []
+    odds_to_delete: list[Odd] = []
+    if details is None: return [], [], []
+    existing_odds = get_existing_odds(request.sportsbook_id, request.sport_id)
     for match_id, detail in details: 
-        odds[match_id] = []
         player1name = names[match_id][1]
         player2name = names[match_id][2]
+
+        existing_match_odds = existing_odds[match_id]
+
         for table in detail["eventTables"]:
-            if 'AND' in table["mySelectionId"]: 
-                continue
+            if 'AND' in table["mySelectionId"]: continue
             if table["maxColumns"][0] == 3: 
-                if 'WINNER' not in table["mySelectionId"]:
-                    continue
-            elif table["maxColumns"][0] != 2: 
-                continue
+                if 'WINNER' not in table["mySelectionId"]: continue
+            elif table["maxColumns"][0] != 2: continue
+
             replacePlayers, replacePlayer = False, False
             if 'PLAYERS' in table["mySelectionId"]:
                 replacePlayers= True
             elif 'PLAYER' in table["mySelectionId"]:
                 replacePlayer = True    
             opp_name = table["name"].replace(player1name, " *1* ").replace(player2name, " *2* ")
+
             for box in table["boxes"]:
                 box_name = None
                 if "name" in box:
@@ -135,29 +140,46 @@ def get_bets(details, request: RequestModel, names: dict[int, list[tuple[str, st
                             box_name = box_name.replace(splits[0], "*name1*").replace(splits[1], "*name2*")
                     elif replacePlayer:
                         box_name = "*name*"
+
                 for cell in box["cells"]:
                     if not cell["active"]: continue
+
+                    if cell["id"] in existing_match_odds: 
+                        existing_odd = existing_match_odds[cell["id"]]
+                        del existing_match_odds[cell["id"]]
+                        decimal = Decimal(cell["odd"])
+                        decimal = round(decimal, 2)
+                        if existing_odd.odd == decimal: continue
+                        existing_odd.odd = cell["odd"]
+                        odds_to_update.append(existing_odd)
+                        continue
+
                     cell_name = cell["name"].replace(player1name, " *1* ").replace(player2name, " *2* ")
                     if box_name is not None:
                         description = opp_name + " " + box_name + " " +  cell_name
                     else:
                         description = opp_name + " " +  cell_name
                     description = description.replace("  ", " ").strip()
-                    odds[match_id].append(OddModel(
-                            bet_id = cell["id"],
-                            odd = cell["odd"],
-                            market_id="0",
-                            event_id = match_id,
-                            sportsbook_id = request.sportsbook_id,
-                            opp_description = description,
-                            tip_type = "X", 
-                            opp_number = cell["oppNumber"],
-                            bet_order=0,
-                            opportunity_id=0
-                        ))  
-    return odds   
+                    try:
+                        odds_to_create.append(OddModel(
+                                bet_id = cell["id"],
+                                odd = float(cell["odd"]),
+                                market_id="0",
+                                event_id = match_id,
+                                sportsbook_id = request.sportsbook_id,
+                                opp_description = description,
+                                tip_type = "X", 
+                                opp_number = cell["oppNumber"],
+                                bet_order=0,
+                                opportunity_id=0
+                            ))  
+                    except Exception as ex: 
+                        continue    
+        odds_to_delete.extend(existing_match_odds.values())
 
-async def tipsport_getData(request: RequestModel, test: bool = False):
+    return odds_to_create, odds_to_update, odds_to_delete
+
+def tipsport_getData(request: RequestModel, test: bool = False):
     try:
         url_numbers = {
             'tenis-43': 43, 
@@ -174,23 +196,22 @@ async def tipsport_getData(request: RequestModel, test: bool = False):
         url = f"https://www.tipsport.sk/kurzy/{request.url}"
         driver.get(url)
         matchIds, names, events = getData(driver, request.url, url_numbers[request.url], request)
-        details = await get_details(driver, matchIds, request, names)
+        update_events(events, request.sport_id, request.sportsbook_id)
+        details_results = asyncio.run(get_details(driver, matchIds))
+        odds_to_create, odds_to_update, odds_to_delete = get_bets(details_results, request, names)
         driver.close()
         driver.quit()
         if not test: 
-            return events, details
+            return odds_to_create, odds_to_update, odds_to_delete
         else:
-            print(details)
+            print("Done")
 
     except Exception as ex:
         print(f"Failed to get Tipsport driver {str(ex)}.")
         return None, None
 
-def populate_tipsport(*args, **kwargs):
-    asyncio.run(tipsport_getData(*args, **kwargs))
-
 if __name__ == "__main__":
     request = RequestModel(sport_name = "Tennis", sportsbook_name = "Tipsport", sport_id = 1, sport_type_id = 1, sportsbook_id= 6, url = "tenis-43", is_tipos_more=False)
-    populate_tipsport(request, test=True)
+    tipsport_getData(request, test=True)
 
 # TODO: scrape using driver in all api sportsbooks

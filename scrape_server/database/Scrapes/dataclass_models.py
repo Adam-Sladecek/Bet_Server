@@ -12,7 +12,7 @@ class EventModel:
 @dataclass
 class OddModel: 
     bet_id: int
-    odd: int
+    odd: float
     event_id: int
     sportsbook_id: int
     market_id: str
