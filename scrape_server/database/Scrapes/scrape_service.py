@@ -1,9 +1,9 @@
 import queue
 from .nike import nike_getData
 from .tipsport import tipsport_getData
-import asyncio
 import threading
-from .scripts import link_all_events, get_arbitrage_odds, update_events, update_odds, link_odds
+from .scripts import link_all_events, get_arbitrage_odds, update_odds, link_odds, send_data_to_clients, get_all_arbitrage_bets
+import asyncio
 
 def get_sportsbook_data(scrape_queue: queue.Queue, result_queue: queue.Queue, event: threading.Event): 
     try:
@@ -23,7 +23,9 @@ def get_sportsbook_data(scrape_queue: queue.Queue, result_queue: queue.Queue, ev
             except queue.Empty:
                 # raise
                 continue
-
+            # arb_bets = get_all_arbitrage_bets()
+            # asyncio.run(send_data_to_clients(arb_bets))
+            # continue
             args = (request,)
             odds_to_create, odds_to_update, odds_to_delete = targets[request.sportsbook_name](*args, test=False)
             update_odds(odds_to_create, odds_to_update, odds_to_delete, request.sport_id, request.sportsbook_id)
@@ -66,6 +68,8 @@ def scrape_sport(sport_id: int, sport_name: str, requests, scrape_queue: queue.Q
     link_all_events(sport_id)
     link_odds(sport_id)
     get_arbitrage_odds(sport_id)
+    arb_bets = get_all_arbitrage_bets()
+    asyncio.run(send_data_to_clients(arb_bets))
     # for req in requests:
     #     scrape_queue.put(req, block=True, timeout=None)
     print(f"End of scrape {sport_name}")    

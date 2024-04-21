@@ -59,7 +59,7 @@ class ArbitrageBetDetail(models.Model):
     sportsbook_name = models.CharField(max_length=10)
     opportunity_name = models.CharField(max_length=50)
     odd = models.DecimalField(max_digits=6, decimal_places=2)
-    ammount = models.DecimalField(max_digits=6, decimal_places=2)
+    amount = models.DecimalField(max_digits=6, decimal_places=2)
 
 class Odd(models.Model):
     bet_id = models.IntegerField()

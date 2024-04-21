@@ -4,7 +4,7 @@ from database.models import Sportsbook, Sport
 import threading
 from .scrape_service import get_sportsbook_data, group_results
 
-def scrape(sportsbooks: list[Sportsbook], sports: list[Sport], event: threading.Event, number_of_drivers: int):
+def scrape_fn(sportsbooks: list[Sportsbook], sports: list[Sport], event: threading.Event, number_of_drivers: int):
     if len(sportsbooks) < 2 or len(sports) == 0:
         print('Main function done.') 
         return None

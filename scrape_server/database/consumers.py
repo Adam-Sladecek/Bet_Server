@@ -1,0 +1,86 @@
+from enum import Enum
+import threading
+import json
+from channels.generic.websocket import AsyncWebsocketConsumer, WebsocketConsumer
+from .models import Sportsbook, Sport
+from .Scrapes import scrape_fn
+from .models import Sportsbook, Sport
+from django.core.cache import cache
+from .enums import TaskState, DataType
+from channels.layers import get_channel_layer
+
+class ScrapeConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        await self.accept()
+        self.group_name = 'scrape_updates'
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        scrape_task_running = cache.get("scrape_task_running", False)
+        if scrape_task_running: 
+            await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING)
+            return
+        await self.send_message(DataType.STATERESPONSE, TaskState.CLOSED)    
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        if data.get('action') == 'start':
+            await self.start_scrape()
+        elif data.get('action') == 'end':
+            await self.end_scrape()
+        else:
+            await self.send_message(DataType.ERROR, "Invalid action")
+
+    async def start_scrape(self):
+        try:
+            global scrape_thread, scrape_event
+            scrape_task_running = cache.get("scrape_task_running", False)
+            if not scrape_task_running:
+                await broadcast_message(DataType.STATERESPONSE, TaskState.RUNNING)
+                sportsbooks = Sportsbook.objects.filter(selected=True)
+                sports = Sport.objects.filter(selected=True)
+                scrape_event = threading.Event()
+                number_of_drivers = 1
+                scrape_thread = threading.Thread(target=scrape_fn, args=(sportsbooks, sports, scrape_event, number_of_drivers))
+                scrape_thread.start()
+                cache.set("scrape_task_running", True)
+        except Exception as e:
+            await self.send_message(DataType.ERROR, str(e))
+
+    async def end_scrape(self):
+        try:
+            global scrape_event, scrape_thread
+            scrape_task_running = cache.get("scrape_task_running", False)
+            if scrape_task_running:
+                cache.set("scrape_task_running", False)
+                scrape_event.set()
+                scrape_thread.join()
+                await broadcast_message(DataType.STATERESPONSE, TaskState.CLOSED)
+        except Exception as e:
+            await self.send_message(DataType.ERROR, str(e))
+
+    async def send_message(self, type, data):
+        if isinstance(data, Enum):
+            data = data.value
+        await self.send(json.dumps({'type': str(type.value), 'data': data}))
+
+    async def group_message(self, request):
+        type = request["data_type"]    
+        data = request["data"]  
+        await self.send_message(type, data)
+
+async def broadcast_message(data_type, data):
+    if isinstance(data, Enum):
+        data = data.value
+
+    channel_layer = get_channel_layer()
+    group_name = 'scrape_updates'
+    await channel_layer.group_send(
+        group_name,
+        {
+            'type': 'group_message',
+            'data_type': data_type,
+            'data': data,
+        }
+    )    

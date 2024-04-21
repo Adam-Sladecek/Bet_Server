@@ -12,6 +12,8 @@ from django.core.management import call_command
 from django.db.models import Q, F, Value, FloatField, ExpressionWrapper, Sum
 import pytz
 from collections import defaultdict
+from ..enums import DataType
+from channels.layers import get_channel_layer
 
 def populate():
     with open("Data/data.json", encoding="utf-8") as file:
@@ -340,7 +342,9 @@ def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
         return
 
     sport = Sport.objects.get(id=sport_id)
-    arbitrage_bets = ArbitrageBet.objects.filter(sport_id=sport_id)
+    arbitrage_bets = ArbitrageBet.objects.prefetch_related(
+        'details'
+    ).filter(sport_id=sport_id).all()
     arbitrage_bets_dict = {(arbitrage_bet.first_odd_id, arbitrage_bet.second_odd_id): arbitrage_bet for arbitrage_bet in arbitrage_bets}
     
     for oddlink in odd_links:
@@ -351,9 +355,9 @@ def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
             arbitrage_bet.save()
             details = arbitrage_bet.details.all()
             details[0].odd = oddlink.first_odd.odd
-            details[0].ammount = stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.first_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
+            details[0].amount = stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.first_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
             details[1].odd = oddlink.second_odd.odd
-            details[1].ammount = stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.second_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
+            details[1].amount = stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.second_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
             details[0].save()
             details[1].save()
             continue
@@ -375,7 +379,7 @@ def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
                 sportsbook_name=oddlink.first_odd.event.sportsbook.name,
                 opportunity_name=oddlink.first_odd.opportunity.opp_description.replace('*1*', first_name).replace('*2*', second_name),
                 odd=oddlink.first_odd.odd,
-                ammount=stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.first_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
+                amount=stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.first_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
             ),
             ArbitrageBetDetail(
                 arbitrage_bet=new_bet,
@@ -383,7 +387,7 @@ def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
                 sportsbook_name=oddlink.second_odd.event.sportsbook.name,
                 opportunity_name=oddlink.second_odd.opportunity.opp_description.replace('*1*', first_name).replace('*2*', second_name),
                 odd=oddlink.second_odd.odd,
-                ammount=stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.second_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
+                amount=stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.second_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
             )
         ]
         new_bet.save()
@@ -393,4 +397,46 @@ def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
     arbitrage_bets_to_delete = [arbitrage_bet for key, arbitrage_bet in arbitrage_bets_dict.items() if key not in used_pairs]
     for bet in arbitrage_bets_to_delete: 
         bet.delete()
-        
+
+def serialize_arbitrage_bet(arbitrage_bet):
+    return {
+        'id': arbitrage_bet.id,
+        'updated': arbitrage_bet.updated.strftime('%Y-%m-%d %H:%M:%S'),
+        'first_odd_id': arbitrage_bet.first_odd_id,
+        'second_odd_id': arbitrage_bet.second_odd_id,
+        'sport_id': arbitrage_bet.sport_id,
+        'sport_name': arbitrage_bet.sport_name,
+        'profit': float(arbitrage_bet.profit),
+        'details': [
+            {
+                'id': detail.id,
+                'player_name': detail.player_name,
+                'sportsbook_name': detail.sportsbook_name,
+                'opportunity_name': detail.opportunity_name,
+                'odd': float(detail.odd),
+                'amount': float(detail.amount)
+            }
+            for detail in arbitrage_bet.details.all()
+        ]
+    }
+
+def serialize_arbitrage_bets(arbitrage_bets):
+    return [serialize_arbitrage_bet(arbitrage_bet) for arbitrage_bet in arbitrage_bets]
+
+def get_all_arbitrage_bets(): 
+    all_bets = ArbitrageBet.objects.prefetch_related(
+        'details'
+    ).all()
+    return serialize_arbitrage_bets(all_bets)
+
+async def send_data_to_clients(arbitrage_bets):
+    channel_layer = get_channel_layer()
+    group_name = 'scrape_updates'
+    await channel_layer.group_send(
+        group_name,
+        {
+            'type': 'group_message',
+            'data_type': DataType.MATCHDATA,
+            'data': arbitrage_bets,
+        }
+    ) 

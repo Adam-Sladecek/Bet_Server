@@ -16,3 +16,5 @@ psycopg2
 djangorestframework
 django-cors-headers
 django-silk
+channels
+daphne

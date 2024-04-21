@@ -1,1 +1,1 @@
-from .scrape import scrape
+from .scrape import scrape_fn
