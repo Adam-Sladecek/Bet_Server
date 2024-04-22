@@ -23,9 +23,9 @@ def get_sportsbook_data(scrape_queue: queue.Queue, result_queue: queue.Queue, ev
             except queue.Empty:
                 # raise
                 continue
-            # arb_bets = get_all_arbitrage_bets()
-            # asyncio.run(send_data_to_clients(arb_bets))
-            # continue
+            arb_bets = get_all_arbitrage_bets()
+            asyncio.run(send_data_to_clients(arb_bets))
+            continue
             args = (request,)
             odds_to_create, odds_to_update, odds_to_delete = targets[request.sportsbook_name](*args, test=False)
             update_odds(odds_to_create, odds_to_update, odds_to_delete, request.sport_id, request.sportsbook_id)

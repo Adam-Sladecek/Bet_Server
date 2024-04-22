@@ -27,8 +27,6 @@ SECRET_KEY = env("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
 SILKY_AUTHENTICATION = True
 
 # Application definition
@@ -67,10 +65,10 @@ MIDDLEWARE = [
     'silk.middleware.SilkyMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:4200",
-]
-
+ALLOWED_HOSTS = ["*"]
+CORS_ALLOWED_ORIGINS = ["http://localhost:4200"]
+CORS_ORIGIN_ALLOW_ALL = True
+CSRF_TRUSTED_ORIGINS= ['http://localhost:4200']
 
 ROOT_URLCONF = 'scrape_server.urls'
 
