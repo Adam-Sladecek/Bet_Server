@@ -363,7 +363,6 @@ def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
             continue
 
         new_bet = ArbitrageBet(
-            updated=datetime.now(pytz.utc),
             first_odd_id=oddlink.first_odd.id,
             second_odd_id=oddlink.second_odd.id,
             sport_id=sport_id,

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 @dataclass(frozen=True)
 class EventModel: 
@@ -33,6 +33,26 @@ class RequestModel:
     is_tipos_more: bool
 
 @dataclass(frozen=True)
-class ScrapeResultModel: 
-    success: bool
-    request: RequestModel
+class Config: 
+    id: int
+    name: str
+    selected: bool
+
+@dataclass(frozen=True)
+class ConfigResponse: 
+    sportsBooks: list[Config]
+    sports: list[Config]
+
+    @property
+    def dict(self):
+        return asdict(self)
+    
+    @staticmethod
+    def dict_to_config(dict_data):
+        return Config(**dict_data)
+    
+    @classmethod
+    def dict_to_config_response(cls, dict_data):
+        sports_books = [cls.dict_to_config(item) for item in dict_data.get('sportsBooks')]
+        sports = [cls.dict_to_config(item) for item in dict_data.get('sports')]
+        return cls(sportsBooks=sports_books, sports=sports)

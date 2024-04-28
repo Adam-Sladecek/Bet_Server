@@ -10,7 +10,7 @@ class SportType(models.Model):
     name = models.CharField(max_length=20, unique=True)
 
 class Sportsbook(models.Model):
-    name = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=30, unique=True)
     selected = models.BooleanField(default=False)
     tenis_url = models.CharField(max_length=50)
     darts_url = models.CharField(max_length=50)
@@ -45,8 +45,14 @@ class Event(models.Model):
     second_name = models.CharField(max_length=50)
     sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
 
+    def delete(self, *args, **kwargs):
+        for odd in self.odds.all():
+            odd.delete()
+
+        super().delete(*args, **kwargs)
+
 class ArbitrageBet(models.Model):
-    updated = models.DateTimeField()
+    updated = models.DateTimeField(auto_now_add=True)
     first_odd_id = models.IntegerField()
     second_odd_id = models.IntegerField()
     sport_id = models.IntegerField()
@@ -56,7 +62,7 @@ class ArbitrageBet(models.Model):
 class ArbitrageBetDetail(models.Model):
     arbitrage_bet = models.ForeignKey(ArbitrageBet, on_delete=models.CASCADE, related_name='details')
     player_name = models.CharField(max_length=50)
-    sportsbook_name = models.CharField(max_length=10)
+    sportsbook_name = models.CharField(max_length=30)
     opportunity_name = models.CharField(max_length=50)
     odd = models.DecimalField(max_digits=6, decimal_places=2)
     amount = models.DecimalField(max_digits=6, decimal_places=2)
@@ -65,13 +71,21 @@ class Odd(models.Model):
     bet_id = models.IntegerField()
     tip_type = models.CharField(max_length=3)
     odd = models.DecimalField(max_digits=6, decimal_places=2)
-    event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='odds')
+    event = models.ForeignKey('Event', on_delete=models.DO_NOTHING, related_name='odds')
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE)
 
+    def delete(self, *args, **kwargs):
+        for odd_link in self.first_odd_links.all():
+            odd_link.delete()
+        for odd_link in self.second_odd_links.all():
+            odd_link.delete()
+
+        super().delete(*args, **kwargs)
+
 class OddLink(models.Model):
-    first_odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='first_odd_links')
-    second_odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='second_odd_links')
+    first_odd = models.ForeignKey('Odd', on_delete=models.DO_NOTHING, related_name='first_odd_links')
+    second_odd = models.ForeignKey('Odd', on_delete=models.DO_NOTHING, related_name='second_odd_links')
     sport_id = models.IntegerField(default=None)
     opportunity_link = models.ForeignKey('OpportunityLink', on_delete=models.CASCADE, default=None)
     
