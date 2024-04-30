@@ -1,7 +1,7 @@
 from enum import Enum
 import threading
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer, WebsocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer
 from .models import Sportsbook, Sport
 from .Scrapes import scrape_fn
 from .models import Sportsbook, Sport
@@ -25,9 +25,10 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        if data.get('action') == 'start':
+        scrape_task_running = cache.get("scrape_task_running", False)
+        if data.get('action') == 'start' and not scrape_task_running:
             await self.start_scrape()
-        elif data.get('action') == 'end':
+        elif data.get('action') == 'end' and scrape_task_running:
             await self.end_scrape()
         else:
             await self.send_message(DataType.ERROR, "Invalid action")
@@ -63,7 +64,7 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
     async def send_message(self, type, data):
         if isinstance(data, Enum):
             data = data.value
-        await self.send(json.dumps({'type': str(type.value), 'data': data}))
+        await self.send(json.dumps({'type': type.value, 'data': data}))
 
     async def group_message(self, request):
         type = request["data_type"]    

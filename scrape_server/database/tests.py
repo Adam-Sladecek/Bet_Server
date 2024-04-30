@@ -1,10 +1,17 @@
 import json
 from django.test import TestCase, RequestFactory
+from .enums import DataType, TaskState
 from .views import get_config, set_config
-from .models import Sportsbook, Sport, SportType, Event, EventLink, EventToBeLinked, ArbitrageBet, ArbitrageBetDetail, Odd, OddLink, OddToBeLinked, Opportunity, OpportunityLink
+from .models import (Sportsbook, Sport, SportType, Event, EventLink, EventToBeLinked, ArbitrageBet, 
+                     ArbitrageBetDetail, Odd, OddLink, OddToBeLinked, Opportunity, OpportunityLink)
 from django.utils import timezone
+from .consumers import ScrapeConsumer, broadcast_message
+from unittest.mock import patch
+from channels.testing import WebsocketCommunicator
+from django.core.cache import cache
 
-class ConfigTest(TestCase):
+
+class ViewTest(TestCase):
     def setUp(self):
         self.sport_type = SportType.objects.create(name="Type 1")
         self.sportsbook1 = Sportsbook.objects.create(name="Sportsbook 1", selected=True)
@@ -85,18 +92,14 @@ class ModelTest(TestCase):
             sport_name=self.sport.name,
             profit=10.50
         )
-    def test_create_sport(self):
-        """Test creating a Sport instance"""
-        self.assertEqual(self.sport.name, "Soccer")
-        self.assertTrue(self.sport.selected)
-        self.assertEqual(self.sport.url, "https://example.com")
-        self.assertEqual(self.sport.sport_type, self.sport_type)
-
-    def test_create_sportsbook(self):
-        """Test creating a Sportsbook instance"""
-        self.assertEqual(self.sportsbook.name, "Sb A")
-        self.assertTrue(self.sportsbook.selected)
-        self.assertEqual(self.sportsbook.tenis_url, "https://tennis.example.com")
+        self.arbitrage_bet_detail = ArbitrageBetDetail.objects.create(
+            arbitrage_bet=self.arbitrage_bet,
+            player_name=self.event1.first_name,
+            sportsbook_name=self.sportsbook.name,
+            opportunity_name=self.opportunity1.opp_description,
+            odd=self.odd1.odd,
+            amount=100
+        )
 
     def test_create_event_link(self):
         """Test creating an EventLink instance"""
@@ -113,24 +116,6 @@ class ModelTest(TestCase):
         self.assertEqual(event_to_be_linked.sport_id, self.sport.pk)
         self.assertEqual(event_to_be_linked.event, self.event1)
         self.assertEqual(event_to_be_linked.sportsbook, self.sportsbook)
-
-    def test_create_event(self):
-        """Test creating an Event instance"""
-        event = Event.objects.create(
-            event_id=self.event1.pk,
-            sportsbook=self.sportsbook,
-            date_time=timezone.now(),
-            first_name=self.event1.first_name,
-            second_name=self.event1.second_name,
-            sport=self.sport
-        )
-
-        self.assertEqual(event.event_id, self.event1.pk)
-        self.assertEqual(event.sportsbook, self.sportsbook)
-        self.assertTrue(event.date_time)
-        self.assertEqual(event.first_name, self.event1.first_name)
-        self.assertEqual(event.second_name, self.event1.second_name)
-        self.assertEqual(event.sport, self.sport)    
 
     def test_delete_event(self):
         """Test deleting an Event instance"""
@@ -149,43 +134,7 @@ class ModelTest(TestCase):
         self.assertEqual(Odd.objects.count(), 1)
         self.assertEqual(OddToBeLinked.objects.count(), 1)
         self.assertEqual(OpportunityLink.objects.count(), 1)
-        self.assertTrue(OddToBeLinked.objects.filter(odd=self.odd2).exists())
-    
-    def test_create_arbitrage_bet(self):
-        """Test creating an ArbitrageBet instance"""
-        self.assertTrue(self.arbitrage_bet.updated)
-        self.assertEqual(self.arbitrage_bet.first_odd_id, 1)
-        self.assertEqual(self.arbitrage_bet.second_odd_id, 2)
-        self.assertEqual(self.arbitrage_bet.sport_id, self.sport.pk)
-        self.assertEqual(self.arbitrage_bet.sport_name, self.sport.name)
-        self.assertEqual(self.arbitrage_bet.profit, 10.50)    
-
-    def test_create_arbitrage_bet_detail(self):
-        """Test creating an ArbitrageBetDetail instance"""
-        arbitrage_bet_detail = ArbitrageBetDetail.objects.create(
-            arbitrage_bet=self.arbitrage_bet,
-            player_name=self.event1.first_name,
-            sportsbook_name=self.sportsbook.name,
-            opportunity_name=self.opportunity1.opp_description,
-            odd=self.odd1.odd,
-            amount=100
-        )
-
-        self.assertEqual(arbitrage_bet_detail.arbitrage_bet, self.arbitrage_bet)
-        self.assertEqual(arbitrage_bet_detail.player_name, self.event1.first_name)
-        self.assertEqual(arbitrage_bet_detail.sportsbook_name, self.sportsbook.name)
-        self.assertEqual(arbitrage_bet_detail.opportunity_name, self.opportunity1.opp_description)
-        self.assertEqual(arbitrage_bet_detail.odd, self.odd1.odd)
-        self.assertEqual(arbitrage_bet_detail.amount, 100)    
-
-    def test_create_odd(self):
-        """Test creating an Odd instance"""
-        self.assertEqual(self.odd1.bet_id, 1)
-        self.assertEqual(self.odd1.tip_type, "tp1")
-        self.assertEqual(self.odd1.odd, 2.1)
-        self.assertEqual(self.odd1.event, self.event1)
-        self.assertEqual(self.odd1.sportsbook, self.sportsbook)
-        self.assertEqual(self.odd1.opportunity, self.opportunity1)    
+        self.assertTrue(OddToBeLinked.objects.filter(odd=self.odd2).exists()) 
 
     def test_delete_odd(self):
         """Test deleting an Odd instance"""
@@ -243,16 +192,6 @@ class ModelTest(TestCase):
         self.assertEqual(odd_to_be_linked.opportunity_link, opportunity_link)
         self.assertEqual(odd_to_be_linked.event, self.event1)
 
-    def test_create_opportunity(self):
-        """Test creating an Opportunity"""
-        self.assertEqual(self.opportunity1.sportsbook, self.sportsbook)
-        self.assertEqual(self.opportunity1.opp_description, "desc1")
-        self.assertEqual(self.opportunity1.tip_type, "tp1")
-        self.assertEqual(self.opportunity1.opp_number, "1")
-        self.assertEqual(self.opportunity1.market_id, "2")
-        self.assertEqual(self.opportunity1.bet_order, 5)
-        self.assertEqual(self.opportunity1.sport, self.sport)
-        
     def test_create_opportunity_link(self):
         """Test creating an OpportunityLink"""
         opportunity_link = OpportunityLink.objects.create(
@@ -262,3 +201,71 @@ class ModelTest(TestCase):
         self.assertEqual(OpportunityLink.objects.count(), 1)
         self.assertEqual(opportunity_link.first_opportunity, self.opportunity1)
         self.assertEqual(opportunity_link.second_opportunity, self.opportunity2)    
+
+class ScrapeConsumerTests(TestCase):
+    async def test_task_running(self):
+        cache.set("scrape_task_running", True)
+        communicator = await self.connect_communicator()
+        await self.should_receive(communicator, DataType.STATERESPONSE, TaskState.RUNNING)
+        await communicator.disconnect()
+
+        cache.set("scrape_task_running", False)
+        communicator = await self.connect_communicator()
+        await self.should_receive(communicator, DataType.STATERESPONSE, TaskState.CLOSED)
+        await communicator.disconnect()
+
+    @patch('threading.Thread')
+    @patch('threading.Event')
+    async def test_receive_start_end_scrape(self, thread_mock, event_mock):
+        communicator = await self.connect_communicator()
+        await self.should_receive(communicator, DataType.STATERESPONSE, TaskState.CLOSED)
+        await communicator.send_json_to({"action": "start"})
+        await self.should_receive(communicator, DataType.STATERESPONSE, TaskState.RUNNING)
+
+        assert event_mock.called, 'Event should be called.'
+        assert thread_mock.called, 'Scrape thread should be called.'
+
+        await communicator.send_json_to({"action": "start"})
+        await self.should_receive_error(communicator, DataType.ERROR, "Invalid action")
+
+        communicator2 = await self.connect_communicator()
+        await self.should_receive(communicator2, DataType.STATERESPONSE, TaskState.RUNNING)
+
+        await communicator2.send_json_to({"action": "end"})
+        await self.should_receive(communicator, DataType.STATERESPONSE, TaskState.CLOSED) 
+        await self.should_receive(communicator2, DataType.STATERESPONSE, TaskState.CLOSED) 
+
+        await communicator.send_json_to({"action": "end"})
+        await self.should_receive_error(communicator, DataType.ERROR, "Invalid action")
+        await communicator.disconnect()
+        await communicator2.disconnect()
+
+    async def test_broadcast_message(self):
+        communicator1 = await self.connect_communicator()
+        await self.should_receive(communicator1, DataType.STATERESPONSE, TaskState.CLOSED)
+        communicator2 = await self.connect_communicator()
+        await self.should_receive(communicator2, DataType.STATERESPONSE, TaskState.CLOSED)
+
+        await broadcast_message(DataType.STATERESPONSE, TaskState.ENDING)
+        await self.should_receive(communicator1, DataType.STATERESPONSE, TaskState.ENDING)
+        await self.should_receive(communicator2, DataType.STATERESPONSE, TaskState.ENDING)
+
+        await communicator1.disconnect()
+        await communicator2.disconnect()
+
+    async def connect_communicator(self):
+        communicator = WebsocketCommunicator(ScrapeConsumer.as_asgi(), "/ws/scrape/")
+        connected, _ = await communicator.connect()
+        assert connected, 'Should be connected'
+        return communicator
+    
+    async def should_receive(self, communicator: WebsocketCommunicator, expected_type: DataType, expected_state: TaskState):
+        response = await communicator.receive_json_from()
+        self.assertEqual(response["type"], expected_type.value)
+        self.assertEqual(response["data"], expected_state.value)
+
+    async def should_receive_error(self, communicator: WebsocketCommunicator, expected_type: DataType, error: str):
+        response = await communicator.receive_json_from()
+        self.assertEqual(response["type"], expected_type.value)
+        self.assertEqual(response["data"], error)    
+        

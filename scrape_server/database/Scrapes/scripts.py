@@ -6,7 +6,8 @@ from dataclasses import asdict
 from Data import link
 from .dataclass_models import EventModel, OddModel
 from Utils import odds_to_implied_pb, get_profit, stake_for_arbitrage_bet
-from database.models import Sportsbook, Sport, SportType, Opportunity, OpportunityLink, Odd, EventToBeLinked, Event, EventLink, ArbitrageBet, ArbitrageBetDetail, OddLink, OddToBeLinked
+from database.models import (Sportsbook, Sport, SportType, Opportunity, OpportunityLink, Odd, 
+                             EventToBeLinked, Event, EventLink, ArbitrageBet, ArbitrageBetDetail, OddLink, OddToBeLinked)
 from django.db import transaction, models
 from django.core.management import call_command
 from django.db.models import Q, F, Value, FloatField, ExpressionWrapper, Sum
