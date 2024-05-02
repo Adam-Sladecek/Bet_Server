@@ -44,5 +44,4 @@ def set_config(request):
         return JsonResponse({'message': str(e)}, status=400)
 
 # TODO: add sockets and ngrok
-# TODO: add test and store testing data
 # TODO: users and JWT authorization

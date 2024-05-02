@@ -1,6 +1,6 @@
 import queue
-from .nike import nike_getData
-from .tipsport import tipsport_getData
+from .SportsBooks.nike import nike_getData
+from .SportsBooks.tipsport import tipsport_getData
 import threading
 from .scripts import link_all_events, get_arbitrage_odds, update_odds, link_odds, send_data_to_clients, get_all_arbitrage_bets
 import asyncio

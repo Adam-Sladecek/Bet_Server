@@ -1,9 +1,9 @@
 import aiohttp 
 import asyncio
-from .dataclass_models import EventModel, OddModel, RequestModel
+from ..dataclass_models import EventModel, OddModel, RequestModel
 from datetime import datetime
-from .scripts import get_existing_odds, update_events
-from ..models import Odd
+from ..scripts import get_existing_odds, update_events
+from ...models import Odd
 from decimal import Decimal
 
 async def getData(order: str, url: str):
@@ -74,13 +74,11 @@ def get_bets(results, request: RequestModel) -> tuple[list[OddModel], list[Odd],
                     bet_id = int(bet_id),
                     odd = odd["odds"],
                     event_id = event_id,
-                    sportsbook_id = request.sportsbook_id,
                     market_id = market_id,
                     opp_description = description,
                     tip_type = tip, 
                     bet_order = bet_order,
-                    opp_number="0",
-                    opportunity_id=0
+                    opp_number="0"
                 ))        
         odds_to_delete.extend(existing_match_odds.values())          
     return odds_to_create, odds_to_update, odds_to_delete       
@@ -99,7 +97,7 @@ def get_events(detail_ids: list[tuple[int,int]], resultjson, events: list[EventM
             # formatted_time = dt_object.strftime('%d/%m/%Y %H:%M:%S')
             # time = datetime.strptime(formatted_time, '%d/%m/%Y %H:%M:%S')
             names = bet['participants']
-            events.append(EventModel(int(bet['sportEventId']), request.sportsbook_id, request.sport_id, time, names[0], names[1]))
+            events.append(EventModel(int(bet['sportEventId']), time, names[0], names[1]))
             detail_ids.append((box_id, bet['sportEventId']))
         except Exception as ex: 
             continue    

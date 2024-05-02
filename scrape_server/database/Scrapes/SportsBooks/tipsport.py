@@ -1,10 +1,10 @@
 import asyncio
-from .dataclass_models import EventModel, OddModel, RequestModel
+from ..dataclass_models import EventModel, OddModel, RequestModel
 from datetime import datetime
-from .common import getCommonDriver
+from ..common import getCommonDriver
 import json
-from .scripts import get_existing_odds, update_events
-from ..models import Odd
+from ..scripts import get_existing_odds, update_events
+from ...models import Odd
 from decimal import Decimal
 
 def getData(driver, url: str, sport_id: int, request: RequestModel) -> tuple[list[int], dict[int, list[tuple[str, str, str]]], list[EventModel]]:
@@ -100,7 +100,7 @@ def get_events(result, request: RequestModel) -> tuple[list[int], dict[int, list
                 dt_object = datetime.fromisoformat(match['datetimeClosed'])  
                 names[match["id"]] = [match["nameFull"], *short_names]
                 match_ids.append(int(match["id"]))
-                events.append(EventModel(match["id"], request.sportsbook_id, request.sport_id, dt_object, short_names[0], short_names[1]))
+                events.append(EventModel(match["id"], dt_object, short_names[0], short_names[1]))
             except:
                 continue
     return match_ids, names, events
@@ -166,12 +166,10 @@ def get_bets(details, request: RequestModel, names: dict[int, list[tuple[str, st
                                 odd = float(cell["odd"]),
                                 market_id="0",
                                 event_id = match_id,
-                                sportsbook_id = request.sportsbook_id,
                                 opp_description = description,
                                 tip_type = "X", 
                                 opp_number = cell["oppNumber"],
-                                bet_order=0,
-                                opportunity_id=0
+                                bet_order=0
                             ))  
                     except Exception as ex: 
                         continue    

@@ -181,20 +181,17 @@ def update_events(events_list: list[EventModel], sport_id: int, sportsbook_id: i
     sports_books = Sportsbook.objects.filter(selected=True).all()
     existing_events = Event.objects.filter(sport_id=sport_id, sportsbook_id=sportsbook_id).all()
     existing_events_dict = {event.event_id: event for event in existing_events}
-    events_to_update = []
     new_events = []
     new_event_links = []
     for event_data in events_list:
         if event_data.event_id in existing_events_dict:
             existing_event = existing_events_dict[event_data.event_id]
-            if existing_event.date_time != event_data.date_time:
-                existing_event.date_time = event_data.date_time
-                events_to_update.append(existing_event)
-            continue
+            if existing_event.date_time == event_data.date_time: continue
+            existing_event.delete()
         
         new_event = Event(
-            sport_id=event_data.sport_id,
-            sportsbook_id=event_data.sportsbook_id,
+            sport_id=sport_id,
+            sportsbook_id=sportsbook_id,
             event_id=event_data.event_id,
             date_time=event_data.date_time,
             first_name=event_data.first_name,
@@ -210,7 +207,6 @@ def update_events(events_list: list[EventModel], sport_id: int, sportsbook_id: i
                 sportsbook=sportsbook,
                 sport_id=sport_id
             ))
-    Event.objects.bulk_update(events_to_update, ['date_time'])
     Event.objects.bulk_create(new_events)
     EventToBeLinked.objects.bulk_create(new_event_links)
     used_event_ids = [event_data.event_id for event_data in events_list]
@@ -230,7 +226,8 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_
     logger = logging.getLogger('django')
     
     sportsbook = Sportsbook.objects.filter(id=sportsbook_id).first()
-    events = Event.objects.filter(sportsbook=sportsbook, event_id__in=[odd.event_id for odd in odds_to_create]).all()
+    sport = Sport.objects.filter(id=sport_id).first()
+    events = Event.objects.filter(sportsbook=sportsbook, sport=sport, event_id__in=[odd.event_id for odd in odds_to_create]).all()
     events_dict = {event.event_id: event for event in events}
 
     Odd.objects.bulk_update(odds_to_update, ['odd'])
