@@ -7,7 +7,7 @@ from Data import link
 from .dataclass_models import EventModel, OddModel
 from Utils import odds_to_implied_pb, get_profit, stake_for_arbitrage_bet
 from database.models import (Sportsbook, Sport, SportType, Opportunity, OpportunityLink, Odd, 
-                             EventToBeLinked, Event, EventLink, ArbitrageBet, ArbitrageBetDetail, OddLink, OddToBeLinked)
+                             EventToBeLinked, Event, EventLink, ArbitrageBet, ArbitrageBetDetail, OddLink, OddToBeLinked, OpportunityToBeLinked)
 from django.db import transaction, models
 from django.core.management import call_command
 from django.db.models import Q, F, Value, FloatField, ExpressionWrapper, Sum
@@ -226,6 +226,7 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_
     logger = logging.getLogger('django')
     
     sportsbook = Sportsbook.objects.filter(id=sportsbook_id).first()
+    all_sportsbooks = Sportsbook.objects.all()
     sport = Sport.objects.filter(id=sport_id).first()
     events = Event.objects.filter(sportsbook=sportsbook, sport=sport, event_id__in=[odd.event_id for odd in odds_to_create]).all()
     events_dict = {event.event_id: event for event in events}
@@ -236,6 +237,8 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_
 
     new_odds = []
     new_odds_to_be_linked = []
+    new_opportunities = []
+    new_opportunities_to_be_linked = []
     opportunities_dict = get_relevant_opportunities(odds_to_create, sport_id, sportsbook_id)
 
     for odd in odds_to_create:
@@ -250,7 +253,10 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_
                 odd=odd.odd,
                 opportunity=opportunity
             )
-            for link in opportunity.first_opportunity_links.all():
+            first_links = opportunity.first_opportunity_links.all()
+            second_links = opportunity.second_opportunity_links.all()
+            if len(first_links)+len(second_links) == 0: continue
+            for link in first_links:
                 new_odd_to_be_linked = OddToBeLinked(
                     odd = new_odd,
                     sport_id = sport_id, 
@@ -258,7 +264,7 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_
                     event=event
                 )
                 new_odds_to_be_linked.append(new_odd_to_be_linked)
-            for link in opportunity.second_opportunity_links.all():
+            for link in second_links:
                 new_odd_to_be_linked = OddToBeLinked(
                     odd = new_odd,
                     sport_id = sport_id, 
@@ -268,13 +274,24 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_
                 new_odds_to_be_linked.append(new_odd_to_be_linked)    
             new_odds.append(new_odd)
             continue
-
-        odd_dict = asdict(odd)
-        json_string = json.dumps(odd_dict, indent=2)
-        logger.warning(f'Opportunity for {json_string} was not found.')
+        new_opp = Opportunity(
+            sportsbook=sportsbook, 
+            opp_description=odd.opp_description,
+            tip_type=odd.tip_type,
+            opp_number=odd.opp_number,
+            market_id=odd.market_id,
+            bet_order=odd.bet_order,
+            sport=sport
+        )
+        new_opportunities.append(new_opp)
+        new_opportunities_to_be_linked.extend([
+            OpportunityToBeLinked(opportunity=new_opp, target_sportsbook=sb) for sb in all_sportsbooks if sb != sportsbook
+        ])
 
     Odd.objects.bulk_create(new_odds)
     OddToBeLinked.objects.bulk_create(new_odds_to_be_linked)
+    Opportunity.objects.bulk_create(new_opportunities)
+    OpportunityToBeLinked.objects.bulk_create(new_opportunities_to_be_linked)
 
 @transaction.atomic
 def link_odds(sport_id: int):

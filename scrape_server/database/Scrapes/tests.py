@@ -5,7 +5,7 @@ from .dataclass_models import EventModel, OddModel
 from datetime import datetime, timedelta
 from .scripts import update_events, update_odds
 from ..models import (Event, EventToBeLinked, Opportunity, Sport, Sportsbook, 
-                      SportType, OpportunityLink, Odd, ArbitrageBet, EventLink, OddLink, OddToBeLinked)
+                      SportType, OpportunityLink, Odd, ArbitrageBet, EventLink, OddLink, OddToBeLinked, OpportunityToBeLinked)
 from .scrape_service import scrape_sport
 
 class ScrapeTest(TestCase):
@@ -66,6 +66,8 @@ class ScrapeTest(TestCase):
         update_events(self.event_models2, self.sport.pk, self.sportsbook2.pk)
         update_odds(self.odd_models1, [], [], self.sport.pk, self.sportsbook1.pk)
         update_odds(self.odd_models2, [], [], self.sport.pk, self.sportsbook2.pk)
+        self.assertEqual(Opportunity.objects.count(), 5)
+        self.assertEqual(OpportunityToBeLinked.objects.count(), 1)
         self.assertEqual(Odd.objects.count(), 9)
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         assert len(event.odds.all()) == 2

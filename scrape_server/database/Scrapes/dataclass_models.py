@@ -52,3 +52,24 @@ class ConfigResponse:
         sports_books = [cls.dict_to_config(item) for item in dict_data.get('sportsBooks')]
         sports = [cls.dict_to_config(item) for item in dict_data.get('sports')]
         return cls(sportsBooks=sports_books, sports=sports)
+    
+@dataclass(frozen=True)
+class UnassignedOpportunity: 
+    opportunity_id: int
+    opp_description: str
+    tip_type: str
+    opp_number: str
+    market_id: str
+    bet_order: int
+    sport: str
+    sportsbook: str
+
+@dataclass(frozen=True)
+class UnassignedOpportunityResponse: 
+    data: dict[str, list[UnassignedOpportunity]] 
+
+    @property
+    def dict(self):
+        return asdict(self)
+    
+    

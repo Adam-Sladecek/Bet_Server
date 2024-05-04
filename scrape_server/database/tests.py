@@ -1,9 +1,9 @@
 import json
 from django.test import TestCase, RequestFactory
 from .enums import DataType, TaskState
-from .views import get_config, set_config
+from .views import get_config, get_opportunities_to_link, set_config
 from .models import (Sportsbook, Sport, SportType, Event, EventLink, EventToBeLinked, ArbitrageBet, 
-                     ArbitrageBetDetail, Odd, OddLink, OddToBeLinked, Opportunity, OpportunityLink)
+                     ArbitrageBetDetail, Odd, OddLink, OddToBeLinked, Opportunity, OpportunityLink, OpportunityToBeLinked)
 from django.utils import timezone
 from .consumers import ScrapeConsumer, broadcast_message
 from unittest.mock import patch
@@ -18,6 +18,8 @@ class ViewTest(TestCase):
         self.sportsbook2 = Sportsbook.objects.create(name="Sportsbook 2", selected=False)
         self.sport1 = Sport.objects.create(name="Sport 1", selected=True, sport_type=self.sport_type)
         self.sport2 = Sport.objects.create(name="Sport 2", selected=False, sport_type=self.sport_type)
+        self.opportunity = Opportunity.objects.create(sportsbook= self.sportsbook1, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', market_id='13', bet_order=4, sport=self.sport1)
+        self.oppbtl = OpportunityToBeLinked.objects.create(opportunity=self.opportunity, target_sportsbook=self.sportsbook2)
 
     def test_get_config_success(self):
         """Test get_config function returns expected JSON response"""
@@ -73,6 +75,31 @@ class ViewTest(TestCase):
         self.assertEqual(response.status_code, 400)
         response_data = json.loads(response.content)
         self.assertIn('message', response_data)    
+
+    def test_get_opptbl_success(self):
+        """Test get_opportunities_to_link function returns expected JSON response"""
+        request = RequestFactory().get('/opportunitytolink/get')
+        response = get_opportunities_to_link(request)
+        self.assertEqual(response.status_code, 200)
+
+        expected_data = {'data': {
+            self.sportsbook1.name:[],
+            self.sportsbook2.name: [
+                {
+                    'opportunity_id': self.opportunity.pk, 
+                    'opp_description': self.opportunity.opp_description, 
+                    'tip_type': self.opportunity.tip_type, 
+                    'opp_number': self.opportunity.opp_number, 
+                    'market_id': self.opportunity.market_id, 
+                    'bet_order': self.opportunity.bet_order, 
+                    'sport': self.opportunity.sport.name, 
+                    'sportsbook': self.opportunity.sportsbook.name, 
+                }
+            ],
+        }
+        }
+        response_data = json.loads(response.content)
+        self.assertEqual(response_data, expected_data)    
 
 class ModelTest(TestCase):
     def setUp(self):

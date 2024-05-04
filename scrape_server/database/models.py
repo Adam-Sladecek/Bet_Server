@@ -124,3 +124,8 @@ class Opportunity(models.Model):
 class OpportunityLink(models.Model):
     first_opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE, related_name='first_opportunity_links')
     second_opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE, related_name='second_opportunity_links')
+
+class OpportunityToBeLinked(models.Model):
+    opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE)
+    target_sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE, related_name='opportunities_to_be_linked')
+        

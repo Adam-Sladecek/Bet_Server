@@ -1,10 +1,11 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
-from .models import Sportsbook, Sport
+from .models import Opportunity, OpportunityToBeLinked, Sportsbook, Sport
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
-from .Scrapes.dataclass_models import ConfigResponse, Config
+from .Scrapes.dataclass_models import ConfigResponse, Config, UnassignedOpportunityResponse, UnassignedOpportunity
+from django.db.models import Count
 
 @require_GET
 def get_config(request):
@@ -43,5 +44,19 @@ def set_config(request):
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
 
-# TODO: add sockets and ngrok
+@require_GET
+def get_opportunities_to_link(request):
+    sportsbooks = Sportsbook.objects.prefetch_related(
+        'opportunities_to_be_linked',
+        'opportunities_to_be_linked__opportunity',
+    ).all()
+    result = UnassignedOpportunityResponse(data={sportsbook.name: [] for sportsbook in sportsbooks})
+    for sb in sportsbooks:
+        for opp_tbl in sb.opportunities_to_be_linked.all():
+            opp = opp_tbl.opportunity
+            vals = [opp.pk, opp.opp_description, opp.tip_type, opp.opp_number, opp.market_id, opp.bet_order, opp.sport.name, opp.sportsbook.name]
+            result.data[sb.name].append(UnassignedOpportunity(*vals))
+    return JsonResponse(result.dict, status=200)
+
+# TODO: add ngrok
 # TODO: users and JWT authorization
