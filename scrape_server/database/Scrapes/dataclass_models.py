@@ -56,6 +56,7 @@ class ConfigResponse:
 @dataclass(frozen=True)
 class UnassignedOpportunity: 
     opportunity_id: int
+    opportunity_tbl_id: int
     opp_description: str
     tip_type: str
     opp_number: str
@@ -64,6 +65,10 @@ class UnassignedOpportunity:
     sport: str
     sportsbook: str
 
+    @classmethod
+    def dict_to_UO_list(cls, dict_data):
+        return [UnassignedOpportunity(**opp) for opp in dict_data.get('opportunities')]
+    
 @dataclass(frozen=True)
 class UnassignedOpportunityResponse: 
     data: dict[str, list[UnassignedOpportunity]] 
@@ -71,5 +76,4 @@ class UnassignedOpportunityResponse:
     @property
     def dict(self):
         return asdict(self)
-    
     

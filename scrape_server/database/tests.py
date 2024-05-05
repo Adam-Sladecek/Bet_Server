@@ -1,7 +1,7 @@
 import json
 from django.test import TestCase, RequestFactory
 from .enums import DataType, TaskState
-from .views import get_config, get_opportunities_to_link, set_config
+from .views import get_config, get_opportunities_to_link, set_config, set_opportunity_link
 from .models import (Sportsbook, Sport, SportType, Event, EventLink, EventToBeLinked, ArbitrageBet, 
                      ArbitrageBetDetail, Odd, OddLink, OddToBeLinked, Opportunity, OpportunityLink, OpportunityToBeLinked)
 from django.utils import timezone
@@ -15,11 +15,13 @@ class ViewTest(TestCase):
     def setUp(self):
         self.sport_type = SportType.objects.create(name="Type 1")
         self.sportsbook1 = Sportsbook.objects.create(name="Sportsbook 1", selected=True)
-        self.sportsbook2 = Sportsbook.objects.create(name="Sportsbook 2", selected=False)
+        self.sportsbook2 = Sportsbook.objects.create(name="Sportsbook 2", selected=True)
+        self.sportsbook3 = Sportsbook.objects.create(name="Sportsbook 3", selected=False)
         self.sport1 = Sport.objects.create(name="Sport 1", selected=True, sport_type=self.sport_type)
         self.sport2 = Sport.objects.create(name="Sport 2", selected=False, sport_type=self.sport_type)
         self.opportunity = Opportunity.objects.create(sportsbook= self.sportsbook1, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', market_id='13', bet_order=4, sport=self.sport1)
-        self.oppbtl = OpportunityToBeLinked.objects.create(opportunity=self.opportunity, target_sportsbook=self.sportsbook2)
+        self.oppbtl1 = OpportunityToBeLinked.objects.create(opportunity=self.opportunity, target_sportsbook=self.sportsbook2)
+        self.oppbtl2 = OpportunityToBeLinked.objects.create(opportunity=self.opportunity, target_sportsbook=self.sportsbook3)
 
     def test_get_config_success(self):
         """Test get_config function returns expected JSON response"""
@@ -34,7 +36,8 @@ class ViewTest(TestCase):
             ],
             'sportsBooks': [
                 {'id': self.sportsbook1.pk, 'name': self.sportsbook1.name, 'selected': self.sportsbook1.selected},
-                {'id': self.sportsbook2.pk, 'name': self.sportsbook2.name, 'selected': self.sportsbook2.selected}
+                {'id': self.sportsbook2.pk, 'name': self.sportsbook2.name, 'selected': self.sportsbook2.selected},
+                {'id': self.sportsbook3.pk, 'name': self.sportsbook3.name, 'selected': self.sportsbook3.selected}
             ]
         }
 
@@ -76,7 +79,7 @@ class ViewTest(TestCase):
         response_data = json.loads(response.content)
         self.assertIn('message', response_data)    
 
-    def test_get_opptbl_success(self):
+    def test_get_opportunities_to_link(self):
         """Test get_opportunities_to_link function returns expected JSON response"""
         request = RequestFactory().get('/opportunitytolink/get')
         response = get_opportunities_to_link(request)
@@ -87,6 +90,7 @@ class ViewTest(TestCase):
             self.sportsbook2.name: [
                 {
                     'opportunity_id': self.opportunity.pk, 
+                    'opportunity_tbl_id': self.oppbtl1.pk, 
                     'opp_description': self.opportunity.opp_description, 
                     'tip_type': self.opportunity.tip_type, 
                     'opp_number': self.opportunity.opp_number, 
@@ -96,10 +100,59 @@ class ViewTest(TestCase):
                     'sportsbook': self.opportunity.sportsbook.name, 
                 }
             ],
+            self.sportsbook3.name: [
+                {
+                    'opportunity_id': self.opportunity.pk, 
+                    'opportunity_tbl_id': self.oppbtl2.pk, 
+                    'opp_description': self.opportunity.opp_description, 
+                    'tip_type': self.opportunity.tip_type, 
+                    'opp_number': self.opportunity.opp_number, 
+                    'market_id': self.opportunity.market_id, 
+                    'bet_order': self.opportunity.bet_order, 
+                    'sport': self.opportunity.sport.name, 
+                    'sportsbook': self.opportunity.sportsbook.name, 
+                }
+            ]
         }
         }
         response_data = json.loads(response.content)
         self.assertEqual(response_data, expected_data)    
+
+    def test_set_opp_link(self):
+        """Test set_opportunity_link function returns expected JSON response"""
+        request_body = {
+            'opportunities': [
+                {
+                    'opportunity_id': self.opportunity.pk, 
+                    'opportunity_tbl_id': self.oppbtl1.pk, 
+                    'opp_description': self.opportunity.opp_description, 
+                    'tip_type': self.opportunity.tip_type, 
+                    'opp_number': self.opportunity.opp_number, 
+                    'market_id': self.opportunity.market_id, 
+                    'bet_order': self.opportunity.bet_order, 
+                    'sport': self.opportunity.sport.name, 
+                    'sportsbook': self.opportunity.sportsbook.name, 
+                },
+                {
+                    'opportunity_id': self.opportunity.pk, 
+                    'opportunity_tbl_id': self.oppbtl2.pk, 
+                    'opp_description': self.opportunity.opp_description, 
+                    'tip_type': self.opportunity.tip_type, 
+                    'opp_number': self.opportunity.opp_number, 
+                    'market_id': self.opportunity.market_id, 
+                    'bet_order': self.opportunity.bet_order, 
+                    'sport': self.opportunity.sport.name, 
+                    'sportsbook': self.opportunity.sportsbook.name, 
+                }
+            ]
+        }
+
+        request = RequestFactory().post('/opportunitylink/set', data=json.dumps(request_body), content_type='application/json')
+        response = set_opportunity_link(request)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(OpportunityToBeLinked.objects.count(), 0)
+        self.assertEqual(OpportunityLink.objects.count(), 1)
 
 class ModelTest(TestCase):
     def setUp(self):

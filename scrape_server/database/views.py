@@ -1,11 +1,10 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
-from .models import Opportunity, OpportunityToBeLinked, Sportsbook, Sport
-from django.middleware.csrf import get_token
+from .models import Opportunity, OpportunityToBeLinked, Sportsbook, Sport, OpportunityLink
+# from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
 from .Scrapes.dataclass_models import ConfigResponse, Config, UnassignedOpportunityResponse, UnassignedOpportunity
-from django.db.models import Count
 
 @require_GET
 def get_config(request):
@@ -52,11 +51,27 @@ def get_opportunities_to_link(request):
     ).all()
     result = UnassignedOpportunityResponse(data={sportsbook.name: [] for sportsbook in sportsbooks})
     for sb in sportsbooks:
+        # for opp_tbl in sb.opportunities_to_be_linked.all()[:10]:
         for opp_tbl in sb.opportunities_to_be_linked.all():
             opp = opp_tbl.opportunity
-            vals = [opp.pk, opp.opp_description, opp.tip_type, opp.opp_number, opp.market_id, opp.bet_order, opp.sport.name, opp.sportsbook.name]
+            vals = [opp.pk, opp_tbl.pk, opp.opp_description, opp.tip_type, opp.opp_number, opp.market_id, opp.bet_order, opp.sport.name, opp.sportsbook.name]
             result.data[sb.name].append(UnassignedOpportunity(*vals))
     return JsonResponse(result.dict, status=200)
+
+@csrf_exempt
+@require_POST
+def set_opportunity_link(request):
+    try: 
+        opportunities = UnassignedOpportunity.dict_to_UO_list(json.loads(request.body))
+        ids_to_delete = [opp.opportunity_tbl_id for opp in opportunities]
+        first_opp = Opportunity.objects.filter(id=opportunities[0].opportunity_id).first()
+        second_opp = Opportunity.objects.filter(id=opportunities[1].opportunity_id).first()
+        OpportunityToBeLinked.objects.filter(id__in=ids_to_delete).delete()
+        OpportunityLink.objects.create(first_opportunity=first_opp, second_opportunity=second_opp)
+        return JsonResponse({'message': 'Opportunity link saved.'}, status=200)  
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)   
+      
 
 # TODO: add ngrok
 # TODO: users and JWT authorization
