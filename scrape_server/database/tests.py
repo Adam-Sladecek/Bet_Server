@@ -1,7 +1,7 @@
 import json
 from django.test import TestCase, RequestFactory
 from .enums import DataType, TaskState
-from .views import get_config, get_opportunities_to_link, set_config, set_opportunity_link
+from .views import delete_opportunity_link, get_config, get_opportunities_to_link, get_opportunity_links, set_config, set_opportunity_link
 from .models import (Sportsbook, Sport, SportType, Event, EventLink, EventToBeLinked, ArbitrageBet, 
                      ArbitrageBetDetail, Odd, OddLink, OddToBeLinked, Opportunity, OpportunityLink, OpportunityToBeLinked)
 from django.utils import timezone
@@ -19,9 +19,10 @@ class ViewTest(TestCase):
         self.sportsbook3 = Sportsbook.objects.create(name="Sportsbook 3", selected=False)
         self.sport1 = Sport.objects.create(name="Sport 1", selected=True, sport_type=self.sport_type)
         self.sport2 = Sport.objects.create(name="Sport 2", selected=False, sport_type=self.sport_type)
-        self.opportunity = Opportunity.objects.create(sportsbook= self.sportsbook1, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', market_id='13', bet_order=4, sport=self.sport1)
+        self.opportunity = Opportunity.objects.create(sportsbook= self.sportsbook3, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', market_id='13', bet_order=4, sport=self.sport1)
+        self.opportunity2 = Opportunity.objects.create(sportsbook= self.sportsbook2, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', market_id='13', bet_order=4, sport=self.sport1)
         self.oppbtl1 = OpportunityToBeLinked.objects.create(opportunity=self.opportunity, target_sportsbook=self.sportsbook2)
-        self.oppbtl2 = OpportunityToBeLinked.objects.create(opportunity=self.opportunity, target_sportsbook=self.sportsbook3)
+        self.oppbtl2 = OpportunityToBeLinked.objects.create(opportunity=self.opportunity2, target_sportsbook=self.sportsbook3)
 
     def test_get_config_success(self):
         """Test get_config function returns expected JSON response"""
@@ -102,15 +103,15 @@ class ViewTest(TestCase):
             ],
             self.sportsbook3.name: [
                 {
-                    'opportunity_id': self.opportunity.pk, 
+                    'opportunity_id': self.opportunity2.pk, 
                     'opportunity_tbl_id': self.oppbtl2.pk, 
-                    'opp_description': self.opportunity.opp_description, 
-                    'tip_type': self.opportunity.tip_type, 
-                    'opp_number': self.opportunity.opp_number, 
-                    'market_id': self.opportunity.market_id, 
-                    'bet_order': self.opportunity.bet_order, 
-                    'sport': self.opportunity.sport.name, 
-                    'sportsbook': self.opportunity.sportsbook.name, 
+                    'opp_description': self.opportunity2.opp_description, 
+                    'tip_type': self.opportunity2.tip_type, 
+                    'opp_number': self.opportunity2.opp_number, 
+                    'market_id': self.opportunity2.market_id, 
+                    'bet_order': self.opportunity2.bet_order, 
+                    'sport': self.opportunity2.sport.name, 
+                    'sportsbook': self.opportunity2.sportsbook.name, 
                 }
             ]
         }
@@ -118,7 +119,7 @@ class ViewTest(TestCase):
         response_data = json.loads(response.content)
         self.assertEqual(response_data, expected_data)    
 
-    def test_set_opp_link(self):
+    def test_set_get_delete_opp_link(self):
         """Test set_opportunity_link function returns expected JSON response"""
         request_body = {
             'opportunities': [
@@ -134,15 +135,15 @@ class ViewTest(TestCase):
                     'sportsbook': self.opportunity.sportsbook.name, 
                 },
                 {
-                    'opportunity_id': self.opportunity.pk, 
+                    'opportunity_id': self.opportunity2.pk, 
                     'opportunity_tbl_id': self.oppbtl2.pk, 
-                    'opp_description': self.opportunity.opp_description, 
-                    'tip_type': self.opportunity.tip_type, 
-                    'opp_number': self.opportunity.opp_number, 
-                    'market_id': self.opportunity.market_id, 
-                    'bet_order': self.opportunity.bet_order, 
-                    'sport': self.opportunity.sport.name, 
-                    'sportsbook': self.opportunity.sportsbook.name, 
+                    'opp_description': self.opportunity2.opp_description, 
+                    'tip_type': self.opportunity2.tip_type, 
+                    'opp_number': self.opportunity2.opp_number, 
+                    'market_id': self.opportunity2.market_id, 
+                    'bet_order': self.opportunity2.bet_order, 
+                    'sport': self.opportunity2.sport.name, 
+                    'sportsbook': self.opportunity2.sportsbook.name, 
                 }
             ]
         }
@@ -153,6 +154,39 @@ class ViewTest(TestCase):
 
         self.assertEqual(OpportunityToBeLinked.objects.count(), 0)
         self.assertEqual(OpportunityLink.objects.count(), 1)
+        opp_link = OpportunityLink.objects.first()
+        self.assertEqual(opp_link.first_opportunity.pk, request_body['opportunities'][0]['opportunity_id'])
+        self.assertEqual(opp_link.second_opportunity.pk, request_body['opportunities'][1]['opportunity_id'])
+        
+        """Test get_opportunity_links function returns expected JSON response"""
+        request = RequestFactory().get('/opportunitylink/get')
+        response = get_opportunity_links(request)
+        self.assertEqual(response.status_code, 200)
+        opps = request_body['opportunities'].copy()
+        for opp in opps: 
+            del opp['opportunity_tbl_id']
+            del opp['opportunity_id']
+            
+        expected_data = {'data': [
+            {"opportunity_link_id": opp_link.pk, 
+             "opportunities": opps}
+        ]}
+        response_data = json.loads(response.content)
+        self.assertDictEqual(response_data, expected_data)  
+
+        """Test delete_opportunity_link function returns expected JSON response"""
+        request = RequestFactory().delete(f'opportunitylink/delete/{opp_link.pk}/')
+        response = delete_opportunity_link(request, opp_link.pk)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(OpportunityLink.objects.count(), 0)
+        self.assertEqual(OpportunityToBeLinked.objects.count(), 2)
+        opps_to_be_linked = OpportunityToBeLinked.objects.all()
+        first_opptbl = opps_to_be_linked[0]
+        second_opptbl = opps_to_be_linked[1]
+        self.assertEqual(first_opptbl.opportunity, opp_link.first_opportunity)
+        self.assertEqual(second_opptbl.opportunity, opp_link.second_opportunity)
+        self.assertEqual(first_opptbl.target_sportsbook, opp_link.second_opportunity.sportsbook)
+        self.assertEqual(second_opptbl.target_sportsbook, opp_link.first_opportunity.sportsbook)
 
 class ModelTest(TestCase):
     def setUp(self):

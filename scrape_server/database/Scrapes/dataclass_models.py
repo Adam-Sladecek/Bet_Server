@@ -1,5 +1,7 @@
 from dataclasses import asdict, dataclass
 
+from ..models import Opportunity, OpportunityLink
+
 @dataclass(frozen=True)
 class EventModel: 
     event_id: int
@@ -67,7 +69,7 @@ class UnassignedOpportunity:
 
     @classmethod
     def dict_to_UO_list(cls, dict_data):
-        return [UnassignedOpportunity(**opp) for opp in dict_data.get('opportunities')]
+        return [cls(**opp) for opp in dict_data.get('opportunities')]
     
 @dataclass(frozen=True)
 class UnassignedOpportunityResponse: 
@@ -77,3 +79,45 @@ class UnassignedOpportunityResponse:
     def dict(self):
         return asdict(self)
     
+@dataclass(frozen=True)
+class OpportunityDataClass: 
+    sportsbook: str
+    opp_description: str   
+    tip_type: str   
+    opp_number: str   
+    market_id: str   
+    bet_order: int   
+    sport: str   
+
+@dataclass(frozen=True)
+class OpportunityLinkResponse: 
+    opportunity_link_id: int
+    opportunities: list[OpportunityDataClass]
+
+@dataclass(frozen=True)
+class OpportunityLinkResponseDict: 
+    data: list[OpportunityLinkResponse] 
+
+    @property
+    def dict(self):
+        return asdict(self)
+    
+    @classmethod
+    def opp_link_to_OL_dict(cls, opportunity_links: list[OpportunityLink]):
+        results = []
+        for opportunity_link in opportunity_links:
+            first_opp: Opportunity = opportunity_link.first_opportunity
+            second_opp: Opportunity = opportunity_link.second_opportunity
+            data = [
+                OpportunityDataClass(
+                    opp.sportsbook.name, 
+                    opp.opp_description, 
+                    opp.tip_type,
+                    opp.opp_number,
+                    opp.market_id,
+                    opp.bet_order,
+                    opp.sport.name
+                ) for opp in [first_opp, second_opp]
+            ]
+            results.append(OpportunityLinkResponse(opportunity_link.pk, data))
+        return cls(results)   

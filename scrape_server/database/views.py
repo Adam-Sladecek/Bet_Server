@@ -4,7 +4,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .models import Opportunity, OpportunityToBeLinked, Sportsbook, Sport, OpportunityLink
 # from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
-from .Scrapes.dataclass_models import ConfigResponse, Config, UnassignedOpportunityResponse, UnassignedOpportunity
+from .Scrapes.dataclass_models import ConfigResponse, Config, OpportunityLinkResponseDict, UnassignedOpportunityResponse, UnassignedOpportunity
 
 @require_GET
 def get_config(request):
@@ -71,7 +71,27 @@ def set_opportunity_link(request):
         return JsonResponse({'message': 'Opportunity link saved.'}, status=200)  
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)   
-      
+
+@require_GET
+def get_opportunity_links(request):
+    opportunity_links = OpportunityLink.objects.select_related(
+        'first_opportunity',
+        'second_opportunity',
+        'first_opportunity__sportsbook',
+        'second_opportunity__sportsbook',
+        'first_opportunity__sport',
+        'second_opportunity__sport',
+    ).all()
+    result = OpportunityLinkResponseDict.opp_link_to_OL_dict(opportunity_links)
+    return JsonResponse(result.dict, status=200)      
+    
+@csrf_exempt
+def delete_opportunity_link(request, pk):
+    opportunity_link = OpportunityLink.objects.filter(pk=pk).first()
+    OpportunityToBeLinked.objects.create(opportunity=opportunity_link.first_opportunity, target_sportsbook=opportunity_link.second_opportunity.sportsbook)
+    OpportunityToBeLinked.objects.create(opportunity=opportunity_link.second_opportunity, target_sportsbook=opportunity_link.first_opportunity.sportsbook)
+    opportunity_link.delete()
+    return JsonResponse({'message': 'Opportunity link deleted.'}, status=200)   
 
 # TODO: add ngrok
 # TODO: users and JWT authorization
