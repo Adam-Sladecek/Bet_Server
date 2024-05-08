@@ -1,19 +1,20 @@
 import queue
-from .SportsBooks.nike import nike_getData
-from .SportsBooks.tipsport import tipsport_getData
+from .SportsBooks.nike import NikeScraper
+from .SportsBooks.tipsport import TipsportScraper
 import threading
 from .scripts import link_all_events, get_arbitrage_odds, update_odds, link_odds, send_data_to_clients, get_all_arbitrage_bets
 import asyncio
+from .SportsBooks.scraper import Scraper
 
 def get_sportsbook_data(scrape_queue: queue.Queue, result_queue: queue.Queue, event: threading.Event): 
     try:
-        targets = {
+        scrapers = {
             'Doxxbet' : 1, 
             'Ifortuna': 1,
             'Tipos': 1,
             'Betfair': 1,
-            'Nike': nike_getData,
-            'Tipsport': tipsport_getData 
+            'Nike': NikeScraper,
+            'Tipsport': TipsportScraper 
         }
         while True:
             if event.is_set():
@@ -23,17 +24,19 @@ def get_sportsbook_data(scrape_queue: queue.Queue, result_queue: queue.Queue, ev
             except queue.Empty:
                 # raise
                 continue
-            arb_bets = get_all_arbitrage_bets()
-            asyncio.run(send_data_to_clients(arb_bets))
-            continue
-            args = (request,)
-            odds_to_create, odds_to_update, odds_to_delete = targets[request.sportsbook_name](*args, test=False)
-            update_odds(odds_to_create, odds_to_update, odds_to_delete, request.sport_id, request.sportsbook_id)
-            result_queue.put(request)
+            # arb_bets = get_all_arbitrage_bets()
+            # asyncio.run(send_data_to_clients(arb_bets))
+            # continue
+            scraper: Scraper = scrapers[request.sportsbook_name](request)
+            odds_to_create, odds_to_update, odds_to_delete = scraper.get_data()
+            if odds_to_create is not None:
+                update_odds(odds_to_create, odds_to_update, odds_to_delete, request.sport_id, request.sportsbook_id)
+                result_queue.put(request)
             print(f"Scraping {request.sportsbook_name} finished.")
 
         print('Done handling drivers.')  
     except Exception as ex:
+        print('Exception: ' + str(ex))
         event.set()
 
 def group_results(scrape_queue: queue.Queue, result_queue: queue.Queue, event: threading.Event, number_of_sportsbooks: int, tipos_included: bool): 
@@ -62,6 +65,7 @@ def group_results(scrape_queue: queue.Queue, result_queue: queue.Queue, event: t
                        
         print('Getting results done.')  
     except Exception as ex:
+        print('Exception: ' + str(ex))
         event.set()
 
 def scrape_sport(sport_id: int, sport_name: str, requests, scrape_queue: queue.Queue): 

@@ -44,6 +44,7 @@ class ScrapeTest(TestCase):
             OddModel(bet_id=3, odd=2.1, event_id=2, market_id='13', opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', bet_order=4),
             OddModel(bet_id=4, odd=2.3, event_id=3, market_id='13', opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', bet_order=4),
             OddModel(bet_id=5, odd=1.8, event_id=3, market_id='3441', opp_description='Unnknown opportunity', tip_type='tp2', opp_number='42', bet_order=125),
+            OddModel(bet_id=6, odd=2, event_id=7, market_id='3441', opp_description='Unnknown opportunity', tip_type='tp2', opp_number='42', bet_order=125),
         ]
 
     def test_update_events(self):

@@ -51,7 +51,6 @@ def get_opportunities_to_link(request):
     ).all()
     result = UnassignedOpportunityResponse(data={sportsbook.name: [] for sportsbook in sportsbooks})
     for sb in sportsbooks:
-        # for opp_tbl in sb.opportunities_to_be_linked.all()[:10]:
         for opp_tbl in sb.opportunities_to_be_linked.all():
             opp = opp_tbl.opportunity
             vals = [opp.pk, opp_tbl.pk, opp.opp_description, opp.tip_type, opp.opp_number, opp.market_id, opp.bet_order, opp.sport.name, opp.sportsbook.name]

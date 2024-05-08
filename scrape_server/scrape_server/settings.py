@@ -29,6 +29,7 @@ DEBUG = True
 
 SILKY_AUTHENTICATION = True
 
+DRIVERS = env("DRIVERS", default=5)
 # Application definition
 
 INSTALLED_APPS = [

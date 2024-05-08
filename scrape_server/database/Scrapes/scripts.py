@@ -210,7 +210,9 @@ def update_events(events_list: list[EventModel], sport_id: int, sportsbook_id: i
     Event.objects.bulk_create(new_events)
     EventToBeLinked.objects.bulk_create(new_event_links)
     used_event_ids = [event_data.event_id for event_data in events_list]
-    Event.objects.filter(sport_id=sport_id, sportsbook_id=sportsbook_id).exclude(event_id__in=used_event_ids).delete()
+    events_to_delete = Event.objects.filter(sport_id=sport_id, sportsbook_id=sportsbook_id).exclude(event_id__in=used_event_ids).all()
+    for evnt in events_to_delete:
+        evnt.delete()
 
 @transaction.atomic
 def get_existing_odds(sportsbook_id: int, sport_id: int, include_type: bool=False):
@@ -233,11 +235,13 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_
 
     Odd.objects.bulk_update(odds_to_update, ['odd'])
     ids_to_delete = [odd.pk for odd in odds_to_delete]
-    Odd.objects.filter(pk__in=ids_to_delete).delete()
+    delete_odds = Odd.objects.filter(pk__in=ids_to_delete).all()
+    for odd_obj in delete_odds:
+        odd_obj.delete()
 
     new_odds = []
     new_odds_to_be_linked = []
-    new_opportunities = []
+    new_opportunities: list[Opportunity] = []
     new_opportunities_to_be_linked = []
     opportunities_dict = get_relevant_opportunities(odds_to_create, sport_id, sportsbook_id)
 
@@ -274,6 +278,7 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_
                 new_odds_to_be_linked.append(new_odd_to_be_linked)    
             new_odds.append(new_odd)
             continue
+        if odd.opp_description in [opp.opp_description for opp in new_opportunities]: continue
         new_opp = Opportunity(
             sportsbook=sportsbook, 
             opp_description=odd.opp_description,
