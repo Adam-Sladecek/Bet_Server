@@ -63,7 +63,7 @@ class ArbitrageBetDetail(models.Model):
     arbitrage_bet = models.ForeignKey(ArbitrageBet, on_delete=models.CASCADE, related_name='details')
     player_name = models.CharField(max_length=50)
     sportsbook_name = models.CharField(max_length=30)
-    opportunity_name = models.CharField(max_length=50)
+    opportunity_name = models.CharField(max_length=200)
     odd = models.DecimalField(max_digits=6, decimal_places=2)
     amount = models.DecimalField(max_digits=6, decimal_places=2)
 
