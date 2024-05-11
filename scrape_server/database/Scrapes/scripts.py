@@ -2,7 +2,6 @@ import logging
 import json
 from fuzzywuzzy import fuzz
 from datetime import timedelta, datetime
-from dataclasses import asdict
 from Data import link
 from .dataclass_models import EventModel, OddModel
 from Utils import odds_to_implied_pb, get_profit, stake_for_arbitrage_bet
@@ -47,12 +46,12 @@ def get_relevant_opportunities(odds: list[OddModel], sport_id: int, sportsbook_i
         sportsbook_id=sportsbook_id,
         sport_id=sport_id,
     )
-    conditions &= Q(tip_type__in=[odd.tip_type for odd in odds])
-    conditions &= Q(opp_number__in=[odd.opp_number for odd in odds])
-    conditions &= Q(market_id__in=[odd.market_id for odd in odds])
-    conditions &= Q(bet_order__in=[odd.bet_order for odd in odds])
-
-    if sportsbook_id != 5:
+    if sportsbook_id == 5:
+        conditions &= Q(tip_type__in=[odd.tip_type for odd in odds])
+        conditions &= Q(opp_number__in=[odd.opp_number for odd in odds])
+        conditions &= Q(market_id__in=[odd.market_id for odd in odds])
+        conditions &= Q(bet_order__in=[odd.bet_order for odd in odds])
+    else:
         conditions &= Q(opp_description__in=[odd.opp_description for odd in odds])
 
     relevant_opportunities = Opportunity.objects.filter(conditions).prefetch_related(
@@ -61,17 +60,14 @@ def get_relevant_opportunities(odds: list[OddModel], sport_id: int, sportsbook_i
     ).all()
 
     opportunities_dict = {
-        (opportunity.tip_type, opportunity.opp_number, opportunity.market_id, opportunity.bet_order, opportunity.opp_description): opportunity
-        for opportunity in relevant_opportunities
+        opportunity.opp_description: opportunity for opportunity in relevant_opportunities
     }
 
     result = {}
     for odd in odds:
-        key = (odd.bet_id, odd.tip_type)
-        oppkey = (odd.tip_type, odd.opp_number, odd.market_id, odd.bet_order, odd.opp_description)
-        opportunity = opportunities_dict.get(oppkey)
+        opportunity = opportunities_dict.get(odd.opp_description)
         if opportunity:
-            result[key] = opportunity
+            result[odd.opp_description] = opportunity
 
     return result
 
@@ -246,9 +242,9 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_
     opportunities_dict = get_relevant_opportunities(odds_to_create, sport_id, sportsbook_id)
 
     for odd in odds_to_create:
-        if (odd.bet_id, odd.tip_type) in opportunities_dict: 
+        if odd.opp_description in opportunities_dict: 
             event = events_dict[odd.event_id]
-            opportunity = opportunities_dict[(odd.bet_id, odd.tip_type)]
+            opportunity = opportunities_dict[odd.opp_description]
             new_odd = Odd(
                 bet_id=odd.bet_id,
                 tip_type=odd.tip_type,

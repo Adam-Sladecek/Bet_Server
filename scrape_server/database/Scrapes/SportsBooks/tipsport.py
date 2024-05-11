@@ -12,7 +12,7 @@ class TipsportScraper(Scraper):
         self.request = request
         self.events: list[EventModel] = []
         self.match_ids: list[int] = []
-        self.names: dict[int, list[tuple[str, str, str]]] = dict()
+        self.names: dict[int, tuple[str, str, str, str]] = dict()
 
     async def gather_events(self, driver, sport_id: int):
         script = f"""
@@ -81,12 +81,18 @@ class TipsportScraper(Scraper):
             for match in matches: 
                 try:
                     if match["matchType"] != "MATCH": continue
-                    short_names = match["name"].split(" - ")
-                    if len(short_names) != 2:
-                        short_names = match["name"].split("-")
-                        if len(short_names) != 2: continue
+                    try:
+                        short_names = match["name"].split(" - ")
+                        if len(short_names) != 2:
+                            short_names = match["name"].split("-")
+                            if len(short_names) != 2: continue
+                        short_names = [name.strip() for name in short_names]
+                        full_name1 = match["participantHome"] if "participantHome" in match else match["homeParticipant"]
+                        full_name2 = match["participantVisiting"] if "participantVisiting" in match else match["visitingParticipant"]
+                    except Exception as ex:
+                        continue
                     dt_object = datetime.fromisoformat(match['datetimeClosed'])  
-                    self.names[match["id"]] = [match["nameFull"], *short_names]
+                    self.names[match["id"]] = [full_name1, full_name2, *short_names]
                     self.match_ids.append(int(match["id"]))
                     self.events.append(EventModel(match["id"], dt_object, short_names[0], short_names[1]))
                 except:
@@ -101,28 +107,39 @@ class TipsportScraper(Scraper):
         existing_odds = get_existing_odds(self.request.sportsbook_id, self.request.sport_id)
         for match_id, detail in details: 
             if detail is None: continue
-            player1name = self.names[match_id][1]
-            player2name = self.names[match_id][2]
+            try:
+                names = self.names[match_id]
+                full_name1 = names[0]
+                full_name2 = names[1]
+                short_name1 = names[2]
+                short_name2 = names[3]
+            except Exception as ex:
+                continue
 
             existing_match_odds = existing_odds[match_id]
 
             for table in detail["eventTables"]:
                 if 'AND' in table["mySelectionId"]: continue
+                if 'EXACT_RESULT' in table["mySelectionId"]: continue
+                if 'WINNER_OR_LEAD' in table["mySelectionId"]: continue
                 if table["maxColumns"][0] == 3: 
                     if 'WINNER' not in table["mySelectionId"]: continue
                 elif table["maxColumns"][0] != 2: continue
 
                 replacePlayers, replacePlayer = False, False
                 if 'PLAYERS' in table["mySelectionId"]:
+                    continue
                     replacePlayers= True
                 elif 'PLAYER' in table["mySelectionId"]:
-                    replacePlayer = True    
-                opp_name = table["name"].replace(player1name, " *1* ").replace(player2name, " *2* ")
+                    continue
+                    replacePlayer = True 
+
+                opp_name = table["name"] 
 
                 for box in table["boxes"]:
                     box_name = None
                     if "name" in box:
-                        box_name = box["name"].replace(player1name, " *1* ").replace(player2name, " *2* ")
+                        box_name = box["name"]
                         if replacePlayers:
                                 splits= box_name.split(", ")
                                 if len(splits) != 2 : continue
@@ -142,13 +159,20 @@ class TipsportScraper(Scraper):
                             existing_odd.odd = cell["odd"]
                             odds_to_update.append(existing_odd)
                             continue
-
-                        cell_name = cell["name"].replace(player1name, " *1* ").replace(player2name, " *2* ")
+                        cell_name = cell["name"]
                         if box_name is not None:
                             description = opp_name + " " + box_name + " " +  cell_name
                         else:
                             description = opp_name + " " +  cell_name
-                        description = description.replace("  ", " ").strip()
+
+                        description = self.replace_by_tokens(description, [
+                            (full_name1, " *1* "),
+                            (full_name2, " *2* "),
+                            (short_name1, " *1* "),
+                            (short_name2, " *2* "),
+                        ])
+                        description = description.replace(" Ž", " ").strip()
+                        description = description.replace("  ", " ").replace("  ", " ")
                         try:
                             odds_to_create.append(OddModel(
                                     bet_id = cell["id"],

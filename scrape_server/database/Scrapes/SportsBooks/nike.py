@@ -47,6 +47,7 @@ class NikeScraper(Scraper):
         odds_to_create: list[OddModel] = []
         odds_to_update: list[Odd] = []
         odds_to_delete: list[Odd] = []
+        forbidden_market_ids = ['5409', '5664', '5672']
         existing_odds = get_existing_odds(self.request.sportsbook_id, self.request.sport_id, True)
         for detail in details:
             try:
@@ -57,6 +58,8 @@ class NikeScraper(Scraper):
                 continue    
             for bet in detail["bets"]:
                 market_id = bet["marketId"]
+                if bet["headerDetail"] == "Superšanca": continue
+                if market_id in forbidden_market_ids: continue
                 bet_id = bet["betId"]
                 bet_order = int(bet["betOrder"])
                 if self.request.sport_id in [8,9] and bet["headerDetail"] == "Zápas": 

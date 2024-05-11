@@ -41,3 +41,14 @@ class Scraper(ABC):
             return json.loads(response_data)
         except:
             return None
+
+    def replace_by_tokens(self, text: str, replace_pairs: list[tuple[str, str]]) -> str:
+        for str_to_replace, replace_tkn in replace_pairs:
+            text = text.replace(str_to_replace, replace_tkn)
+            space_indexes = [i for i, char in enumerate(str_to_replace) if char == ' ']
+            for index in space_indexes:
+                string_list = list(str_to_replace)
+                string_list[index] = ''
+                new_str_to_replace = ''.join(string_list)
+                text = text.replace(new_str_to_replace, replace_tkn)
+        return text    
