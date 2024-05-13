@@ -1,45 +1,16 @@
 import logging
-import json
 from fuzzywuzzy import fuzz
 from datetime import timedelta, datetime
-from Data import link
 from .dataclass_models import EventModel, OddModel
 from Utils import odds_to_implied_pb, get_profit, stake_for_arbitrage_bet
-from database.models import (Sportsbook, Sport, SportType, Opportunity, OpportunityLink, Odd, 
+from database.models import (Sportsbook, Sport, Opportunity, Odd, 
                              EventToBeLinked, Event, EventLink, ArbitrageBet, ArbitrageBetDetail, OddLink, OddToBeLinked, OpportunityToBeLinked)
 from django.db import transaction, models
-from django.core.management import call_command
 from django.db.models import Q, F, Value, FloatField, ExpressionWrapper, Sum
 import pytz
 from collections import defaultdict
 from ..enums import DataType
 from channels.layers import get_channel_layer
-
-def populate():
-    with open("Data/data.json", encoding="utf-8") as file:
-        contents = file.read()
-        data = json.loads(contents)
-
-        sports_books = [Sportsbook(**obj) for obj in data["sports_books"]]
-        sport_types = [SportType(**obj) for obj in data["sport_types"]]
-        sports = [Sport(**obj) for obj in data["sports"]]
-
-        all_ops, all_links = link()
-
-        opportunities = [Opportunity(**obj) for obj in all_ops]
-        links = [OpportunityLink(**obj) for obj in all_links]
-        with transaction.atomic():
-            call_command('flush', '--noinput')
-            for sports_book in sports_books:
-                sports_book.save()
-            for sport_type in sport_types:
-                sport_type.save()
-            for sport in sports:
-                sport.save()
-            for opportunity in opportunities:
-                opportunity.save()
-            for single_link in links:
-                single_link.save()
 
 def get_relevant_opportunities(odds: list[OddModel], sport_id: int, sportsbook_id: int) -> dict[tuple[int, str], Opportunity]:
     conditions = Q(

@@ -119,12 +119,16 @@ class TipsportScraper(Scraper):
             existing_match_odds = existing_odds[match_id]
 
             for table in detail["eventTables"]:
-                if 'AND' in table["mySelectionId"]: continue
-                if 'EXACT_RESULT' in table["mySelectionId"]: continue
-                if 'WINNER_OR_LEAD' in table["mySelectionId"]: continue
                 if table["maxColumns"][0] == 3: 
+                    if 'CORNER_WINNER' in table["mySelectionId"]: continue #
+                    if 'WINNER_3W_AT_TIME' in table["mySelectionId"]: continue 
                     if 'WINNER' not in table["mySelectionId"]: continue
                 elif table["maxColumns"][0] != 2: continue
+                if '_AND_' in table["mySelectionId"]: continue
+                if 'EXACT_RESULT' in table["mySelectionId"]: continue
+                if 'WINNER_OR_LEAD' in table["mySelectionId"]: continue
+                if 'HOW_WILL_TIE_BE_DECIDED' in table["mySelectionId"]: continue
+                if 'WINNING_MARGIN_INTERVAL' in table["mySelectionId"]: continue
 
                 replacePlayers, replacePlayer = False, False
                 if 'PLAYERS' in table["mySelectionId"]:
@@ -134,7 +138,11 @@ class TipsportScraper(Scraper):
                     continue
                     replacePlayer = True 
 
-                opp_name = table["name"] 
+                opp_name = table["name"]
+                if opp_name == 'Spôsob kvalifikácie': 
+                    k=0
+                if self.request.sport_id == 9 and opp_name == "Víťaz série":
+                    opp_name = "Kto postúpi"
 
                 for box in table["boxes"]:
                     box_name = None
@@ -225,3 +233,4 @@ class TipsportScraper(Scraper):
 #     tipsport_getData(request, test=True)
 
 # TODO: scrape using driver in all api sportsbooks
+# NOTE: kto postupi a vitaz serie v hokeji su ta ista vec.
