@@ -22,18 +22,13 @@ def get_sportsbook_data(scrape_queue: queue.Queue, result_queue: queue.Queue, ev
             try:
                 request = scrape_queue.get(timeout=1)
             except queue.Empty:
-                # raise
                 continue
-            # arb_bets = get_all_arbitrage_bets()
-            # asyncio.run(send_data_to_clients(arb_bets))
-            # continue
             scraper: Scraper = scrapers[request.sportsbook_name](request)
             odds_to_create, odds_to_update, odds_to_delete = scraper.get_data()
             if odds_to_create is not None:
                 update_odds(odds_to_create, odds_to_update, odds_to_delete, request.sport_id, request.sportsbook_id)
-                result_queue.put(request)
+            result_queue.put(request)
             print(f"Scraping {request.sportsbook_name} finished.")
-
         print('Done handling drivers.')  
     except Exception as ex:
         print('Exception: ' + str(ex))
@@ -59,8 +54,6 @@ def group_results(scrape_queue: queue.Queue, result_queue: queue.Queue, event: t
                 calc_thread = threading.Thread(target = scrape_sport, args = (request.sport_id, request.sport_name, result_dictionary[request.sport_id], scrape_queue))
                 calc_thread.daemon = True
                 calc_thread.start()
-                # for req in result_dictionary[request.sport_id]:
-                #     scrape_queue.put(req, block=True, timeout=None)
                 result_dictionary[request.sport_id] = []
                        
         print('Getting results done.')  

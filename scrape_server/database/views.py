@@ -94,3 +94,5 @@ def delete_opportunity_link(request, pk):
 
 # TODO: add ngrok
 # TODO: users and JWT authorization
+# TODO: change django cache for something else
+# TODO: after some time too many clients error is raised

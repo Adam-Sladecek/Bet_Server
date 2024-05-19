@@ -22,8 +22,7 @@ def get_relevant_opportunities(odds: list[OddModel], sport_id: int, sportsbook_i
         conditions &= Q(opp_number__in=[odd.opp_number for odd in odds])
         conditions &= Q(market_id__in=[odd.market_id for odd in odds])
         conditions &= Q(bet_order__in=[odd.bet_order for odd in odds])
-    else:
-        conditions &= Q(opp_description__in=[odd.opp_description for odd in odds])
+    conditions &= Q(opp_description__in=[odd.opp_description for odd in odds])
 
     relevant_opportunities = Opportunity.objects.filter(conditions).prefetch_related(
         'first_opportunity_links', 
@@ -319,7 +318,7 @@ def get_arbitrage_odds(sport_id: int):
             output_field=FloatField()
         ),
         total_arbitrage=Sum(F('first_odd_arbitrage') + F('second_odd_arbitrage'))
-    ).filter(total_arbitrage__lt=100).all()
+    ).filter(total_arbitrage__lt=99.5).all()
     
     update_arbitrage_bets(pairs_with_arbitrage, sport_id)
 
@@ -384,10 +383,12 @@ def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
     for bet in arbitrage_bets_to_delete: 
         bet.delete()
 
-def serialize_arbitrage_bet(arbitrage_bet):
+def serialize_arbitrage_bet(arbitrage_bet: ArbitrageBet):
+    slovakia_timezone = pytz.timezone('Europe/Bratislava')
+    local_time = arbitrage_bet.updated.astimezone(slovakia_timezone)
     return {
         'id': arbitrage_bet.id,
-        'updated': arbitrage_bet.updated.strftime('%Y-%m-%d %H:%M:%S'),
+        'updated': local_time.strftime('%Y-%m-%d %H:%M:%S'),
         'first_odd_id': arbitrage_bet.first_odd_id,
         'second_odd_id': arbitrage_bet.second_odd_id,
         'sport_id': arbitrage_bet.sport_id,
@@ -406,7 +407,7 @@ def serialize_arbitrage_bet(arbitrage_bet):
         ]
     }
 
-def serialize_arbitrage_bets(arbitrage_bets):
+def serialize_arbitrage_bets(arbitrage_bets: list[ArbitrageBet]):
     return [serialize_arbitrage_bet(arbitrage_bet) for arbitrage_bet in arbitrage_bets]
 
 def get_all_arbitrage_bets(): 

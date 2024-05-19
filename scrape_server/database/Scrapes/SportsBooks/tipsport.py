@@ -129,6 +129,7 @@ class TipsportScraper(Scraper):
                 if 'WINNER_OR_LEAD' in table["mySelectionId"]: continue
                 if 'HOW_WILL_TIE_BE_DECIDED' in table["mySelectionId"]: continue
                 if 'WINNING_MARGIN_INTERVAL' in table["mySelectionId"]: continue
+                if 'METHOD_OF_QUALIFICATION' in table["mySelectionId"]: continue
 
                 replacePlayers, replacePlayer = False, False
                 if 'PLAYERS' in table["mySelectionId"]:
@@ -139,8 +140,6 @@ class TipsportScraper(Scraper):
                     replacePlayer = True 
 
                 opp_name = table["name"]
-                if opp_name == 'Spôsob kvalifikácie': 
-                    k=0
                 if self.request.sport_id == 9 and opp_name == "Víťaz série":
                     opp_name = "Kto postúpi"
 
@@ -180,6 +179,7 @@ class TipsportScraper(Scraper):
                             (short_name2, " *2* "),
                         ])
                         description = description.replace(" Ž", " ").strip()
+                        description = description.replace(" U19", " ").strip()
                         description = description.replace("  ", " ").replace("  ", " ")
                         try:
                             odds_to_create.append(OddModel(
