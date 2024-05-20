@@ -77,9 +77,9 @@ class Odd(models.Model):
 
     def delete(self, *args, **kwargs):
         for odd_link in self.first_odd_links.all():
-            odd_link.delete()
+            odd_link.delete(delete_first_odd=True)
         for odd_link in self.second_odd_links.all():
-            odd_link.delete()
+            odd_link.delete(delete_first_odd=False)
 
         super().delete(*args, **kwargs)
 
@@ -90,11 +90,12 @@ class OddLink(models.Model):
     opportunity_link = models.ForeignKey('OpportunityLink', on_delete=models.CASCADE, default=None)
     
     def delete(self, *args, **kwargs):
-        if self.first_odd:
+        delete_first_odd = kwargs.get("delete_first_odd")
+        if delete_first_odd or delete_first_odd is None:
             OddToBeLinked.objects.create(odd=self.second_odd, sport_id=self.sport_id, opportunity_link=self.opportunity_link, event=self.second_odd.event)
-        if self.second_odd:
+        if not delete_first_odd or delete_first_odd is None:
             OddToBeLinked.objects.create(odd=self.first_odd, sport_id=self.sport_id, opportunity_link=self.opportunity_link, event=self.first_odd.event)
-        
+        kwargs={}
         super().delete(*args, **kwargs)
 
 class OddToBeLinked(models.Model):

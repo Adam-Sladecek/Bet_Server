@@ -5,17 +5,18 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from .models import Sportsbook, Sport
 from .Scrapes import scrape_fn
 from .models import Sportsbook, Sport
-from django.core.cache import cache
 from .enums import TaskState, DataType
 from channels.layers import get_channel_layer
 from django.conf import settings
+
+scrape_task_running = False
 
 class ScrapeConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
         self.group_name = 'scrape_updates'
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        scrape_task_running = cache.get("scrape_task_running", False)
+        global scrape_task_running
         if scrape_task_running: 
             await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING)
             return
@@ -26,7 +27,7 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        scrape_task_running = cache.get("scrape_task_running", False)
+        global scrape_task_running
         if data.get('action') == 'start' and not scrape_task_running:
             await self.start_scrape()
         elif data.get('action') == 'end' and scrape_task_running:
@@ -36,8 +37,7 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
 
     async def start_scrape(self):
         try:
-            global scrape_thread, scrape_event
-            scrape_task_running = cache.get("scrape_task_running", False)
+            global scrape_thread, scrape_event, scrape_task_running
             if not scrape_task_running:
                 await broadcast_message(DataType.STATERESPONSE, TaskState.RUNNING)
                 sportsbooks = Sportsbook.objects.filter(selected=True)
@@ -46,16 +46,15 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
                 number_of_drivers = settings.DRIVERS
                 scrape_thread = threading.Thread(target=scrape_fn, args=(sportsbooks, sports, scrape_event, number_of_drivers))
                 scrape_thread.start()
-                cache.set("scrape_task_running", True)
+                scrape_task_running = True
         except Exception as e:
             await self.send_message(DataType.ERROR, str(e))
 
     async def end_scrape(self):
         try:
-            global scrape_event, scrape_thread
-            scrape_task_running = cache.get("scrape_task_running", False)
+            global scrape_event, scrape_thread, scrape_task_running
             if scrape_task_running:
-                cache.set("scrape_task_running", False)
+                scrape_task_running = False
                 scrape_event.set()
                 scrape_thread.join()
                 await broadcast_message(DataType.STATERESPONSE, TaskState.CLOSED)

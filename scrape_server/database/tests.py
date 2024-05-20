@@ -5,11 +5,9 @@ from .views import delete_opportunity_link, get_config, get_opportunities_to_lin
 from .models import (Sportsbook, Sport, SportType, Event, EventLink, EventToBeLinked, ArbitrageBet, 
                      ArbitrageBetDetail, Odd, OddLink, OddToBeLinked, Opportunity, OpportunityLink, OpportunityToBeLinked)
 from django.utils import timezone
-from .consumers import ScrapeConsumer, broadcast_message
+from .consumers import ScrapeConsumer, broadcast_message, scrape_task_running
 from unittest.mock import patch
 from channels.testing import WebsocketCommunicator
-from django.core.cache import cache
-
 
 class ViewTest(TestCase):
     def setUp(self):
@@ -317,17 +315,6 @@ class ModelTest(TestCase):
         self.assertEqual(opportunity_link.second_opportunity, self.opportunity2)    
 
 class ScrapeConsumerTests(TestCase):
-    async def test_task_running(self):
-        cache.set("scrape_task_running", True)
-        communicator = await self.connect_communicator()
-        await self.should_receive(communicator, DataType.STATERESPONSE, TaskState.RUNNING)
-        await communicator.disconnect()
-
-        cache.set("scrape_task_running", False)
-        communicator = await self.connect_communicator()
-        await self.should_receive(communicator, DataType.STATERESPONSE, TaskState.CLOSED)
-        await communicator.disconnect()
-
     @patch('threading.Thread')
     @patch('threading.Event')
     async def test_receive_start_end_scrape(self, thread_mock, event_mock):

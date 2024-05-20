@@ -142,7 +142,7 @@ def link_event(event_to_be_linked: EventToBeLinked, events: list[Event], sport_i
 
     return None 
         
-@transaction.atomic
+# @transaction.atomic
 def update_events(events_list: list[EventModel], sport_id: int, sportsbook_id: int):
     sports_books = Sportsbook.objects.filter(selected=True).all()
     existing_events = Event.objects.filter(sport_id=sport_id, sportsbook_id=sportsbook_id).all()
