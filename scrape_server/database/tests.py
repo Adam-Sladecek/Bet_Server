@@ -197,8 +197,8 @@ class ModelTest(TestCase):
         self.event2 = Event.objects.create(event_id=2, sportsbook=self.sportsbook, date_time=timezone.now(), first_name="Team C", second_name="Team D", sport=self.sport)
         self.opportunity1 = Opportunity.objects.create(sportsbook= self.sportsbook, opp_description='desc1', tip_type='tp1', opp_number='1', market_id='2', bet_order=5, sport=self.sport)
         self.opportunity2 = Opportunity.objects.create(sportsbook= self.sportsbook, opp_description='desc2', tip_type='tp2', opp_number='2', market_id='3', bet_order=2, sport=self.sport)
-        self.odd1 = Odd.objects.create(bet_id=1, tip_type='tp1', odd= 2.1, event=self.event1, sportsbook = self.sportsbook, opportunity=self.opportunity1)
-        self.odd2 = Odd.objects.create(bet_id=2, tip_type='tp2', odd= 2.5, event=self.event2, sportsbook = self.sportsbook, opportunity=self.opportunity2)
+        self.odd1 = Odd.objects.create(bet_id=1, tip_type='tp1', odd= 2.10, event=self.event1, sportsbook = self.sportsbook, opportunity=self.opportunity1)
+        self.odd2 = Odd.objects.create(bet_id=2, tip_type='tp2', odd= 2.50, event=self.event2, sportsbook = self.sportsbook, opportunity=self.opportunity2)
         self.arbitrage_bet = ArbitrageBet.objects.create(
             first_odd_id=self.odd1.pk,
             second_odd_id=self.odd2.pk,
@@ -212,7 +212,7 @@ class ModelTest(TestCase):
             sportsbook_name=self.sportsbook.name,
             opportunity_name=self.opportunity1.opp_description,
             odd=self.odd1.odd,
-            amount=100
+            amount=90
         )
 
     def test_create_event_link(self):

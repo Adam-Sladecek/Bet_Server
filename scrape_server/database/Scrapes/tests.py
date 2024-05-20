@@ -112,7 +112,7 @@ class ScrapeTest(TestCase):
         scrape_sport(self.sport.pk, self.sport.name, None, None)
         self.assertEqual(ArbitrageBet.objects.count(), 1)
         arb_bet = ArbitrageBet.objects.first()
-        self.assertEqual(arb_bet.profit, Decimal('0.02'))
+        self.assertEqual(arb_bet.profit, Decimal('0.0196'))
         odd_to_update.odd = 1.5
         update_odds([], [odd_to_update], [], self.sport.pk, self.sportsbook2.pk)
         scrape_sport(self.sport.pk, self.sport.name, None, None)
