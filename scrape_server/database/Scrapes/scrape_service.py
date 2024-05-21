@@ -1,8 +1,10 @@
 import queue
+
+from .dataclass_models import RequestModel
 from .SportsBooks.nike import NikeScraper
 from .SportsBooks.tipsport import TipsportScraper
 import threading
-from .scripts import link_all_events, get_arbitrage_odds, update_odds, link_odds, send_data_to_clients, get_all_arbitrage_bets
+from .scripts import link_all_events, get_arbitrage_odds, update_odds, link_odds, send_data_to_clients, get_all_arbitrage_bets, broadcast_error
 import asyncio
 from .SportsBooks.scraper import Scraper
 
@@ -20,19 +22,20 @@ def get_sportsbook_data(scrape_queue: queue.Queue, result_queue: queue.Queue, ev
             if event.is_set():
                 break
             try:
-                request = scrape_queue.get(timeout=1)
+                request: RequestModel = scrape_queue.get(timeout=1)
             except queue.Empty:
                 continue
             scraper: Scraper = scrapers[request.sportsbook_name](request)
+            print(f"Fetching {request.sport_name} data from {request.sportsbook_name}.")
             odds_to_create, odds_to_update, odds_to_delete = scraper.get_data()
             if odds_to_create is not None:
                 update_odds(odds_to_create, odds_to_update, odds_to_delete, request.sport_id, request.sportsbook_id)
             result_queue.put(request)
-            print(f"Scraping {request.sportsbook_name} finished.")
         print('Done handling drivers.')  
     except Exception as ex:
         print('Exception: ' + str(ex))
         event.set()
+        broadcast_error()
 
 def group_results(scrape_queue: queue.Queue, result_queue: queue.Queue, event: threading.Event, number_of_sportsbooks: int, tipos_included: bool): 
     try:
@@ -67,6 +70,6 @@ def scrape_sport(sport_id: int, sport_name: str, requests, scrape_queue: queue.Q
     get_arbitrage_odds(sport_id)
     arb_bets = get_all_arbitrage_bets()
     asyncio.run(send_data_to_clients(arb_bets))
-    # for req in requests:
-    #     scrape_queue.put(req, block=True, timeout=None)
+    for req in requests:
+        scrape_queue.put(req, block=True, timeout=None)
     print(f"End of scrape {sport_name}")    

@@ -427,3 +427,15 @@ async def send_data_to_clients(arbitrage_bets):
             'data': arbitrage_bets,
         }
     ) 
+
+async def broadcast_error():
+    channel_layer = get_channel_layer()
+    group_name = 'scrape_updates'
+    await channel_layer.group_send(
+        group_name,
+        {
+            'type': 'group_message',
+            'data_type': DataType.ERROR,
+            'data': [],
+        }
+    ) 

@@ -211,7 +211,7 @@ class TipsportScraper(Scraper):
                 'futbal-16': 16, 
                 'hokej-23': 23
             }
-            driver = getCommonDriver(True)
+            driver = getCommonDriver(False)
             url = f"https://www.tipsport.sk/kurzy/{self.request.url}"
             driver.get(url)
             events_result = asyncio.run(self.gather_events(driver, url_numbers[self.request.url]))
@@ -222,7 +222,7 @@ class TipsportScraper(Scraper):
             driver.close()
             driver.quit()
             return odds_to_create, odds_to_update, odds_to_delete
-        except Exception as ex:
+        except Exception as ex: 
             driver.close()
             driver.quit()
             print(f"Failed to get Tipsport driver {str(ex)}.")

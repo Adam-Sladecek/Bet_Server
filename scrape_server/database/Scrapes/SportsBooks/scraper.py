@@ -39,7 +39,7 @@ class Scraper(ABC):
             driver.execute_script(script)
             response_data = driver.execute_script("return window.responseData;")
             return json.loads(response_data)
-        except:
+        except Exception as ex:
             return None
 
     def replace_by_tokens(self, text: str, replace_pairs: list[tuple[str, str]]) -> str:
