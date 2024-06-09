@@ -43,7 +43,7 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
                 sportsbooks = Sportsbook.objects.filter(selected=True)
                 sports = Sport.objects.filter(selected=True)
                 scrape_event = threading.Event()
-                number_of_drivers = settings.DRIVERS
+                number_of_drivers = int(settings.DRIVERS)
                 scrape_thread = threading.Thread(target=scrape_fn, args=(sportsbooks, sports, scrape_event, number_of_drivers))
                 scrape_thread.start()
                 scrape_task_running = True

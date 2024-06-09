@@ -94,7 +94,7 @@ class TipsportScraper(Scraper):
                     dt_object = datetime.fromisoformat(match['datetimeClosed'])  
                     self.names[match["id"]] = [full_name1, full_name2, *short_names]
                     self.match_ids.append(int(match["id"]))
-                    self.events.append(EventModel(match["id"], dt_object, short_names[0], short_names[1]))
+                    self.events.append(EventModel(match["id"], dt_object, full_name1, full_name2))
                 except:
                     continue
     

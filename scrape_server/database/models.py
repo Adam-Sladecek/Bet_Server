@@ -46,10 +46,16 @@ class Event(models.Model):
     sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
 
     def delete(self, *args, **kwargs):
-        try:
-            for odd in self.odds.all():
+        for oddtbl in self.oddstobelinked.all():
+            try:
+                oddtbl.delete()
+            except Exception as ex: 
+                print(f"OddTBL {oddtbl.pk} failed to delete. Exception: {str(ex)}.")    
+        for odd in self.odds.all():
+            try:    
                 odd.delete()
-        except: pass
+            except Exception as ex: 
+                print(f"Odd {odd.pk} failed to delete. Exception: {str(ex)}.")
         super().delete(*args, **kwargs)
 
 class ArbitrageBet(models.Model):
@@ -78,11 +84,17 @@ class Odd(models.Model):
 
     def delete(self, *args, **kwargs):
         try:
+            for oddtbl in self.oddstobelinked.all():
+                try:
+                    oddtbl.delete()
+                except Exception as ex: 
+                    print(f"OddTBL {oddtbl.pk} failed to delete. Exception: {str(ex)}.")    
             for odd_link in self.first_odd_links.all():
                 odd_link.delete(delete_first_odd=True)
             for odd_link in self.second_odd_links.all():
                 odd_link.delete(delete_first_odd=False)
-        except: pass
+        except Exception as ex: 
+            print(str(ex))
 
         super().delete(*args, **kwargs)
 
@@ -99,12 +111,13 @@ class OddLink(models.Model):
                 OddToBeLinked.objects.create(odd=self.second_odd, sport_id=self.sport_id, opportunity_link=self.opportunity_link, event=self.second_odd.event)
             if not delete_first_odd or delete_first_odd is None:
                 OddToBeLinked.objects.create(odd=self.first_odd, sport_id=self.sport_id, opportunity_link=self.opportunity_link, event=self.first_odd.event)
-        except: pass
+        except Exception as ex: 
+            print(str(ex))
         kwargs={}
         super().delete(*args, **kwargs)
 
 class OddToBeLinked(models.Model):
-    odd = models.ForeignKey('Odd', on_delete=models.CASCADE)
+    odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='oddstobelinked', default=None)
     sport_id = models.IntegerField()
     opportunity_link = models.ForeignKey('OpportunityLink', on_delete=models.CASCADE, default=None)
     event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='oddstobelinked', default=None)
