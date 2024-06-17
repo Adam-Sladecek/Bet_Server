@@ -1,10 +1,14 @@
 from django.db import models
+from __future__ import annotations
+from datetime import timedelta, datetime
+import pytz
+from Utils import odds_to_implied_pb, get_profit, stake_for_arbitrage_bet
 
 class Sport(models.Model):
     name = models.CharField(max_length=20, unique=True)
     selected = models.BooleanField(default=False)
     url = models.CharField(max_length=20)
-    sport_type = models.ForeignKey('SportType', on_delete=models.CASCADE)
+    sport_type = models.ForeignKey('SportType', on_delete=models.SET_NULL)
 
 class SportType(models.Model):
     name = models.CharField(max_length=20, unique=True)
@@ -21,42 +25,56 @@ class Sportsbook(models.Model):
     volleyball_url = models.CharField(max_length=50)
     football_url = models.CharField(max_length=50)
     hockey_url = models.CharField(max_length=50)
-
+    
 class EventLink(models.Model):
     first_event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='first_event_links')
     second_event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='second_event_links')
     score = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     sport_id = models.IntegerField(default=None)
 
-class EventToBeLinked(models.Model):
-    sport_id = models.IntegerField()
-    event = models.ForeignKey('Event', on_delete=models.CASCADE)
-    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
-    class Meta:
-        indexes = [
-            models.Index(fields=['sport_id']),
-        ]
-        
+    def change_link(self, new_event: Event, position: int, best_score: float) -> None:
+        if position == 1:
+            self.first_event = new_event
+        elif position == 2:
+            self.second_event = new_event   
+        else:   
+            raise ValueError(f"Position must be 1 or 2. Now it is {position}.")   
+        self.score = best_score
+        self.save()
+
+    def is_potential_link(self, best_event: Event, event_to_be_linked: Event) -> bool: 
+        return self.second_event == best_event and self.first_event.sportsbook == event_to_be_linked.sportsbook
+
 class Event(models.Model):
     event_id = models.IntegerField()
-    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
+    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.SET_NULL)
     date_time = models.DateTimeField()
     first_name = models.CharField(max_length=50)
     second_name = models.CharField(max_length=50)
-    sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
+    sport = models.ForeignKey('Sport', on_delete=models.SET_NULL)
 
-    def delete(self, *args, **kwargs):
-        for oddtbl in self.oddstobelinked.all():
-            try:
-                oddtbl.delete()
-            except Exception as ex: 
-                print(f"OddTBL {oddtbl.pk} failed to delete. Exception: {str(ex)}.")    
-        for odd in self.odds.all():
-            try:    
-                odd.delete()
-            except Exception as ex: 
-                print(f"Odd {odd.pk} failed to delete. Exception: {str(ex)}.")
-        super().delete(*args, **kwargs)
+    def get_existing_link(self, sportsbook: Sportsbook) -> tuple[int, EventLink]:
+        if self.first_event_links.filter(second_event__sportsbook=sportsbook).count() > 0: 
+            return (2, self.first_event_links.filter(second_event__sportsbook=sportsbook).first())
+        if self.second_event_links.filter(first_event__sportsbook=sportsbook).count() > 0: 
+            return (1, self.second_event_links.filter(first_event__sportsbook=sportsbook).first())
+        return None, None
+    
+    def get_targets(self) -> list[Sportsbook]: 
+        used_sportsbook_ids = set()
+        for link in self.first_event_links.all(): 
+            used_sportsbook_ids.add(link.second_event.sportsbook.id)
+        for link in self.second_event_links.all(): 
+            used_sportsbook_ids.add(link.first_event.sportsbook.id)    
+        return Sportsbook.objects.filter(selected=True).exclude(id__in=used_sportsbook_ids).all()    
+    
+    def is_in_time_window(self, event: Event) -> bool: 
+        increment = timedelta(hours=1)
+        return self.date_time <= event.date_time + increment and event.date_time >= event.date_time - increment
+    
+    @property
+    def number_of_links(self) -> int:
+        return self.first_event_links.count() + self.second_event_links.count()
 
 class ArbitrageBet(models.Model):
     updated = models.DateTimeField(auto_now_add=True)
@@ -65,7 +83,11 @@ class ArbitrageBet(models.Model):
     sport_id = models.IntegerField()
     sport_name = models.CharField(max_length=20)
     profit = models.DecimalField(max_digits=6, decimal_places=4)
-    
+
+    def update_instance(self, oddlink: OddLink): 
+        self.updated = datetime.now(pytz.utc)
+        self.profit = get_profit(odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
+
 class ArbitrageBetDetail(models.Model):
     arbitrage_bet = models.ForeignKey(ArbitrageBet, on_delete=models.CASCADE, related_name='details')
     player_name = models.CharField(max_length=50)
@@ -74,77 +96,83 @@ class ArbitrageBetDetail(models.Model):
     odd = models.DecimalField(max_digits=6, decimal_places=2)
     amount = models.DecimalField(max_digits=6, decimal_places=4)
 
+    def update_instance(self, odd: Odd, oddlink: OddLink): 
+        self.odd = odd.odd
+        self.amount = stake_for_arbitrage_bet(odds_to_implied_pb([odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
+
 class Odd(models.Model):
     bet_id = models.IntegerField()
     tip_type = models.CharField(max_length=3)
     odd = models.DecimalField(max_digits=6, decimal_places=2)
-    event = models.ForeignKey('Event', on_delete=models.DO_NOTHING, related_name='odds')
+    event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='odds')
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE)
 
-    def delete(self, *args, **kwargs):
-        try:
-            for oddtbl in self.oddstobelinked.all():
-                try:
-                    oddtbl.delete()
-                except Exception as ex: 
-                    print(f"OddTBL {oddtbl.pk} failed to delete. Exception: {str(ex)}.")    
-            for odd_link in self.first_odd_links.all():
-                odd_link.delete(delete_first_odd=True)
-            for odd_link in self.second_odd_links.all():
-                odd_link.delete(delete_first_odd=False)
-        except Exception as ex: 
-            print(str(ex))
+    def is_linked_to_event(self, event: Event) -> bool:
+        first_links_count = self.first_odd_links.filter(second_odd__event=event).count()
+        if first_links_count > 0: return True
+        second_links_count = self.second_odd_links.filter(first_odd__event=event).count()
+        return second_links_count > 0
 
-        super().delete(*args, **kwargs)
+    def can_be_linked(self, odd: Odd) -> bool:
+        return self.opportunity.is_linked_to(odd.opportunity)
 
 class OddLink(models.Model):
-    first_odd = models.ForeignKey('Odd', on_delete=models.DO_NOTHING, related_name='first_odd_links')
-    second_odd = models.ForeignKey('Odd', on_delete=models.DO_NOTHING, related_name='second_odd_links')
+    first_odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='first_odd_links')
+    second_odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='second_odd_links')
     sport_id = models.IntegerField(default=None)
-    opportunity_link = models.ForeignKey('OpportunityLink', on_delete=models.CASCADE, default=None)
-    
-    def delete(self, *args, **kwargs):
-        try:
-            delete_first_odd = kwargs.get("delete_first_odd")
-            if delete_first_odd or delete_first_odd is None:
-                OddToBeLinked.objects.create(odd=self.second_odd, sport_id=self.sport_id, opportunity_link=self.opportunity_link, event=self.second_odd.event)
-            if not delete_first_odd or delete_first_odd is None:
-                OddToBeLinked.objects.create(odd=self.first_odd, sport_id=self.sport_id, opportunity_link=self.opportunity_link, event=self.first_odd.event)
-        except Exception as ex: 
-            print(str(ex))
-        kwargs={}
-        super().delete(*args, **kwargs)
 
-class OddToBeLinked(models.Model):
-    odd = models.ForeignKey('Odd', on_delete=models.CASCADE, related_name='oddstobelinked', default=None)
-    sport_id = models.IntegerField()
-    opportunity_link = models.ForeignKey('OpportunityLink', on_delete=models.CASCADE, default=None)
-    event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='oddstobelinked', default=None)
+class ParentOpportunity(models.Model):
+    description = models.CharField(max_length=200)
+    sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
+    linked_opportunity = models.OneToOneField(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='linked_to',
+        default=None
+    )
 
-    class Meta:
-        indexes = [
-            models.Index(fields=['sport_id']),
-        ]
+    def link_with(self, other_opportunity: ParentOpportunity) -> None:
+        if self.pk is None or other_opportunity.pk is None:
+            raise ValueError("Both opportunities must be saved before linking.")
+
+        self.linked_opportunity = other_opportunity
+        other_opportunity.linked_opportunity = self
+        self.save()
+        other_opportunity.save()
+
+    def is_linked_to(self, other_opportunity: ParentOpportunity) -> bool:
+        return self.linked_opportunity == other_opportunity and other_opportunity.linked_opportunity == self
+
+    def add_child(self, opportunity: Opportunity) -> None:
+        opportunity.parent = self
+        opportunity.save()
+
+class ParentOpportunityLink(models.Model):
+    first_opportunity = models.ForeignKey('ParentOpportunity', on_delete=models.CASCADE, related_name='first_opportunity_links')
+    second_opportunity = models.ForeignKey('ParentOpportunity', on_delete=models.CASCADE, related_name='second_opportunity_links')
 
 class Opportunity(models.Model):
-    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
+    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.SET_NULL)
     opp_description = models.CharField(max_length=200)
     tip_type = models.CharField(max_length=3)
     opp_number = models.CharField(max_length=10)
     market_id = models.CharField(max_length=10)
     bet_order = models.IntegerField()
-    sport = models.ForeignKey('Sport', on_delete=models.CASCADE)  
+    sport = models.ForeignKey('Sport', on_delete=models.SET_NULL)
+    parent = models.ForeignKey('ParentOpportunity', on_delete=models.SET_NULL, default=None, related_name='children')
+
     class Meta:
         indexes = [
             models.Index(fields=['sportsbook_id', 'sport_id', 'tip_type', 'opp_number', 'market_id', 'bet_order']),
         ]
 
-class OpportunityLink(models.Model):
-    first_opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE, related_name='first_opportunity_links')
-    second_opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE, related_name='second_opportunity_links')
+    def is_linked_to(self, other_opportunity: Opportunity) -> bool:
+        if self.parent is None or other_opportunity.parent is None: return False
+        return self.parent.is_linked_to(other_opportunity.parent)
 
-class OpportunityToBeLinked(models.Model):
-    opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE)
-    target_sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE, related_name='opportunities_to_be_linked')
-        
+    @property
+    def is_child(self) -> bool:
+        return self.parent is not None
