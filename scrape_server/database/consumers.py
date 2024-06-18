@@ -40,8 +40,8 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
             global scrape_thread, scrape_event, scrape_task_running
             if not scrape_task_running:
                 await broadcast_message(DataType.STATERESPONSE, TaskState.RUNNING)
-                sportsbooks = Sportsbook.objects.filter(selected=True)
-                sports = Sport.objects.filter(selected=True)
+                sportsbooks = Sportsbook.objects.filter(selected=True).all()
+                sports = Sport.objects.filter(selected=True).all()
                 scrape_event = threading.Event()
                 number_of_drivers = int(settings.DRIVERS)
                 scrape_thread = threading.Thread(target=scrape_fn, args=(sportsbooks, sports, scrape_event, number_of_drivers))

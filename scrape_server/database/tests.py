@@ -2,8 +2,8 @@ import json
 from django.test import TestCase, RequestFactory
 from .enums import DataType, TaskState
 from .views import delete_opportunity_link, get_config, get_opportunities_to_link, get_opportunity_links, set_config, set_opportunity_link
-from .models import (Sportsbook, Sport, SportType, Event, EventLink, EventToBeLinked, ArbitrageBet, 
-                     ArbitrageBetDetail, Odd, OddLink, OddToBeLinked, Opportunity, OpportunityLink, OpportunityToBeLinked)
+from .models import (Sportsbook, Sport, SportType, Event, EventLink, ArbitrageBet, 
+                     ArbitrageBetDetail, Odd, OddLink, Opportunity, ParentOpportunity)
 from django.utils import timezone
 from .consumers import ScrapeConsumer, broadcast_message, scrape_task_running
 from unittest.mock import patch
@@ -19,8 +19,6 @@ class ViewTest(TestCase):
         self.sport2 = Sport.objects.create(name="Sport 2", selected=False, sport_type=self.sport_type)
         self.opportunity = Opportunity.objects.create(sportsbook= self.sportsbook3, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', market_id='13', bet_order=4, sport=self.sport1)
         self.opportunity2 = Opportunity.objects.create(sportsbook= self.sportsbook2, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', market_id='13', bet_order=4, sport=self.sport1)
-        self.oppbtl1 = OpportunityToBeLinked.objects.create(opportunity=self.opportunity, target_sportsbook=self.sportsbook2)
-        self.oppbtl2 = OpportunityToBeLinked.objects.create(opportunity=self.opportunity2, target_sportsbook=self.sportsbook3)
 
     def test_get_config_success(self):
         """Test get_config function returns expected JSON response"""

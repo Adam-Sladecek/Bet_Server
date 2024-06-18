@@ -134,6 +134,10 @@ class ParentOpportunity(models.Model):
         default=None
     )
 
+    @classmethod
+    def create_parent_opportunity(cls, opportunity: Opportunity): 
+        parent_opportunity = cls.objects.create()
+
     def link_with(self, other_opportunity: ParentOpportunity) -> None:
         if self.pk is None or other_opportunity.pk is None:
             raise ValueError("Both opportunities must be saved before linking.")
@@ -150,9 +154,9 @@ class ParentOpportunity(models.Model):
         opportunity.parent = self
         opportunity.save()
 
-class ParentOpportunityLink(models.Model):
-    first_opportunity = models.ForeignKey('ParentOpportunity', on_delete=models.CASCADE, related_name='first_opportunity_links')
-    second_opportunity = models.ForeignKey('ParentOpportunity', on_delete=models.CASCADE, related_name='second_opportunity_links')
+    @property
+    def is_linked(self) -> bool:
+        return self.linked_opportunity is not None
 
 class Opportunity(models.Model):
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.SET_NULL)
@@ -174,5 +178,5 @@ class Opportunity(models.Model):
         return self.parent.is_linked_to(other_opportunity.parent)
 
     @property
-    def is_child(self) -> bool:
+    def has_parent(self) -> bool:
         return self.parent is not None

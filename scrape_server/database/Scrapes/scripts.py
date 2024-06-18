@@ -152,7 +152,7 @@ def get_existing_odds(sportsbook_id: int, sport_id: int, include_type: bool=Fals
 
 def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_to_delete: list[Odd], sport_id: int, sportsbook_id: int):
     # logger = logging.getLogger('django')
-    sportsbook = Sportsbook.objects.filter(id=sportsbook_id).first()
+    sportsbook = Sportsbook.objects.get(id=sportsbook_id)
     sport = Sport.objects.get(id=sport_id)
     events = Event.objects.filter(sportsbook=sportsbook, sport=sport, event_id__in=[odd.event_id for odd in odds_to_create]).all()
     events_dict = {event.event_id: event for event in events}
