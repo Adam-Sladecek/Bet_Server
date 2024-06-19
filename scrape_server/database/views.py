@@ -4,15 +4,19 @@ from django.views.decorators.http import require_GET, require_POST
 from .models import Opportunity, Sportsbook, Sport, ParentOpportunity
 # from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
-from .Scrapes.dataclass_models import ConfigResponse, ParentOpportunityDataClass, OpportunityDataClass, OpportunityFactoryResponse
+from .Scrapes.dataclass_models import ConfigResponse, OpportunityLinkResponse, OpportunityDataClass, OpportunityFactoryResponse, OpportunityChildrenResponse
 from django.db import transaction
+from collections import defaultdict
 
 @require_GET
 def get_config(request):
-    sports = Sport.objects.order_by('id').all()
-    sportsbooks = Sportsbook.objects.order_by('id').all()
-    response = ConfigResponse.dataclass_from_models(sports, sportsbooks)
-    return JsonResponse(response.dict, status=200)
+    try:
+        sports = Sport.objects.order_by('id').all()
+        sportsbooks = Sportsbook.objects.order_by('id').all()
+        response = ConfigResponse.dataclass_from_models(sports, sportsbooks)
+        return JsonResponse(response.dict, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)
 
 # @require_GET
 # def get_csrf_token(request):
@@ -45,18 +49,25 @@ def set_config(request):
 
 @require_GET
 def get_opportunities_to_link(request):
-    response = opportunities_for_factory()
-    return JsonResponse(response.dict, status=200)
+    try:
+        response = opportunities_for_factory()
+        return JsonResponse(response.dict, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)
 
 @csrf_exempt
 @require_POST
-def link_parent_opportunity(request):
+def add_parent_opportunities(request):
     try: 
-        parent_opportunity_dataclasses = ParentOpportunityDataClass.dict_to_dataclass_list(json.loads(request.body))
-        first_parent = ParentOpportunity.objects.get(parent_opportunity_dataclasses[0].id)
-        second_parent = ParentOpportunity.objects.get(parent_opportunity_dataclasses[1].id)
+        opportunity_dataclasses = OpportunityDataClass.dict_to_dataclass_list(json.loads(request.body))
+        opportunities = [Opportunity.objects.get(id=opp.id) for opp in opportunity_dataclasses]
         with transaction.atomic():
-            first_parent.link_with(second_parent)
+            parents = ParentOpportunity.create_parent_opportunities(opportunities)
+            
+        with transaction.atomic():
+            parents[0].link_with(parents[1])
+            parents[0].add_child(opportunities[0])
+            parents[1].add_child(opportunities[1])
 
         response = opportunities_for_factory()
 
@@ -66,42 +77,83 @@ def link_parent_opportunity(request):
 
 @csrf_exempt
 @require_POST
-def add_parent_opportunity(request):
-    opportunity_dataclass = OpportunityDataClass.dict_to_dataclass(json.loads(request.body))
-    opportunity = Opportunity.objects.get(opportunity_dataclass.id)
-    
+def add_child_to_parent_opportunity(request, parentid: int, childid: int):
+    try: 
+        parent = ParentOpportunity.objects.get(id=parentid)
+        opportunity = Opportunity.objects.get(id=childid)
+        with transaction.atomic():
+            parent.add_child(opportunity)
 
+        response = opportunities_for_factory()
 
+        return JsonResponse(response.dict, status=200)  
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)   
+
+@require_GET
+def get_opportunity_children(request):
+    try:
+        response = get_opportunities_for_children()
+        return JsonResponse(response.dict, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)
+      
 @csrf_exempt
-@require_POST
-def add_child_to_parent_opportunity(request):
+def remove_child_from_parent_opportunity(request, pk: int):
+    try:
+        with transaction.atomic():
+            opportunity = Opportunity.objects.get(id=pk)
+            opportunity.remove_parent()
+
+        response = get_opportunities_for_children()
+
+        return JsonResponse(response.dict, status=200)  
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)   
 
 @require_GET
 def get_opportunity_links(request):
-    opportunity_links = OpportunityLink.objects.select_related(
-        'first_opportunity',
-        'second_opportunity',
-        'first_opportunity__sportsbook',
-        'second_opportunity__sportsbook',
-        'first_opportunity__sport',
-        'second_opportunity__sport',
-    ).all()
-    result = OpportunityLinkResponseDict.opp_link_to_OL_dict(opportunity_links)
-    return JsonResponse(result.dict, status=200)      
-    
+    try:
+        response = get_opportunities_for_links()
+
+        return JsonResponse(response.dict, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)
+
 @csrf_exempt
-def delete_opportunity_link(request, pk):
-    opportunity_link = OpportunityLink.objects.filter(pk=pk).first()
-    OpportunityToBeLinked.objects.create(opportunity=opportunity_link.first_opportunity, target_sportsbook=opportunity_link.second_opportunity.sportsbook)
-    OpportunityToBeLinked.objects.create(opportunity=opportunity_link.second_opportunity, target_sportsbook=opportunity_link.first_opportunity.sportsbook)
-    opportunity_link.delete()
-    return JsonResponse({'message': 'Opportunity link deleted.'}, status=200)   
+def delete_opportunity_link(request, pk: int):
+    try:
+        with transaction.atomic():
+            ParentOpportunity.objects.get(id=pk).delete()
+
+        response = get_opportunities_for_links()
+        return JsonResponse(response.dict, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)
 
 def opportunities_for_factory() -> OpportunityFactoryResponse: 
     parents = ParentOpportunity.objects.select_related('sport').all()
     opportunities = Opportunity.objects.select_related('sport', 'sportsbook').filter(has_parent=False).all()
     response = OpportunityFactoryResponse.data_class_from_models(parents, opportunities)
     return response
+
+def get_opportunities_for_children() -> OpportunityChildrenResponse:
+    opportunity_dict = defaultdict(list[Opportunity])
+    parents = ParentOpportunity.objects.select_related('sport').prefetch_related(
+        'children',
+        'children__sport',
+        'children__sportsbook',
+    ).all()
+    for parent in parents: 
+        opportunity_dict[parent.id] = [child for child in parent.children]
+
+    response = OpportunityChildrenResponse.data_class_from_models(parents, opportunity_dict)
+    return response
+    
+def get_opportunities_for_links() -> OpportunityLinkResponse:
+    parents = ParentOpportunity.objects.select_related('sport').all()
+    response = OpportunityLinkResponse.data_class_from_models(parents)
+    return response    
 
 # TODO: add ngrok
 # TODO: users and JWT authorization

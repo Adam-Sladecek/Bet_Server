@@ -1,6 +1,7 @@
 from dataclasses import asdict, dataclass
 from __future__ import annotations
 from ..models import Opportunity, ParentOpportunity, Sport, Sportsbook
+from collections import defaultdict
 
 @dataclass(frozen=True)
 class EventModel: 
@@ -122,46 +123,47 @@ class OpportunityFactoryResponse:
     @property
     def dict(self) -> dict:
         return asdict(self)
+
+@dataclass(frozen=True)
+class OpportunityChildrenResponse: 
+    parents: list[ParentOpportunityDataClass]
+    opportunities: dict[int, list[OpportunityDataClass]]
+
+    @classmethod
+    def data_class_from_models(cls, parents: list[ParentOpportunity], opportunity_dict: dict[int, list[Opportunity]]) -> OpportunityChildrenResponse: 
+        parent_dataclasses = ParentOpportunityDataClass.dataclass_list_from_models(parents)
+        opportunity_dataclass_dict = defaultdict(list[OpportunityDataClass])
+        for parent_id, opportunities in opportunity_dict.items(): 
+            opportunity_dataclass_dict[parent_id] = OpportunityDataClass.dataclass_list_from_models(opportunities)
+        return cls(parent_dataclasses, opportunity_dataclass_dict)
+
+    @property
+    def dict(self) -> dict:
+        return asdict(self)
+
+@dataclass(frozen=True)
+class OpportunityLinkDataClass: 
+    sport: str
+    parents: list[ParentOpportunityDataClass]
+
+@dataclass(frozen=True)
+class OpportunityLinkResponse: 
+    links: list[OpportunityLinkDataClass]
+
+    @classmethod
+    def data_class_from_models(cls, parents: list[ParentOpportunity]) -> OpportunityLinkResponse: 
+        used_ids = set()
+        links = []
+        for parent in parents: 
+            if parent.pk in used_ids: continue
+            linked_opp = parent.linked_opportunity
+            link = OpportunityLinkDataClass(parent.sport.name, ParentOpportunityDataClass.dataclass_list_from_models([parent, linked_opp]))
+            links.append(link)
+            used_ids.add(parent.pk)
+            used_ids.add(linked_opp.pk)
+        return cls(links)
+
+    @property
+    def dict(self) -> dict:
+        return asdict(self)    
     
-# @dataclass(frozen=True)
-# class OpportunityDataClass: 
-#     sportsbook: str
-#     opp_description: str   
-#     tip_type: str   
-#     opp_number: str   
-#     market_id: str   
-#     bet_order: int   
-#     sport: str   
-
-# @dataclass(frozen=True)
-# class OpportunityLinkResponse: 
-#     opportunity_link_id: int
-#     opportunities: list[OpportunityDataClass]
-
-# @dataclass(frozen=True)
-# class OpportunityLinkResponseDict: 
-#     data: list[OpportunityLinkResponse] 
-
-#     @property
-#     def dict(self):
-#         return asdict(self)
-    
-#     @classmethod
-#     def opp_link_to_OL_dict(cls, opportunity_links: list[OpportunityLink]):
-#         results = []
-#         for opportunity_link in opportunity_links:
-#             first_opp: Opportunity = opportunity_link.first_opportunity
-#             second_opp: Opportunity = opportunity_link.second_opportunity
-#             data = [
-#                 OpportunityDataClass(
-#                     opp.sportsbook.name, 
-#                     opp.opp_description, 
-#                     opp.tip_type,
-#                     opp.opp_number,
-#                     opp.market_id,
-#                     opp.bet_order,
-#                     opp.sport.name
-#                 ) for opp in [first_opp, second_opp]
-#             ]
-#             results.append(OpportunityLinkResponse(opportunity_link.pk, data))
-#         return cls(results)   

@@ -127,7 +127,7 @@ class ParentOpportunity(models.Model):
     sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
     linked_opportunity = models.OneToOneField(
         'self',
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name='linked_to',
@@ -135,8 +135,9 @@ class ParentOpportunity(models.Model):
     )
 
     @classmethod
-    def create_parent_opportunity(cls, opportunity: Opportunity): 
-        parent_opportunity = cls.objects.create()
+    def create_parent_opportunities(cls, opportunities: list[Opportunity]) -> list[ParentOpportunity]: 
+        parent_opportunitites = [cls.objects.create(description = opportunity.opp_description, sport= opportunity.sport) for opportunity in opportunities]
+        return parent_opportunitites
 
     def link_with(self, other_opportunity: ParentOpportunity) -> None:
         if self.pk is None or other_opportunity.pk is None:
@@ -146,17 +147,13 @@ class ParentOpportunity(models.Model):
         other_opportunity.linked_opportunity = self
         self.save()
         other_opportunity.save()
-
+    
     def is_linked_to(self, other_opportunity: ParentOpportunity) -> bool:
         return self.linked_opportunity == other_opportunity and other_opportunity.linked_opportunity == self
 
     def add_child(self, opportunity: Opportunity) -> None:
         opportunity.parent = self
         opportunity.save()
-
-    @property
-    def is_linked(self) -> bool:
-        return self.linked_opportunity is not None
 
 class Opportunity(models.Model):
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.SET_NULL)
@@ -176,6 +173,10 @@ class Opportunity(models.Model):
     def is_linked_to(self, other_opportunity: Opportunity) -> bool:
         if self.parent is None or other_opportunity.parent is None: return False
         return self.parent.is_linked_to(other_opportunity.parent)
+
+    def remove_parent(self): 
+        self.parent = None
+        self.save()
 
     @property
     def has_parent(self) -> bool:

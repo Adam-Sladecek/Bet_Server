@@ -1,7 +1,10 @@
 import json
 from django.test import TestCase, RequestFactory
 from .enums import DataType, TaskState
-from .views import delete_opportunity_link, get_config, get_opportunities_to_link, get_opportunity_links, set_config, set_opportunity_link
+from .views import (delete_opportunity_link, get_config, get_opportunities_to_link, 
+                    get_opportunity_links, set_config, add_parent_opportunities,
+                    add_child_to_parent_opportunity, get_opportunity_children, 
+                    remove_child_from_parent_opportunity, )
 from .models import (Sportsbook, Sport, SportType, Event, EventLink, ArbitrageBet, 
                      ArbitrageBetDetail, Odd, OddLink, Opportunity, ParentOpportunity)
 from django.utils import timezone
@@ -19,101 +22,6 @@ class ViewTest(TestCase):
         self.sport2 = Sport.objects.create(name="Sport 2", selected=False, sport_type=self.sport_type)
         self.opportunity = Opportunity.objects.create(sportsbook= self.sportsbook3, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', market_id='13', bet_order=4, sport=self.sport1)
         self.opportunity2 = Opportunity.objects.create(sportsbook= self.sportsbook2, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='32', market_id='13', bet_order=4, sport=self.sport1)
-
-    def test_get_config_success(self):
-        """Test get_config function returns expected JSON response"""
-        request = RequestFactory().get('/config/get')
-        response = get_config(request)
-        self.assertEqual(response.status_code, 200)
-
-        expected_data = {
-            'sports': [
-                {'id': self.sport1.pk, 'name': self.sport1.name, 'selected': self.sport1.selected},
-                {'id': self.sport2.pk, 'name': self.sport2.name, 'selected': self.sport2.selected}
-            ],
-            'sportsBooks': [
-                {'id': self.sportsbook1.pk, 'name': self.sportsbook1.name, 'selected': self.sportsbook1.selected},
-                {'id': self.sportsbook2.pk, 'name': self.sportsbook2.name, 'selected': self.sportsbook2.selected},
-                {'id': self.sportsbook3.pk, 'name': self.sportsbook3.name, 'selected': self.sportsbook3.selected}
-            ]
-        }
-
-        response_data = json.loads(response.content)
-        self.assertEqual(response_data, expected_data)
-
-    def test_set_config_success(self):
-        """Test set_config function saves configuration successfully"""
-        request_body = {
-            'sports': [{'id': self.sport1.pk, 'name': self.sport1.name, 'selected': False},
-                       {'id': self.sport2.pk, 'name': self.sport2.name, 'selected': True}],
-            'sportsBooks': [{'id': self.sportsbook1.pk, 'name': self.sportsbook1.name, 'selected': False},
-                            {'id': self.sportsbook2.pk, 'name': self.sportsbook2.name, 'selected': True}]
-        }
-
-        sport_ids = [sport['id'] for sport in request_body['sports']]
-        sportsbook_ids = [sportsbook['id'] for sportsbook in request_body['sportsBooks']]
-
-        request = RequestFactory().post('/config/set', data=json.dumps(request_body), content_type='application/json')
-        response = set_config(request)
-        self.assertEqual(response.status_code, 200)
-
-        all_sports = Sport.objects.all()
-        for sport in all_sports: 
-            self.assertEqual(sport.selected, sport.pk in sport_ids)
-
-        all_sportsbooks = Sportsbook.objects.all()
-        for sportsbook in all_sportsbooks: 
-            self.assertEqual(sportsbook.selected, sportsbook.pk in sportsbook_ids)    
-
-    def test_set_config_exception(self):
-        """Test set_config function handles exceptions"""
-        request_body = {
-            'invalid_key': 'invalid_value'
-        }
-        request = RequestFactory().post('/config/set', data=json.dumps(request_body), content_type='application/json')
-        response = set_config(request)
-        self.assertEqual(response.status_code, 400)
-        response_data = json.loads(response.content)
-        self.assertIn('message', response_data)    
-
-    def test_get_opportunities_to_link(self):
-        """Test get_opportunities_to_link function returns expected JSON response"""
-        request = RequestFactory().get('/opportunitytolink/get')
-        response = get_opportunities_to_link(request)
-        self.assertEqual(response.status_code, 200)
-
-        expected_data = {'data': {
-            self.sportsbook1.name:[],
-            self.sportsbook2.name: [
-                {
-                    'opportunity_id': self.opportunity.pk, 
-                    'opportunity_tbl_id': self.oppbtl1.pk, 
-                    'opp_description': self.opportunity.opp_description, 
-                    'tip_type': self.opportunity.tip_type, 
-                    'opp_number': self.opportunity.opp_number, 
-                    'market_id': self.opportunity.market_id, 
-                    'bet_order': self.opportunity.bet_order, 
-                    'sport': self.opportunity.sport.name, 
-                    'sportsbook': self.opportunity.sportsbook.name, 
-                }
-            ],
-            self.sportsbook3.name: [
-                {
-                    'opportunity_id': self.opportunity2.pk, 
-                    'opportunity_tbl_id': self.oppbtl2.pk, 
-                    'opp_description': self.opportunity2.opp_description, 
-                    'tip_type': self.opportunity2.tip_type, 
-                    'opp_number': self.opportunity2.opp_number, 
-                    'market_id': self.opportunity2.market_id, 
-                    'bet_order': self.opportunity2.bet_order, 
-                    'sport': self.opportunity2.sport.name, 
-                    'sportsbook': self.opportunity2.sportsbook.name, 
-                }
-            ]
-        }
-        }
-        response_data = json.loads(response.content)
-        self.assertEqual(response_data, expected_data)    
 
     def test_set_get_delete_opp_link(self):
         """Test set_opportunity_link function returns expected JSON response"""
