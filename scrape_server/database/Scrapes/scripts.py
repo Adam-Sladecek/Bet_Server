@@ -59,7 +59,8 @@ def link_all_events(sport_id: int):
         events_by_sportsbook[event.sportsbook.pk].append(event)
 
     events_by_target = defaultdict(list[Event])
-    for event in events.filter(number_of_links__lt=number_of_sports_books).all():
+    events_for_targets = [event for event in events if event.number_of_links < number_of_sports_books]
+    for event in events_for_targets:
         targets = event.get_targets()
         for sportsbook in targets: 
             events_by_target[sportsbook.pk].append(event)
@@ -71,7 +72,7 @@ def link_all_events(sport_id: int):
         target_events = events_by_sportsbook[target]
         if len(target_events) == 0 : continue
         for event in events_to_be_linked: 
-            match_id, event_links = link_event(event, target_events, event_links, used_event_ids, sport_id)
+            match_id, event_links = link_event(event, target_events, event_links, sport_id)
             if match_id: 
                 used_event_ids[event.sportsbook.pk].append(match_id)
     
@@ -204,8 +205,8 @@ def link_odds(sport_id: int):
         'second_event__odds',
         'first_event__odds__opportunity',
         'second_event__odds__opportunity',
-        'first_event__odds__opportunity_parent',
-        'second_event__odds__opportunity_parent',
+        'first_event__odds__opportunity__parent',
+        'second_event__odds__opportunity__parent',
         'first_event__odds__opportunity__parent__linked_opportunity',
         'second_event__odds__opportunity__parent__linked_opportunity',
         'first_event__odds__first_odd_links',
@@ -217,9 +218,9 @@ def link_odds(sport_id: int):
         'second_event__odds__first_odd_links',
         'second_event__odds__first_odd_links__second_odd',
         'second_event__odds__first_odd_links__second_odd__event',
-        'second_event__odds__second_odd_links'
-        'second_event__odds__second_odd_links__first_odd'
-        'second_event__odds__second_odd_links__first_odd__event'
+        'second_event__odds__second_odd_links',
+        'second_event__odds__second_odd_links__first_odd',
+        'second_event__odds__second_odd_links__first_odd__event',
     ).all()
     odd_links = []
     for event_link in event_links: 

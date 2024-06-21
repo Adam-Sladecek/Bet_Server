@@ -1,5 +1,5 @@
-from dataclasses import asdict, dataclass
 from __future__ import annotations
+from dataclasses import asdict, dataclass
 from ..models import Opportunity, ParentOpportunity, Sport, Sportsbook
 from collections import defaultdict
 
@@ -39,7 +39,7 @@ class Config:
 
     @classmethod
     def dataclass_list_from_models(cls, models) -> list[Config]:
-        return [cls(model.pk, model.name, model.selected) for model in models]
+        return [cls(id=model.pk, name=model.name, selected=model.selected) for model in models]
     
     @classmethod
     def dict_to_config(cls, item) -> Config:
@@ -54,13 +54,13 @@ class ConfigResponse:
     def dataclass_from_models(cls, sports: list[Sport], sportsbooks: list[Sportsbook]) -> ConfigResponse:
         sport_dataclasses = Config.dataclass_list_from_models(sports)
         sportsbook_dataclasses = Config.dataclass_list_from_models(sportsbooks)
-        return cls(sport_dataclasses, sportsbook_dataclasses)
+        return cls(sports=sport_dataclasses, sportsbooks=sportsbook_dataclasses)
     
     @classmethod
     def dict_to_config_response(cls, dict_data) -> ConfigResponse:
         sports = [Config.dict_to_config(item) for item in dict_data.get('sports')]
         sportsbooks = [Config.dict_to_config(item) for item in dict_data.get('sportsbooks')]
-        return cls(sports, sportsbooks)
+        return cls(sports=sports, sportsbooks=sportsbooks)
     
     @property
     def dict(self) -> dict:
@@ -76,11 +76,10 @@ class OpportunityDataClass:
     bet_order: int
     sport: str
     sportsbook: str
-    has_parent: bool
 
     @classmethod
     def dataclass_list_from_models(cls, opportunities: list[Opportunity]) -> list[OpportunityDataClass]:
-        return [cls(opp.pk, opp.opp_description, opp.tip_type, opp.opp_number, opp.market_id, opp.bet_order, opp.sport.name, opp.sportsbook.name, opp.has_parent) for opp in opportunities]
+        return [cls(id=opp.pk, opp_description=opp.opp_description, tip_type=opp.tip_type, opp_number=opp.opp_number, market_id=opp.market_id, bet_order=opp.bet_order, sport=opp.sport.name, sportsbook=opp.sportsbook.name) for opp in opportunities]
     
     @classmethod
     def dict_to_dataclass_list(cls, dict_data) -> list[OpportunityDataClass]:
@@ -95,11 +94,10 @@ class ParentOpportunityDataClass:
     id: int
     description: str
     sport: str
-    is_linked: bool
 
     @classmethod
     def dataclass_list_from_models(cls, parents: list[ParentOpportunity]) -> list[ParentOpportunityDataClass]:
-        return [cls(parent.pk, parent.description, parent.sport.name, parent.is_linked) for parent in parents]
+        return [cls(id=parent.pk, description=parent.description, sport=parent.sport.name) for parent in parents]
     
     @classmethod
     def dict_to_dataclass(cls, dict_data) -> ParentOpportunityDataClass:
@@ -118,7 +116,7 @@ class OpportunityFactoryResponse:
     def data_class_from_models(cls, parents: list[ParentOpportunity], opportunities: list[Opportunity]) -> OpportunityFactoryResponse: 
         parent_dataclasses = ParentOpportunityDataClass.dataclass_list_from_models(parents)
         opp_dataclasses = OpportunityDataClass.dataclass_list_from_models(opportunities)
-        return cls(parent_dataclasses, opp_dataclasses)
+        return cls(parents=parent_dataclasses, opportunities=opp_dataclasses)
 
     @property
     def dict(self) -> dict:
@@ -135,7 +133,7 @@ class OpportunityChildrenResponse:
         opportunity_dataclass_dict = defaultdict(list[OpportunityDataClass])
         for parent_id, opportunities in opportunity_dict.items(): 
             opportunity_dataclass_dict[parent_id] = OpportunityDataClass.dataclass_list_from_models(opportunities)
-        return cls(parent_dataclasses, opportunity_dataclass_dict)
+        return cls(parents=parent_dataclasses, opportunities=opportunity_dataclass_dict)
 
     @property
     def dict(self) -> dict:
@@ -161,7 +159,7 @@ class OpportunityLinkResponse:
             links.append(link)
             used_ids.add(parent.pk)
             used_ids.add(linked_opp.pk)
-        return cls(links)
+        return cls(links=links)
 
     @property
     def dict(self) -> dict:

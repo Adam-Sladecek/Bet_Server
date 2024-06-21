@@ -1,5 +1,5 @@
-from django.db import models
 from __future__ import annotations
+from django.db import models
 from datetime import timedelta, datetime
 import pytz
 from Utils import odds_to_implied_pb, get_profit, stake_for_arbitrage_bet
@@ -8,7 +8,7 @@ class Sport(models.Model):
     name = models.CharField(max_length=20, unique=True)
     selected = models.BooleanField(default=False)
     url = models.CharField(max_length=20)
-    sport_type = models.ForeignKey('SportType', on_delete=models.SET_NULL)
+    sport_type = models.ForeignKey('SportType', on_delete=models.CASCADE)
 
 class SportType(models.Model):
     name = models.CharField(max_length=20, unique=True)
@@ -47,11 +47,11 @@ class EventLink(models.Model):
 
 class Event(models.Model):
     event_id = models.IntegerField()
-    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.SET_NULL)
+    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     date_time = models.DateTimeField()
     first_name = models.CharField(max_length=50)
     second_name = models.CharField(max_length=50)
-    sport = models.ForeignKey('Sport', on_delete=models.SET_NULL)
+    sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
 
     def get_existing_link(self, sportsbook: Sportsbook) -> tuple[int, EventLink]:
         if self.first_event_links.filter(second_event__sportsbook=sportsbook).count() > 0: 
@@ -131,7 +131,7 @@ class ParentOpportunity(models.Model):
         null=True,
         blank=True,
         related_name='linked_to',
-        default=None
+        default=None, 
     )
 
     @classmethod
@@ -142,7 +142,9 @@ class ParentOpportunity(models.Model):
     def link_with(self, other_opportunity: ParentOpportunity) -> None:
         if self.pk is None or other_opportunity.pk is None:
             raise ValueError("Both opportunities must be saved before linking.")
-
+        if self == other_opportunity:
+            raise ValueError("Cannot link same parent opportunity.")
+        
         self.linked_opportunity = other_opportunity
         other_opportunity.linked_opportunity = self
         self.save()
@@ -152,18 +154,20 @@ class ParentOpportunity(models.Model):
         return self.linked_opportunity == other_opportunity and other_opportunity.linked_opportunity == self
 
     def add_child(self, opportunity: Opportunity) -> None:
+        if opportunity.sport != self.sport: 
+            raise ValueError(f"Sport mismatch. Parent: {self.sport.name}, Opportunity: {opportunity.sport.name}.")
         opportunity.parent = self
         opportunity.save()
 
 class Opportunity(models.Model):
-    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.SET_NULL)
+    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     opp_description = models.CharField(max_length=200)
     tip_type = models.CharField(max_length=3)
     opp_number = models.CharField(max_length=10)
     market_id = models.CharField(max_length=10)
     bet_order = models.IntegerField()
-    sport = models.ForeignKey('Sport', on_delete=models.SET_NULL)
-    parent = models.ForeignKey('ParentOpportunity', on_delete=models.SET_NULL, default=None, related_name='children')
+    sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
+    parent = models.ForeignKey('ParentOpportunity', on_delete=models.SET_NULL, null=True, blank=True, default=None, related_name='children')
 
     class Meta:
         indexes = [

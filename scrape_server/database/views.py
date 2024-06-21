@@ -133,7 +133,8 @@ def delete_opportunity_link(request, pk: int):
 
 def opportunities_for_factory() -> OpportunityFactoryResponse: 
     parents = ParentOpportunity.objects.select_related('sport').all()
-    opportunities = Opportunity.objects.select_related('sport', 'sportsbook').filter(has_parent=False).all()
+    opportunities = Opportunity.objects.select_related('sport', 'sportsbook').all()
+    opportunities = [opp for opp in opportunities if not opp.has_parent]
     response = OpportunityFactoryResponse.data_class_from_models(parents, opportunities)
     return response
 
@@ -145,7 +146,7 @@ def get_opportunities_for_children() -> OpportunityChildrenResponse:
         'children__sportsbook',
     ).all()
     for parent in parents: 
-        opportunity_dict[parent.id] = [child for child in parent.children]
+        opportunity_dict[parent.id] = [child for child in parent.children.all()]
 
     response = OpportunityChildrenResponse.data_class_from_models(parents, opportunity_dict)
     return response
