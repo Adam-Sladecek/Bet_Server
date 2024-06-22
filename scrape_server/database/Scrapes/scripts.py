@@ -224,8 +224,8 @@ def link_odds(sport_id: int):
     ).all()
     odd_links = []
     for event_link in event_links: 
-        first_odds = [odd for odd in event_link.first_event.odds.all() if not odd.is_linked_to_event(event_link.first_event)]
-        second_odds = [odd for odd in event_link.second_event.odds.all() if not odd.is_linked_to_event(event_link.second_event)]
+        first_odds = [odd for odd in event_link.first_event.odds.all() if not odd.is_linked_to_event(event_link.second_event)]
+        second_odds = [odd for odd in event_link.second_event.odds.all() if not odd.is_linked_to_event(event_link.first_event)]
         linked = set()
         for odd1 in first_odds:
             for index2, odd2 in enumerate(second_odds):

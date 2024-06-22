@@ -33,7 +33,9 @@ class ScrapeTest(TestCase):
         self.parent1 = ParentOpportunity.objects.create(description = self.opportunity11.opp_description, sport=self.opportunity11.sport)
         self.parent2 = ParentOpportunity.objects.create(description = self.opportunity12.opp_description, sport=self.opportunity12.sport)
         self.parent1.link_with(self.parent2)
+        self.parent1.add_child(self.opportunity11)
         self.parent1.add_child(self.opportunity21)
+        self.parent2.add_child(self.opportunity12)
         self.parent2.add_child(self.opportunity22)
 
         self.odd_models1 = [
@@ -51,6 +53,10 @@ class ScrapeTest(TestCase):
             OddModel(bet_id=5, odd=1.8, event_id=3, market_id='3441', opp_description='Unnknown opportunity', tip_type='tp2', opp_number='42', bet_order=125),
             OddModel(bet_id=6, odd=2, event_id=7, market_id='3441', opp_description='Unnknown opportunity', tip_type='tp2', opp_number='42', bet_order=125),
         ]
+
+    def test_opportunities(self):
+        self.assertEqual(self.parent1.children.count(), 2)
+        self.assertEqual(self.parent2.children.count(), 2)
 
     def test_update_events(self):
         first_batch = self.event_models1
@@ -95,7 +101,6 @@ class ScrapeTest(TestCase):
         self.event_models1.append(
             EventModel(4, self.event_models1[0].date_time, 'Federer R.', 'Nadal R.'),
         )
-        print("Next update.")
         update_events(self.event_models1, self.sport.pk, self.sportsbook1.pk)
         scrape_sport(self.sport.pk, self.sport.name, None, None)
         self.assertEqual(EventLink.objects.count(), 2)
@@ -111,37 +116,36 @@ class ScrapeTest(TestCase):
         
         
     def test_flow(self): 
-        pass
-        # self.run_updates()
-        # scrape_sport(self.sport.pk, self.sport.name, None, None)
-        # self.assertEqual(EventLink.objects.count(), 2)
-        # self.assertEqual(OddLink.objects.count(), 3)
-        # self.assertEqual(ArbitrageBet.objects.count(), 0)
+        self.run_updates()
+        scrape_sport(self.sport.pk, self.sport.name, None, None)
+        self.assertEqual(EventLink.objects.count(), 2)
+        self.assertEqual(OddLink.objects.count(), 3)
+        self.assertEqual(ArbitrageBet.objects.count(), 0)
 
-        # odd_to_update= Odd.objects.filter(sportsbook=self.sportsbook2, bet_id=2).first()
-        # odd_to_update.odd = 3
-        # update_odds([], [odd_to_update], [], self.sport.pk, self.sportsbook2.pk)
-        # scrape_sport(self.sport.pk, self.sport.name, None, None)
-        # self.assertEqual(ArbitrageBet.objects.count(), 1)
-        # arb_bet = ArbitrageBet.objects.first()
-        # details = arb_bet.details.all()
-        # self.assertEqual(arb_bet.profit, Decimal('0.20'))
-        # self.assertEqual(len(details), 2)
-        # self.assertEqual(details[0].amount, Decimal('0.60'))
-        # self.assertEqual(details[1].amount, Decimal('0.40'))
-        # self.assertEqual(details[0].opportunity_name, 'Vyhrá Roger Federer')
-        # self.assertEqual(details[1].opportunity_name, 'Vyhrá Nadal R.')
-        # odd_to_update= Odd.objects.filter(sportsbook=self.sportsbook2, bet_id=2).first()
-        # odd_to_update.odd = 102/49
-        # update_odds([], [odd_to_update], [], self.sport.pk, self.sportsbook2.pk)
-        # scrape_sport(self.sport.pk, self.sport.name, None, None)
-        # self.assertEqual(ArbitrageBet.objects.count(), 1)
-        # arb_bet = ArbitrageBet.objects.first()
-        # self.assertEqual(arb_bet.profit, Decimal('0.0196'))
-        # odd_to_update.odd = 1.5
-        # update_odds([], [odd_to_update], [], self.sport.pk, self.sportsbook2.pk)
-        # scrape_sport(self.sport.pk, self.sport.name, None, None)
-        # self.assertEqual(ArbitrageBet.objects.count(), 0)
+        odd_to_update= Odd.objects.filter(sportsbook=self.sportsbook2, bet_id=2).first()
+        odd_to_update.odd = 3
+        update_odds([], [odd_to_update], [], self.sport.pk, self.sportsbook2.pk)
+        scrape_sport(self.sport.pk, self.sport.name, None, None)
+        self.assertEqual(ArbitrageBet.objects.count(), 1)
+        arb_bet = ArbitrageBet.objects.first()
+        details = arb_bet.details.all()
+        self.assertEqual(arb_bet.profit, Decimal('0.20'))
+        self.assertEqual(len(details), 2)
+        self.assertEqual(details[0].amount, Decimal('0.60'))
+        self.assertEqual(details[1].amount, Decimal('0.40'))
+        self.assertEqual(details[0].opportunity_name, 'Vyhrá Roger Federer')
+        self.assertEqual(details[1].opportunity_name, 'Vyhrá Nadal R.')
+        odd_to_update= Odd.objects.filter(sportsbook=self.sportsbook2, bet_id=2).first()
+        odd_to_update.odd = 102/49
+        update_odds([], [odd_to_update], [], self.sport.pk, self.sportsbook2.pk)
+        scrape_sport(self.sport.pk, self.sport.name, None, None)
+        self.assertEqual(ArbitrageBet.objects.count(), 1)
+        arb_bet = ArbitrageBet.objects.first()
+        self.assertEqual(arb_bet.profit, Decimal('0.0196'))
+        odd_to_update.odd = 1.5
+        update_odds([], [odd_to_update], [], self.sport.pk, self.sportsbook2.pk)
+        scrape_sport(self.sport.pk, self.sport.name, None, None)
+        self.assertEqual(ArbitrageBet.objects.count(), 0)
 
     def run_updates(self): 
         update_events(self.event_models1, self.sport.pk, self.sportsbook1.pk)

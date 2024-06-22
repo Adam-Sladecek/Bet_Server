@@ -75,4 +75,4 @@ def scrape_sport(sport_id: int, sport_name: str, requests, scrape_queue: queue.Q
         for req in requests:
             scrape_queue.put(req, block=True, timeout=None)
         close_old_connections()
-    print(f"End of scrape {sport_name}")    
+        print(f"End of scrape {sport_name}")    
