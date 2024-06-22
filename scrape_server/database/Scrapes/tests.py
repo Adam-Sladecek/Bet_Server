@@ -15,14 +15,14 @@ class ScrapeTest(TestCase):
         self.sportsbook1 = Sportsbook.objects.create(name="Nike", selected=True)
         self.sportsbook2 = Sportsbook.objects.create(name="Tipsport", selected=True)
         self.event_models1 = [
-            EventModel(1, datetime.isoformat(datetime.now(pytz.utc)), 'Roger Federer', 'Rafael Nadal'),
-            EventModel(2, datetime.isoformat(datetime.now(pytz.utc)), 'Novak Djokovic', 'Andy Murray'),
-            EventModel(3, datetime.isoformat(datetime.now(pytz.utc)), 'Alexander Zverev', 'Dominic Thiem'),
+            EventModel(1, datetime.now(pytz.utc), 'Roger Federer', 'Rafael Nadal'),
+            EventModel(2, datetime.now(pytz.utc), 'Novak Djokovic', 'Andy Murray'),
+            EventModel(3, datetime.now(pytz.utc), 'Alexander Zverev', 'Dominic Thiem'),
         ]
         self.event_models2 = [
-            EventModel(1, datetime.isoformat(datetime.now(pytz.utc)), 'Federer R.', 'Nadal R.'),
-            EventModel(2, datetime.isoformat(datetime.now(pytz.utc)), 'Djokovic N.', 'Murray A.'),
-            EventModel(3, datetime.isoformat(datetime.now(pytz.utc)), 'Lukas Lacko', 'Dominik Hrbaty')
+            EventModel(1, datetime.now(pytz.utc), 'Federer R.', 'Nadal R.'),
+            EventModel(2, datetime.now(pytz.utc), 'Djokovic N.', 'Murray A.'),
+            EventModel(3, datetime.now(pytz.utc), 'Lukas Lacko', 'Dominik Hrbaty')
         ]
 
         self.opportunity11 = Opportunity.objects.create(sportsbook= self.sportsbook1, opp_description='Vyhrá *1*', tip_type='tp1', opp_number='12', market_id='21', bet_order=3, sport=self.sport)
@@ -59,21 +59,18 @@ class ScrapeTest(TestCase):
         increment = timedelta(hours=2)
         second_batch = self.event_models1[1:]
         new_datetime = datetime.now(pytz.utc)+increment
-        second_batch[0] = EventModel(2, datetime.isoformat(new_datetime), 'Novak Djokovic', 'Andy Murray')
+        second_batch[0] = EventModel(2, new_datetime, 'Novak Djokovic', 'Andy Murray')
         update_events(second_batch, self.sport.pk, self.sportsbook1.pk)
         self.assertEqual(Event.objects.count(), 2)
         changed_event = Event.objects.filter(event_id=second_batch[0].event_id).first()
         assert changed_event.date_time == new_datetime
 
     def test_update_odds(self): 
-        update_events(self.event_models1, self.sport.pk, self.sportsbook1.pk)
-        update_events(self.event_models2, self.sport.pk, self.sportsbook2.pk)
-        update_odds(self.odd_models1, [], [], self.sport.pk, self.sportsbook1.pk)
-        update_odds(self.odd_models2, [], [], self.sport.pk, self.sportsbook2.pk)
+        self.run_updates()
         self.assertEqual(Opportunity.objects.count(), 5)
         self.assertEqual(Odd.objects.count(), 9)
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
-        assert len(event.odds.all()) == 2
+        assert event.odds.count() == 2
 
         odd_to_update= Odd.objects.filter(sportsbook=self.sportsbook1, bet_id=1).first()
         odd_to_update.odd = 4
@@ -82,15 +79,42 @@ class ScrapeTest(TestCase):
         self.assertEqual(Odd.objects.count(), 8)
         self.assertEqual(odd_to_update.odd, 4)
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
-        assert len(event.odds.all()) == 1
-
-    def test_flow(self): 
-        update_events(self.event_models1, self.sport.pk, self.sportsbook1.pk)
-        update_events(self.event_models2, self.sport.pk, self.sportsbook2.pk)
-        update_odds(self.odd_models1, [], [], self.sport.pk, self.sportsbook1.pk)
-        update_odds(self.odd_models2, [], [], self.sport.pk, self.sportsbook2.pk)
+        assert event.odds.count() == 1
+    
+    def test_chage_of_event_links(self):
+        self.run_updates()
         scrape_sport(self.sport.pk, self.sport.name, None, None)
         self.assertEqual(EventLink.objects.count(), 2)
+        event1 = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
+        event2 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=1).first()
+        assert event1.first_event_links.count() + event1.second_event_links.count() == 1
+        assert event2.first_event_links.count() + event2.second_event_links.count() == 1
+        for link in EventLink.objects.all(): 
+            if link.first_event == event1: 
+                assert link.second_event == event2
+        self.event_models1.append(
+            EventModel(4, self.event_models1[0].date_time, 'Federer R.', 'Nadal R.'),
+        )
+        print("Next update.")
+        update_events(self.event_models1, self.sport.pk, self.sportsbook1.pk)
+        scrape_sport(self.sport.pk, self.sport.name, None, None)
+        self.assertEqual(EventLink.objects.count(), 2)
+        event1 = Event.objects.filter(sportsbook=self.sportsbook1, event_id=4).first()
+        event2 = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
+        event3 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=1).first()
+        assert event1.first_event_links.count() + event1.second_event_links.count() == 1
+        assert event2.first_event_links.count() + event2.second_event_links.count() == 0
+        assert event3.first_event_links.count() + event3.second_event_links.count() == 1
+        for link in EventLink.objects.all(): 
+            if link.first_event == event1: 
+                assert link.second_event == event3
+        
+        
+    def test_flow(self): 
+        pass
+        # self.run_updates()
+        # scrape_sport(self.sport.pk, self.sport.name, None, None)
+        # self.assertEqual(EventLink.objects.count(), 2)
         # self.assertEqual(OddLink.objects.count(), 3)
         # self.assertEqual(ArbitrageBet.objects.count(), 0)
 
@@ -118,3 +142,9 @@ class ScrapeTest(TestCase):
         # update_odds([], [odd_to_update], [], self.sport.pk, self.sportsbook2.pk)
         # scrape_sport(self.sport.pk, self.sport.name, None, None)
         # self.assertEqual(ArbitrageBet.objects.count(), 0)
+
+    def run_updates(self): 
+        update_events(self.event_models1, self.sport.pk, self.sportsbook1.pk)
+        update_events(self.event_models2, self.sport.pk, self.sportsbook2.pk)
+        update_odds(self.odd_models1, [], [], self.sport.pk, self.sportsbook1.pk)
+        update_odds(self.odd_models2, [], [], self.sport.pk, self.sportsbook2.pk)

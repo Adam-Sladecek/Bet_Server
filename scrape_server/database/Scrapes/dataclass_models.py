@@ -2,11 +2,12 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from ..models import Opportunity, ParentOpportunity, Sport, Sportsbook
 from collections import defaultdict
+from datetime import datetime
 
 @dataclass(frozen=True)
 class EventModel: 
     event_id: int
-    date_time: str
+    date_time: datetime
     first_name: str
     second_name: str
 

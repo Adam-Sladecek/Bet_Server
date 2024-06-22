@@ -62,10 +62,11 @@ class Event(models.Model):
     
     def get_targets(self) -> list[Sportsbook]: 
         used_sportsbook_ids = set()
+        used_sportsbook_ids.add(self.sportsbook.pk)
         for link in self.first_event_links.all(): 
-            used_sportsbook_ids.add(link.second_event.sportsbook.id)
+            used_sportsbook_ids.add(link.second_event.sportsbook.pk)
         for link in self.second_event_links.all(): 
-            used_sportsbook_ids.add(link.first_event.sportsbook.id)    
+            used_sportsbook_ids.add(link.first_event.sportsbook.pk)    
         return Sportsbook.objects.filter(selected=True).exclude(id__in=used_sportsbook_ids).all()    
     
     def is_in_time_window(self, event: Event) -> bool: 

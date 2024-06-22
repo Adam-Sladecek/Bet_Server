@@ -71,7 +71,8 @@ def scrape_sport(sport_id: int, sport_name: str, requests, scrape_queue: queue.Q
     get_arbitrage_odds(sport_id)
     arb_bets = get_all_arbitrage_bets()
     asyncio.run(send_data_to_clients(arb_bets))
-    # for req in requests:
-    #     scrape_queue.put(req, block=True, timeout=None)
-    # close_old_connections()
+    if requests is not None and scrape_queue is not None:
+        for req in requests:
+            scrape_queue.put(req, block=True, timeout=None)
+        close_old_connections()
     print(f"End of scrape {sport_name}")    
