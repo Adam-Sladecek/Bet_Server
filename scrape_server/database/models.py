@@ -137,6 +137,10 @@ class ParentOpportunity(models.Model):
 
     @classmethod
     def create_parent_opportunities(cls, opportunities: list[Opportunity]) -> list[ParentOpportunity]: 
+        if len(opportunities) != 2: 
+            raise ValueError("Need exactly 2 opportunities.")
+        if opportunities[0].sport != opportunities[1].sport: 
+            raise ValueError(f"Sport mismatch. First: {opportunities[0].sport.name}, Second: {opportunities[0].sport.name}.")
         parent_opportunitites = [cls.objects.create(description = opportunity.opp_description, sport= opportunity.sport) for opportunity in opportunities]
         return parent_opportunitites
 
