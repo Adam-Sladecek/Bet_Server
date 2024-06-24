@@ -1,14 +1,10 @@
 import json
 from django.test import TestCase, RequestFactory
 from .enums import DataType, TaskState
-from .views import (delete_opportunity_link, get_config, get_opportunities_to_link, 
-                    get_opportunity_links, set_config, add_parent_opportunities,
-                    add_child_to_parent_opportunity, get_opportunity_children, 
-                    remove_child_from_parent_opportunity, )
-from .models import (Sportsbook, Sport, SportType, Event, EventLink, ArbitrageBet, 
-                     ArbitrageBetDetail, Odd, OddLink, Opportunity, ParentOpportunity)
-from django.utils import timezone
-from .consumers import ScrapeConsumer, broadcast_message, scrape_task_running
+from .views import (delete_opportunity_link, add_parent_opportunities,
+                    add_child_to_parent_opportunity, remove_child_from_parent_opportunity )
+from .models import (Sportsbook, Sport, SportType, Opportunity, ParentOpportunity)
+from .consumers import ScrapeConsumer, broadcast_message
 from unittest.mock import patch
 from channels.testing import WebsocketCommunicator
 

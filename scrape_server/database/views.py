@@ -146,9 +146,9 @@ def get_opportunities_for_children() -> OpportunityChildrenResponse:
         'children__sportsbook',
     ).all()
     for parent in parents: 
-        opportunity_dict[parent.id] = [child for child in parent.children.all()]
+        opportunity_dict[parent.description] = [child for child in parent.children.all()]
 
-    response = OpportunityChildrenResponse.data_class_from_models(parents, opportunity_dict)
+    response = OpportunityChildrenResponse.data_class_from_models(opportunity_dict)
     return response
     
 def get_opportunities_for_links() -> OpportunityLinkResponse:

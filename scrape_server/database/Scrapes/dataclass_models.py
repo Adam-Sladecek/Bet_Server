@@ -124,17 +124,22 @@ class OpportunityFactoryResponse:
         return asdict(self)
 
 @dataclass(frozen=True)
+class OpportunityWithParentName: 
+    parent_name: int
+    opportunity: OpportunityDataClass
+
+@dataclass(frozen=True)
 class OpportunityChildrenResponse: 
-    parents: list[ParentOpportunityDataClass]
-    opportunities: dict[int, list[OpportunityDataClass]]
+    opportunities: list[OpportunityWithParentName]
 
     @classmethod
-    def data_class_from_models(cls, parents: list[ParentOpportunity], opportunity_dict: dict[int, list[Opportunity]]) -> OpportunityChildrenResponse: 
-        parent_dataclasses = ParentOpportunityDataClass.dataclass_list_from_models(parents)
-        opportunity_dataclass_dict = defaultdict(list[OpportunityDataClass])
-        for parent_id, opportunities in opportunity_dict.items(): 
-            opportunity_dataclass_dict[parent_id] = OpportunityDataClass.dataclass_list_from_models(opportunities)
-        return cls(parents=parent_dataclasses, opportunities=opportunity_dataclass_dict)
+    def data_class_from_models(cls, opportunity_dict: dict[str, list[Opportunity]]) -> OpportunityChildrenResponse: 
+        result: list[OpportunityWithParentName] = []
+        for parent_description, opportunities in opportunity_dict.items(): 
+            models = OpportunityDataClass.dataclass_list_from_models(opportunities)
+            for model in models: 
+                result.append(OpportunityWithParentName(parent_name=parent_description, opportunity=model))
+        return cls(opportunities=result)
 
     @property
     def dict(self) -> dict:
