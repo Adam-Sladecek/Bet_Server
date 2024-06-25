@@ -3,7 +3,6 @@ from enum import Enum
 class TaskState(Enum):
     RUNNING = 1
     CLOSED = 2
-    ENDING = 3
 
 class DataType(Enum):
     STATERESPONSE = 1
