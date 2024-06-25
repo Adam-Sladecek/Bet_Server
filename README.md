@@ -7,10 +7,33 @@ Install dependencies for Python >3.6 :
 ```bash
 pip install -r requirements.txt
 ```
-
-run server from Scraping_Server_V3:
+populate database from Scraping_Server_V3/scrape_server:
 
 ```bash
-python app.py --ngrok=1
+python manage.py populate
+```
+run server from Scraping_Server_V3/scrape_server:
 
+```bash
+python manage.py runserver
+$env:DRIVERS = 5 ; python manage.py runserver
+```
+populate database running 
+
+```bash
+python manage.py populate
+```
+create migrations running
+
+```bash
+python manage.py makemigrations
+```
+apply migrations running
+
+```bash
+python manage.py migrate
+```
+
+```bash
+python manage.py test
 ```
