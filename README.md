@@ -18,11 +18,6 @@ run server from Scraping_Server_V3/scrape_server:
 python manage.py runserver
 $env:DRIVERS = 5 ; python manage.py runserver
 ```
-populate database running 
-
-```bash
-python manage.py populate
-```
 create migrations running
 
 ```bash
