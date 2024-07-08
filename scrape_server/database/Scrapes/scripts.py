@@ -2,8 +2,7 @@ import logging
 from fuzzywuzzy import fuzz
 from .dataclass_models import EventModel, OddModel
 from Utils import odds_to_implied_pb, get_profit, stake_for_arbitrage_bet
-from database.models import (Sportsbook, Sport, Opportunity, Odd, 
-                             Event, EventLink, ArbitrageBet, ArbitrageBetDetail, OddLink)
+from database.models import Sportsbook, Sport, Opportunity, Odd, Event
 from django.db import transaction
 from django.db.models import Q, F, Value, FloatField, ExpressionWrapper, Sum
 import pytz

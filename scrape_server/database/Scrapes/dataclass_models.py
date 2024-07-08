@@ -1,8 +1,7 @@
 from __future__ import annotations
 from dataclasses import asdict, dataclass
-from ..models import Opportunity, ParentOpportunity, Sport, Sportsbook
-from collections import defaultdict
-from datetime import datetime
+from ..models import Opportunity, Sport, Sportsbook
+from datetime import time, datetime
 
 @dataclass(frozen=True)
 class EventModel: 
@@ -11,6 +10,54 @@ class EventModel:
     first_name: str
     second_name: str
 
+@dataclass(frozen=True)
+class DefaultEvent: 
+    id: int
+    time: time
+    first_name: str
+    second_name: str
+    sport: str
+    selected: bool
+
+    @classmethod
+    def dataclass_list_from_models(cls, models) -> list[DefaultEvent]:
+        return [cls(id=model.pk, name=model.time, first_name=model.first_name, second_name=model.second_name, sport=model.sport.name, selected=model.selected) for model in models]
+
+@dataclass(frozen=True)
+class DefaultEventResponse: 
+    events: list[DefaultEvent]
+    
+    @classmethod
+    def dataclass_from_models(cls, models) -> DefaultEventResponse:
+        events = DefaultEvent.dataclass_list_from_models(models)
+        return cls(events=events)
+
+    @property
+    def dict(self) -> dict:
+        return asdict(self)
+
+@dataclass(frozen=True)
+class EventOdd: 
+    id: int
+    odd: float
+    description: str
+    second_name: str
+    sport: str
+    selected: bool
+
+@dataclass(frozen=True)
+class EventOddsResponse: 
+    odds: list[EventOdd]
+    
+    @classmethod
+    def dataclass_from_models(cls, models) -> EventOddsResponse:
+        events = EventOdd.dataclass_list_from_models(models)
+        return cls(events=events)
+
+    @property
+    def dict(self) -> dict:
+        return asdict(self)
+    
 @dataclass
 class OddModel: 
     bet_id: int
@@ -50,18 +97,21 @@ class Config:
 class ConfigResponse: 
     sports: list[Config]
     sportsbooks: list[Config]
+    default_sportsbooks: list[Config]
 
     @classmethod
-    def dataclass_from_models(cls, sports: list[Sport], sportsbooks: list[Sportsbook]) -> ConfigResponse:
+    def dataclass_from_models(cls, sports: list[Sport], sportsbooks: list[Sportsbook], default_sportsbooks: list[Sportsbook]) -> ConfigResponse:
         sport_dataclasses = Config.dataclass_list_from_models(sports)
         sportsbook_dataclasses = Config.dataclass_list_from_models(sportsbooks)
-        return cls(sports=sport_dataclasses, sportsbooks=sportsbook_dataclasses)
+        default_sportsbook_dataclasses = Config.dataclass_list_from_models(default_sportsbooks)
+        return cls(sports=sport_dataclasses, sportsbooks=sportsbook_dataclasses, default_sportsbooks=default_sportsbook_dataclasses)
     
     @classmethod
     def dict_to_config_response(cls, dict_data) -> ConfigResponse:
         sports = [Config.dict_to_config(item) for item in dict_data.get('sports')]
         sportsbooks = [Config.dict_to_config(item) for item in dict_data.get('sportsbooks')]
-        return cls(sports=sports, sportsbooks=sportsbooks)
+        default_sportsbooks = [Config.dict_to_config(item) for item in dict_data.get('default_sportsbooks')]
+        return cls(sports=sports, sportsbooks=sportsbooks, default_sportsbooks=default_sportsbooks)
     
     @property
     def dict(self) -> dict:
@@ -77,6 +127,7 @@ class OpportunityDataClass:
     bet_order: int
     sport: str
     sportsbook: str
+    is_default: bool
 
     @classmethod
     def dataclass_list_from_models(cls, opportunities: list[Opportunity]) -> list[OpportunityDataClass]:
@@ -89,33 +140,15 @@ class OpportunityDataClass:
     @classmethod
     def dict_to_dataclass(cls, dict_data) -> OpportunityDataClass:
         return cls(**dict_data.get('opportunity'))
-
-@dataclass(frozen=True)
-class ParentOpportunityDataClass: 
-    id: int
-    description: str
-    sport: str
-
-    @classmethod
-    def dataclass_list_from_models(cls, parents: list[ParentOpportunity]) -> list[ParentOpportunityDataClass]:
-        return [cls(id=parent.pk, description=parent.description, sport=parent.sport.name) for parent in parents]
-    
-    @classmethod
-    def dict_to_dataclass(cls, dict_data) -> ParentOpportunityDataClass:
-        return cls(**dict_data.get('parent')) 
-    
-    @classmethod
-    def dict_to_dataclass_list(cls, dict_data) -> list[ParentOpportunityDataClass]:
-        return [cls(**opp) for opp in dict_data.get('parents')]
     
 @dataclass(frozen=True)
 class OpportunityFactoryResponse: 
-    parents: list[ParentOpportunityDataClass]
+    parents: list[OpportunityDataClass]
     opportunities: list[OpportunityDataClass]
 
     @classmethod
-    def data_class_from_models(cls, parents: list[ParentOpportunity], opportunities: list[Opportunity]) -> OpportunityFactoryResponse: 
-        parent_dataclasses = ParentOpportunityDataClass.dataclass_list_from_models(parents)
+    def data_class_from_models(cls, parents: list[Opportunity], opportunities: list[Opportunity]) -> OpportunityFactoryResponse: 
+        parent_dataclasses = OpportunityDataClass.dataclass_list_from_models(parents)
         opp_dataclasses = OpportunityDataClass.dataclass_list_from_models(opportunities)
         return cls(parents=parent_dataclasses, opportunities=opp_dataclasses)
 
@@ -125,7 +158,7 @@ class OpportunityFactoryResponse:
 
 @dataclass(frozen=True)
 class OpportunityWithParentName: 
-    parent_name: int
+    parent_name: str
     opportunity: OpportunityDataClass
 
 @dataclass(frozen=True)
@@ -144,30 +177,4 @@ class OpportunityChildrenResponse:
     @property
     def dict(self) -> dict:
         return asdict(self)
-
-@dataclass(frozen=True)
-class OpportunityLinkDataClass: 
-    sport: str
-    parents: list[ParentOpportunityDataClass]
-
-@dataclass(frozen=True)
-class OpportunityLinkResponse: 
-    links: list[OpportunityLinkDataClass]
-
-    @classmethod
-    def data_class_from_models(cls, parents: list[ParentOpportunity]) -> OpportunityLinkResponse: 
-        used_ids = set()
-        links = []
-        for parent in parents: 
-            if parent.pk in used_ids: continue
-            linked_opp = parent.linked_opportunity
-            link = OpportunityLinkDataClass(parent.sport.name, ParentOpportunityDataClass.dataclass_list_from_models([parent, linked_opp]))
-            links.append(link)
-            used_ids.add(parent.pk)
-            used_ids.add(linked_opp.pk)
-        return cls(links=links)
-
-    @property
-    def dict(self) -> dict:
-        return asdict(self)    
     

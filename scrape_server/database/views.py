@@ -1,10 +1,10 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
-from .models import Opportunity, Sportsbook, Sport, ParentOpportunity
+from .models import Opportunity, Sportsbook, Sport, Event, Odd
 # from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
-from .Scrapes.dataclass_models import ConfigResponse, OpportunityLinkResponse, OpportunityDataClass, OpportunityFactoryResponse, OpportunityChildrenResponse
+from .Scrapes.dataclass_models import ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, DefaultEventResponse
 from django.db import transaction
 from collections import defaultdict
 
@@ -12,8 +12,9 @@ from collections import defaultdict
 def get_config(request):
     try:
         sports = Sport.objects.order_by('id').all()
-        sportsbooks = Sportsbook.objects.order_by('id').all()
-        response = ConfigResponse.dataclass_from_models(sports, sportsbooks)
+        sportsbooks = Sportsbook.objects.order_by('id').filter(is_default=False).all()
+        default_sportsbooks = Sportsbook.objects.order_by('id').filter(is_default=True).all()
+        response = ConfigResponse.dataclass_from_models(sports, sportsbooks, default_sportsbooks)
         return JsonResponse(response.dict, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
@@ -28,12 +29,17 @@ def get_config(request):
 def set_config(request):
     try:
         data = ConfigResponse.dict_to_config_response(json.loads(request.body))
+        if(data.default_sportsbooks) > 1: 
+            raise ValueError(f"At most one default sportsbook can be selected.")
+        
         sports_ids = [sport.id for sport in data.sports]
         all_sports = Sport.objects.all()
         for sport in all_sports:
             sport.selected = sport.pk in sports_ids
 
         sb_ids = [sb.id for sb in data.sportsbooks]
+        sb_ids.extend([sb.id for sb in data.default_sportsbooks])
+
         all_sbs = Sportsbook.objects.all()
         for sb in all_sbs:
             sb.selected = sb.pk in sb_ids
@@ -50,41 +56,21 @@ def set_config(request):
 @require_GET
 def get_opportunities_to_link(request):
     try:
-        response = opportunities_for_factory()
+        response = get_opportunities_for_factory()
         return JsonResponse(response.dict, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
 
 @csrf_exempt
 @require_POST
-def add_parent_opportunities(request):
-    try: 
-        opportunity_dataclasses = OpportunityDataClass.dict_to_dataclass_list(json.loads(request.body))
-        opportunities = [Opportunity.objects.get(id=opp.id) for opp in opportunity_dataclasses]
-        with transaction.atomic():
-            parents = ParentOpportunity.create_parent_opportunities(opportunities)
-            
-        with transaction.atomic():
-            parents[0].link_with(parents[1])
-            parents[0].add_child(opportunities[0])
-            parents[1].add_child(opportunities[1])
-
-        response = opportunities_for_factory()
-
-        return JsonResponse(response.dict, status=200)  
-    except Exception as e:
-        return JsonResponse({'message': str(e)}, status=400)   
-
-@csrf_exempt
-@require_POST
 def add_child_to_parent_opportunity(request, parentid: int, childid: int):
     try: 
-        parent = ParentOpportunity.objects.get(id=parentid)
+        parent = Opportunity.objects.get(id=parentid)
         opportunity = Opportunity.objects.get(id=childid)
         with transaction.atomic():
-            parent.add_child(opportunity)
+            opportunity.add_parent(parent)
 
-        response = opportunities_for_factory()
+        response = get_opportunities_for_factory()
 
         return JsonResponse(response.dict, status=200)  
     except Exception as e:
@@ -112,27 +98,58 @@ def remove_child_from_parent_opportunity(request, pk: int):
         return JsonResponse({'message': str(e)}, status=400)   
 
 @require_GET
-def get_opportunity_links(request):
+def get_monitored_events(request):
     try:
-        response = get_opportunities_for_links()
-
+        response = get_default_events()
         return JsonResponse(response.dict, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
 
 @csrf_exempt
-def delete_opportunity_link(request, pk: int):
+@require_POST
+def change_monitored_events(request):
     try:
+        data = json.loads(request.body)
+        ids = data.get('ids')
+        events = Event.objects.filter(is_default=True).all()
+        for event in events: 
+            event.selected = event.pk in ids
         with transaction.atomic():
-            ParentOpportunity.objects.get(id=pk).delete()
+            Event.objects.bulk_update(events, ['selected'])
 
-        response = get_opportunities_for_links()
+        response = get_default_events()
         return JsonResponse(response.dict, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
 
-def opportunities_for_factory() -> OpportunityFactoryResponse: 
-    parents = ParentOpportunity.objects.select_related('sport').all()
+@require_GET
+def get_event_odds(request, pk: int):
+    try:
+        
+        return JsonResponse({'message': 'Monitored events updated.'}, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)
+        
+@csrf_exempt
+@require_POST
+def change_event_odds(request, event_pk: int):
+    try:
+        data = json.loads(request.body)
+        ids = data.get('ids')
+        event = Event.objects.filter(pk=event_pk).first()
+        with transaction.atomic():
+            odds_to_update = []
+            for odd in event.odds.all(): 
+                odd.selected = odd.pk in ids
+                odds_to_update.append(odd)
+            Odd.objects.bulk_update(odds_to_update, ['selected'])
+
+        return JsonResponse({'message': 'Monitored events updated.'}, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)
+    
+def get_opportunities_for_factory() -> OpportunityFactoryResponse: 
+    parents = Opportunity.objects.select_related('sport').filter(is_default=True).all()
     opportunities = Opportunity.objects.select_related('sport', 'sportsbook').all()
     opportunities = [opp for opp in opportunities if not opp.has_parent]
     response = OpportunityFactoryResponse.data_class_from_models(parents, opportunities)
@@ -140,21 +157,21 @@ def opportunities_for_factory() -> OpportunityFactoryResponse:
 
 def get_opportunities_for_children() -> OpportunityChildrenResponse:
     opportunity_dict = defaultdict(list[Opportunity])
-    parents = ParentOpportunity.objects.select_related('sport').prefetch_related(
+    parents = Opportunity.objects.select_related('sport').prefetch_related(
         'children',
         'children__sport',
         'children__sportsbook',
-    ).all()
+    ).filter(is_default=True).all()
     for parent in parents: 
-        opportunity_dict[parent.description] = [child for child in parent.children.all()]
+        opportunity_dict[parent.opp_description] = [child for child in parent.children.all()]
 
     response = OpportunityChildrenResponse.data_class_from_models(opportunity_dict)
+    return response 
+
+def get_default_events() -> DefaultEventResponse: 
+    events = Event.objects.select_related('sport').filter(is_default=True).all()
+    response = DefaultEventResponse.dataclass_from_models(events)
     return response
-    
-def get_opportunities_for_links() -> OpportunityLinkResponse:
-    parents = ParentOpportunity.objects.select_related('sport').all()
-    response = OpportunityLinkResponse.data_class_from_models(parents)
-    return response    
 
 # TODO: add ngrok
 # TODO: users and JWT authorization

@@ -3,24 +3,22 @@ import threading
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .models import Sportsbook, Sport
-from .Scrapes import scrape_fn
+from .Scrapes import scrape_fn, import_job
 from .models import Sportsbook, Sport
 from .enums import TaskState, DataType
 from channels.layers import get_channel_layer
 from django.conf import settings
 
 scrape_task_running = False
-
+import_thread: threading.Thread = None
 class ScrapeConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
         self.group_name = 'scrape_updates'
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        global scrape_task_running
-        if scrape_task_running: 
-            await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING)
-            return
-        await self.send_message(DataType.STATERESPONSE, TaskState.CLOSED)    
+        global scrape_task_running, import_thread
+        await self.send_message(DataType.IMPORTRUNNING, TaskState.RUNNING if (import_thread is not None and import_thread.is_alive()) else TaskState.CLOSED)
+        await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING if scrape_task_running else TaskState.CLOSED)
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
@@ -28,10 +26,12 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         global scrape_task_running
-        if data.get('action') == 'start' and not scrape_task_running:
+        if data.get('action') == 'start':
             await self.start_scrape()
-        elif data.get('action') == 'end' and scrape_task_running:
+        elif data.get('action') == 'end':
             await self.end_scrape()
+        elif data.get('action') == 'import':
+            await self.run_import()
         else:
             await self.send_message(DataType.ERROR, "Invalid action")
 
@@ -39,14 +39,16 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
         try:
             global scrape_thread, scrape_event, scrape_task_running
             if not scrape_task_running:
-                await broadcast_message(DataType.STATERESPONSE, TaskState.RUNNING)
+                scrape_task_running = True
                 sportsbooks = Sportsbook.objects.filter(selected=True).all()
                 sports = Sport.objects.filter(selected=True).all()
                 scrape_event = threading.Event()
                 number_of_drivers = int(settings.DRIVERS)
                 scrape_thread = threading.Thread(target=scrape_fn, args=(sportsbooks, sports, scrape_event, number_of_drivers))
                 scrape_thread.start()
-                scrape_task_running = True
+                await broadcast_message(DataType.STATERESPONSE, TaskState.RUNNING)
+                return
+            await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING)
         except Exception as e:
             await self.send_message(DataType.ERROR, str(e))
 
@@ -58,6 +60,20 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
                 scrape_event.set()
                 scrape_thread.join()
                 await broadcast_message(DataType.STATERESPONSE, TaskState.CLOSED)
+                return
+            await self.send_message(DataType.STATERESPONSE, TaskState.CLOSED)
+        except Exception as e:
+            await self.send_message(DataType.ERROR, str(e))
+
+    async def run_import(self):
+        try:
+            global import_thread
+            if import_thread is None or not import_thread.is_alive():
+                import_thread = threading.Thread(target=import_job, args=())
+                import_thread.start()
+                await broadcast_message(DataType.IMPORTRUNNING, TaskState.RUNNING)
+                return
+            await self.send_message(DataType.IMPORTRUNNING, TaskState.RUNNING)
         except Exception as e:
             await self.send_message(DataType.ERROR, str(e))
 

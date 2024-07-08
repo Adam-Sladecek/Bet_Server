@@ -29,4 +29,6 @@ def scrape_fn(sportsbooks: list[Sportsbook], sports: list[Sport], event: threadi
     group_results_thread.join()
     print('Main function done.')    
     return None
-#create tool that will allow creating opportunity links
+
+def import_job():
+    pass

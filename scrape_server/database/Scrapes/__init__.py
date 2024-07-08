@@ -1,1 +1,1 @@
-from .scrape import scrape_fn
+from .scrape import scrape_fn, import_job
