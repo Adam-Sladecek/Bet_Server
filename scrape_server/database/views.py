@@ -4,7 +4,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .models import Opportunity, Sportsbook, Sport, Event, Odd
 # from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
-from .Scrapes.dataclass_models import ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, DefaultEventResponse
+from .Scrapes.dataclass_models import ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, EventResponse
 from django.db import transaction
 from collections import defaultdict
 
@@ -168,9 +168,9 @@ def get_opportunities_for_children() -> OpportunityChildrenResponse:
     response = OpportunityChildrenResponse.data_class_from_models(opportunity_dict)
     return response 
 
-def get_default_events() -> DefaultEventResponse: 
-    events = Event.objects.select_related('sport').filter(is_default=True).all()
-    response = DefaultEventResponse.dataclass_from_models(events)
+def get_default_events() -> EventResponse: 
+    events = Event.objects.select_related('sport', 'sportsbook').filter(is_default=True).all()
+    response = EventResponse.dataclass_from_models(events)
     return response
 
 # TODO: add ngrok

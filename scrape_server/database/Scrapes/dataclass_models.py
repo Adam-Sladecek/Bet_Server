@@ -1,63 +1,34 @@
 from __future__ import annotations
 from dataclasses import asdict, dataclass
-from ..models import Opportunity, Sport, Sportsbook
-from datetime import time, datetime
+from ..models import Opportunity, Sport, Sportsbook, Event
 
 @dataclass(frozen=True)
 class EventModel: 
-    event_id: int
-    date_time: datetime
-    first_name: str
-    second_name: str
-
-@dataclass(frozen=True)
-class DefaultEvent: 
     id: int
-    time: time
-    first_name: str
-    second_name: str
-    sport: str
+    time: str
+    home: str
+    away: str
+    sport_id: int
+    sportsbook_id: int
     selected: bool
 
     @classmethod
-    def dataclass_list_from_models(cls, models) -> list[DefaultEvent]:
-        return [cls(id=model.pk, name=model.time, first_name=model.first_name, second_name=model.second_name, sport=model.sport.name, selected=model.selected) for model in models]
+    def dataclass_list_from_models(cls, models: list[Event]) -> list[EventModel]:
+        return [cls(id=model.pk, name=model.time, home=model.home, away=model.away, sport=model.sport.name, sportsbook=model.sportsbook.name, selected=model.selected) for model in models]
 
 @dataclass(frozen=True)
-class DefaultEventResponse: 
-    events: list[DefaultEvent]
+class EventResponse: 
+    events: list[EventModel]
     
     @classmethod
-    def dataclass_from_models(cls, models) -> DefaultEventResponse:
-        events = DefaultEvent.dataclass_list_from_models(models)
+    def dataclass_from_models(cls, models) -> EventResponse:
+        events = EventModel.dataclass_list_from_models(models)
         return cls(events=events)
 
     @property
     def dict(self) -> dict:
         return asdict(self)
 
-@dataclass(frozen=True)
-class EventOdd: 
-    id: int
-    odd: float
-    description: str
-    second_name: str
-    sport: str
-    selected: bool
-
-@dataclass(frozen=True)
-class EventOddsResponse: 
-    odds: list[EventOdd]
-    
-    @classmethod
-    def dataclass_from_models(cls, models) -> EventOddsResponse:
-        events = EventOdd.dataclass_list_from_models(models)
-        return cls(events=events)
-
-    @property
-    def dict(self) -> dict:
-        return asdict(self)
-    
 @dataclass
 class OddModel: 
     bet_id: int
@@ -68,16 +39,19 @@ class OddModel:
     tip_type: str
     opp_number: str
     bet_order: int
-
+   
 @dataclass(frozen=True)
 class RequestModel: 
-    sport_name: str
     sport_id: int
-    sport_type_id: int
+    sport_name: str
     sportsbook_id: int
     sportsbook_name: str
+    is_default: bool
     url: str
-    is_tipos_more: bool
+
+    @classmethod
+    def dataclass_list_from_models(cls, sb: Sportsbook, sports: list[Sport]) -> list[RequestModel]:
+        return [cls(sport_id=sport.pk, sport_name=sport.name, sportsbook_id=sb.pk, sportsbook_name=sb.name, is_default=sb.is_default, url=getattr(sb, sport.url)) for sport in sports]
 
 @dataclass(frozen=True)
 class Config: 
