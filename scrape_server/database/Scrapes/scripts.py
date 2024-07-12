@@ -10,31 +10,97 @@ from collections import defaultdict
 from ..enums import DataType
 from channels.layers import get_channel_layer
 
-# def get_relevant_opportunities(odds: list[OddModel], sport_id: int, sportsbook_id: int) -> dict[tuple[int, str], Opportunity]:
-#     conditions = Q(
-#         sportsbook_id=sportsbook_id,
-#         sport_id=sport_id,
-#     )
-#     if sportsbook_id == 5:
-#         conditions &= Q(tip_type__in=[odd.tip_type for odd in odds])
-#         conditions &= Q(opp_number__in=[odd.opp_number for odd in odds])
-#         conditions &= Q(market_id__in=[odd.market_id for odd in odds])
-#         conditions &= Q(bet_order__in=[odd.bet_order for odd in odds])
-#     conditions &= Q(opp_description__in=[odd.opp_description for odd in odds])
+def update_events(events_list: list[EventModel], sportsbook_id: int):
+    sportsbook = Sportsbook.objects.get(pk=sportsbook_id)
+    existing_events = Event.objects.select_related('sportsbook').filter(sportsbook=sportsbook).all()
+    existing_events_dict = {event.event_id: event for event in existing_events}
+    new_events = []
+    events_to_update = []
+    for event_data in events_list:
+        if event_data.event_id in existing_events_dict:
+            existing_event = existing_events_dict[event_data.event_id]
+            existing_event.time = event_data.time
+            events_to_update.append(existing_event)
+            continue
+        
+        new_event = Event(
+            event_id=event_data.event_id,
+            time= event_data.time,
+            home = event_data.home,
+            away = event_data.away,
+            is_default=sportsbook.is_default,
+            selected=event_data.selected,
+            sportsbook_id=event_data.sportsbook_id,
+            sport_id=event_data.sport_id
+        )
+        new_events.append(new_event)
 
-#     relevant_opportunities = Opportunity.objects.filter(conditions).all()
+    with transaction.atomic():
+        used_event_ids = [event_data.event_id for event_data in events_list]
+        Event.objects.select_related('sportsbook').filter(sportsbook=sportsbook).exclude(event_id__in=used_event_ids).delete()
+        Event.objects.bulk_update(events_to_update, ['time'])
+        Event.objects.bulk_create(new_events)
 
-#     opportunities_dict = {
-#         opportunity.opp_description: opportunity for opportunity in relevant_opportunities
-#     }
+def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sportsbook_id: int):
+    # logger = logging.getLogger('django')
+    sportsbook = Sportsbook.objects.get(id=sportsbook_id)
+    events = Event.objects.select_related('sport').filter(sportsbook=sportsbook, event_id__in=[odd.event_id for odd in odds_to_create]).all()
+    events_dict = {event.event_id: event for event in events}
 
-#     result = {}
-#     for odd in odds:
-#         opportunity = opportunities_dict.get(odd.opp_description)
-#         if opportunity:
-#             result[odd.opp_description] = opportunity
+    with transaction.atomic():
+        Odd.objects.bulk_update(odds_to_update, ['odd', 'locked'])
 
-#     return result
+    new_odds = []
+    new_opportunities: list[Opportunity] = []
+    opportunities_dict = get_relevant_opportunities(odds_to_create, sportsbook)
+
+    for odd in odds_to_create:
+        event = events_dict[odd.event_id]
+        if odd.description in opportunities_dict: 
+            opportunity = opportunities_dict[odd.description]
+            new_odd = Odd(
+                odd_id=odd.odd_id,
+                code=odd.code,
+                odd=odd.odd,
+                is_default=event.is_default,
+                selected=False,
+                locked=odd.locked,
+                event=event,
+                sportsbook=sportsbook,
+                opportunity=opportunity
+            )
+            new_odds.append(new_odd)
+            continue
+        if odd.description in [opp.description for opp in new_opportunities]: continue
+        new_opp = Opportunity(
+            description=odd.description,
+            is_default=event.is_default,
+            sportsbook=sportsbook, 
+            sport=event.sport,
+            market_id=odd.market_id
+        )
+        new_opportunities.append(new_opp)
+    with transaction.atomic():
+        Opportunity.objects.bulk_create(new_opportunities)
+        Odd.objects.bulk_create(new_odds)
+
+def get_existing_odds(sportsbook_id: int, include_code: bool=False):
+    sportsbook = Sportsbook.objects.get(id=sportsbook_id)
+    events = Event.objects.filter(sportsbook=sportsbook).prefetch_related('odds').all()
+    if include_code:
+        return {event.event_id: {(odd.odd_id, odd.code): odd for odd in event.odds.all()} for event in events}
+    return {event.event_id: {odd.odd_id: odd for odd in event.odds.all()} for event in events}
+
+
+def get_relevant_opportunities(odds: list[OddModel], sportsbook: Sportsbook) -> dict[tuple[int, str], Opportunity]:
+    conditions = Q(sportsbook_id=sportsbook.pk)
+    conditions &= Q(description__in=[odd.description for odd in odds])
+    relevant_opportunities = Opportunity.objects.filter(conditions).all()
+    opportunities_dict = {
+        opportunity.description: opportunity for opportunity in relevant_opportunities
+    }
+
+    return opportunities_dict
 
 # def link_all_events(sport_id: int):
 #     number_of_sports_books = Sportsbook.objects.filter(selected=True).count()
@@ -115,90 +181,6 @@ from channels.layers import get_channel_layer
 #             return best_event.pk, event_links 
         
 #     return None, event_links 
-        
-def update_events(events_list: list[EventModel], sportsbook_id: int):
-    sportsbook = Sportsbook.objects.get(pk=sportsbook_id)
-    existing_events = Event.objects.select_related('sportsbook').filter(sportsbook=sportsbook).all()
-    existing_events_dict = {event.event_id: event for event in existing_events}
-    new_events = []
-    events_to_update = []
-    for event_data in events_list:
-        if event_data.id in existing_events_dict:
-            existing_event = existing_events_dict[event_data.id]
-            existing_event.time = event_data.time
-            events_to_update.append(existing_event)
-            continue
-        
-        new_event = Event(
-            event_id=event_data.id,
-            is_default=sportsbook.is_default,
-            selected=event_data.selected,
-            time= event_data.time,
-            home = event_data.home,
-            away = event_data.away,
-            sportsbook_id=event_data.sportsbook_id,
-            sport_id=event_data.sport_id
-        )
-        new_events.append(new_event)
-
-    with transaction.atomic():
-        used_event_ids = [event_data.id for event_data in events_list]
-        Event.objects.select_related('sportsbook').filter(sportsbook=sportsbook).exclude(event_id__in=used_event_ids).delete()
-        Event.objects.bulk_update(events_to_update, ['time'])
-        Event.objects.bulk_create(new_events)
-
-# def get_existing_odds(sportsbook_id: int, sport_id: int, include_type: bool=False):
-#     sportsbook = Sportsbook.objects.filter(id=sportsbook_id).first()
-#     sport = Sport.objects.get(id=sport_id)
-#     events = Event.objects.filter(sportsbook=sportsbook, sport=sport).prefetch_related('odds').all()
-#     if include_type:
-#         return {event.event_id: {(odd.bet_id, odd.tip_type): odd for odd in event.odds.all()} for event in events}
-#     return {event.event_id: {odd.bet_id: odd for odd in event.odds.all()} for event in events}
-
-# def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], odds_to_delete: list[Odd], sport_id: int, sportsbook_id: int):
-#     # logger = logging.getLogger('django')
-#     sportsbook = Sportsbook.objects.get(id=sportsbook_id)
-#     sport = Sport.objects.get(id=sport_id)
-#     events = Event.objects.filter(sportsbook=sportsbook, sport=sport, event_id__in=[odd.event_id for odd in odds_to_create]).all()
-#     events_dict = {event.event_id: event for event in events}
-
-#     with transaction.atomic():
-#         Odd.objects.bulk_update(odds_to_update, ['odd'])
-#         ids_to_delete = [odd.pk for odd in odds_to_delete]
-#         Odd.objects.filter(pk__in=ids_to_delete).delete()
-
-#     new_odds = []
-#     new_opportunities: list[Opportunity] = []
-#     opportunities_dict = get_relevant_opportunities(odds_to_create, sport_id, sportsbook_id)
-
-#     for odd in odds_to_create:
-#         if odd.opp_description in opportunities_dict: 
-#             event = events_dict[odd.event_id]
-#             opportunity = opportunities_dict[odd.opp_description]
-#             new_odd = Odd(
-#                 bet_id=odd.bet_id,
-#                 tip_type=odd.tip_type,
-#                 sportsbook=sportsbook,
-#                 event=event,
-#                 odd=odd.odd,
-#                 opportunity=opportunity
-#             )
-#             new_odds.append(new_odd)
-#             continue
-#         if odd.opp_description in [opp.opp_description for opp in new_opportunities]: continue
-#         new_opp = Opportunity(
-#             sportsbook=sportsbook, 
-#             opp_description=odd.opp_description,
-#             tip_type=odd.tip_type,
-#             opp_number=odd.opp_number,
-#             market_id=odd.market_id,
-#             bet_order=odd.bet_order,
-#             sport=sport
-#         )
-#         new_opportunities.append(new_opp)
-#     with transaction.atomic():
-#         Opportunity.objects.bulk_create(new_opportunities)
-#         Odd.objects.bulk_create(new_odds)
 
 # def link_odds(sport_id: int):
 #     event_links = EventLink.objects.filter(sport_id=sport_id).select_related(

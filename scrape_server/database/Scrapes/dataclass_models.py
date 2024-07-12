@@ -5,16 +5,28 @@ from ..models import Opportunity, Sport, Sportsbook, Event
 @dataclass(frozen=True)
 class EventModel: 
     id: int
+    event_id: int
     time: str
     home: str
     away: str
-    sport_id: int
-    sportsbook_id: int
+    is_default: bool
     selected: bool
+    sportsbook_id: int
+    sport_id: int
+    parent_id: int
 
     @classmethod
     def dataclass_list_from_models(cls, models: list[Event]) -> list[EventModel]:
-        return [cls(id=model.pk, name=model.time, home=model.home, away=model.away, sport=model.sport.name, sportsbook=model.sportsbook.name, selected=model.selected) for model in models]
+        return [cls(id=model.pk, 
+                    event_id=model.event_id, 
+                    time=model.time, 
+                    home=model.home, 
+                    away=model.away, 
+                    is_default=model.is_default, 
+                    selected=model.selected, 
+                    sportsbook_id=model.sportsbook.pk, 
+                    sport_id=model.sport.pk,
+                    parent_id=None if model.parent is None else model.parent.pk) for model in models]
 
 @dataclass(frozen=True)
 class EventResponse: 
@@ -29,16 +41,20 @@ class EventResponse:
     def dict(self) -> dict:
         return asdict(self)
 
-@dataclass
+@dataclass(frozen=True)
 class OddModel: 
-    bet_id: int
+    id: int
+    odd_id: int
+    code: int
     odd: float
+    is_default: bool
+    selected: bool
+    locked: bool
     event_id: int
+    sportsbook_id: int
+    description: str
+    parent_id: int
     market_id: str
-    opp_description: str
-    tip_type: str
-    opp_number: str
-    bet_order: int
    
 @dataclass(frozen=True)
 class RequestModel: 
@@ -94,18 +110,15 @@ class ConfigResponse:
 @dataclass(frozen=True)
 class OpportunityDataClass: 
     id: int
-    opp_description: str
-    tip_type: str
-    opp_number: str
-    market_id: str
-    bet_order: int
-    sport: str
-    sportsbook: str
+    description: str
     is_default: bool
+    sportsbook: str
+    sport: str
+    parent_id: int
 
     @classmethod
     def dataclass_list_from_models(cls, opportunities: list[Opportunity]) -> list[OpportunityDataClass]:
-        return [cls(id=opp.pk, opp_description=opp.opp_description, tip_type=opp.tip_type, opp_number=opp.opp_number, market_id=opp.market_id, bet_order=opp.bet_order, sport=opp.sport.name, sportsbook=opp.sportsbook.name) for opp in opportunities]
+        return [cls(id=opp.pk, description=opp.description, tip_type=opp.tip_type, is_default=opp.is_default, sportsbook=opp.sportsbook.name) for opp in opportunities]
     
     @classmethod
     def dict_to_dataclass_list(cls, dict_data) -> list[OpportunityDataClass]:

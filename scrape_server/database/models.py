@@ -22,11 +22,11 @@ class Sportsbook(models.Model):
 
 class Event(models.Model):
     event_id = models.IntegerField()
-    is_default = models.BooleanField(default=False)
-    selected = models.BooleanField(default=False)
     time = models.CharField(max_length=30)
     home = models.CharField(max_length=50)
     away = models.CharField(max_length=50)
+    is_default = models.BooleanField(default=False)
+    selected = models.BooleanField(default=False)
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', default=None)
@@ -40,11 +40,12 @@ class Event(models.Model):
         self.save()
 
 class Odd(models.Model):
-    bet_id = models.IntegerField()
-    tip_type = models.CharField(max_length=3)
+    odd_id = models.IntegerField()
+    code= models.IntegerField()
     odd = models.DecimalField(max_digits=6, decimal_places=2)
     is_default = models.BooleanField(default=False)
     selected = models.BooleanField(default=False)
+    locked = models.BooleanField(default=False)
     event = models.ForeignKey('Event', on_delete=models.CASCADE, related_name='odds')
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE)
@@ -60,19 +61,16 @@ class Odd(models.Model):
         return self.opportunity.parent == odd.opportunity
 
 class Opportunity(models.Model):
-    opp_description = models.CharField(max_length=200)
-    tip_type = models.CharField(max_length=3)
-    opp_number = models.CharField(max_length=10)
-    market_id = models.CharField(max_length=10)
-    bet_order = models.IntegerField()
+    description = models.CharField(max_length=200)
     is_default = models.BooleanField(default=False)
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', default=None)
-
+    market_id = models.CharField(max_length=20)
+    
     class Meta:
         indexes = [
-            models.Index(fields=['sportsbook_id', 'sport_id', 'tip_type', 'opp_number', 'market_id', 'bet_order']),
+            models.Index(fields=['sportsbook_id', 'sport_id']),
         ]
 
     def add_parent(self, parent: Opportunity) -> None:

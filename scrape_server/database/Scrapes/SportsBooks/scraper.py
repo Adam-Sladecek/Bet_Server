@@ -14,9 +14,9 @@ class Scraper(ABC):
     async def gather_events(self):
         pass
 
-    # @abstractmethod
-    # async def gather_details(self):
-    #     pass
+    @abstractmethod
+    async def gather_odds(self):
+        pass
 
     @abstractmethod
     def map_events(self):

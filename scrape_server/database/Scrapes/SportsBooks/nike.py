@@ -2,8 +2,7 @@ import asyncio
 from decimal import Decimal
 from .scraper import Scraper
 from ..dataclass_models import EventModel, OddModel, RequestModel
-# from ..scripts import get_existing_odds, update_events
-from ..scripts import update_events
+from ..scripts import get_existing_odds, update_events, update_odds
 from ...models import Odd
 
 class NikeScraper(Scraper):
@@ -15,19 +14,19 @@ class NikeScraper(Scraper):
         data = [(f'https://push.nike.sk/snapshot?format=v2&path=/n1/overview/{request.url}/tournaments/', request) for request in self.requests]
         return await self.gather_data(data)
 
-    # async def gather_details(self):
-    #     urls = []
-    #     for box_id, sport_event_id in self.detail_ids:
-    #         if box_id is None or sport_event_id is None: continue
-    #         urls.append(f'https://www.nike.sk/api-gw/nikeone/v1/boxes/extended/sport-event-id?boxId={box_id}&sportEventId={sport_event_id}')
-        # return await self.gather_data(urls)
+    async def gather_odds(self):
+        data = []
+        for event in self.events:
+            data.append((f'https://push.nike.sk/snapshot?format=v2&path=/n1/match/{event.event_id}/bets/portal/', None))
+        results = await self.gather_data(data)
+        return [result[0] for result in results]
     
     def map_events(self, data: list[tuple[object, RequestModel]]) -> list[EventModel]:
         for result, request in data:
             try:
                 matches = result[0][1]['matches']
                 for match in matches:
-                    id = int(match['id'])
+                    event_id = int(match['id'])
                     time = match['timer']['currentPeriod']['sk']
                     if 'timestamp' in match['timer']:
                         timestamp = match['timer']['timestamp']
@@ -38,68 +37,71 @@ class NikeScraper(Scraper):
                         time += f' {converted_time}'
                     home = match['home']['sk']
                     away = match['away']['sk']
-                    self.events.append(EventModel(id, time, home, away, request.sport_id, request.sportsbook_id, False))
+                    self.events.append(EventModel(
+                        id=None, 
+                        event_id=event_id, 
+                        time =time, 
+                        home=home, 
+                        away=away, 
+                        is_default=False, 
+                        selected=False, 
+                        sportsbook_id=request.sportsbook_id, 
+                        sport_id=request.sport_id, 
+                        parent_id=None
+                    ))
             except Exception as ex: 
                 print(f"Exception in map_events Nike: {str(ex)}.")
                 continue    
     
-    # def map_odds(self, details) -> tuple[list[OddModel], list[Odd], list[Odd]]:
-    #     if all(element is None for element in details):
-    #         raise Exception('No details retrieved.')
-    #     odds_to_create: list[OddModel] = []
-    #     odds_to_update: list[Odd] = []
-    #     odds_to_delete: list[Odd] = []
-    #     forbidden_market_ids = ['5409', '5664', '5672', '5232', '10824']
-    #     existing_odds = get_existing_odds(self.request.sportsbook_id, self.request.sport_id, True)
-    #     for detail in details:
-    #         try:
-    #             name1, name2 = detail["bets"][0]["participants"]
-    #             event_id = int(detail["sportEvents"][0]["sportEventId"])
-    #             existing_match_odds = existing_odds[event_id]
-    #         except:
-    #             continue    
-    #         for bet in detail["bets"]:
-    #             market_id = bet["marketId"]
-    #             if bet["headerDetail"] == "Superšanca": continue
-    #             if market_id in forbidden_market_ids: continue
-    #             bet_id = bet["betId"]
-    #             bet_order = int(bet["betOrder"])
-    #             if self.request.sport_id in [8,9] and bet["headerDetail"] in ["Zápas", "1. polčas", "2. polčas", "1.tretina", "2.tretina", "3.tretina"]: 
-    #                 array = bet["selectionGrid"][0] + bet["selectionGrid"][1]
-    #             else: 
-    #                 if bet["rows"] != 1 or len(bet["selectionGrid"][0]) != 2: continue
-    #                 array = bet["selectionGrid"][0]    
-    #             for odd in array: 
-    #                 try:
-    #                     if not odd["enabled"] or odd["locked"] or "tip" not in odd: continue
-    #                 except Exception as ex:
-    #                     continue
-
-    #                 tip = odd["tip"]
-    #                 if (int(bet_id), tip) in existing_match_odds: 
-    #                     existing_odd = existing_match_odds[(int(bet_id), tip)]
-    #                     del existing_match_odds[(int(bet_id), tip)]
-    #                     decimal = Decimal(odd["odds"])
-    #                     decimal = round(decimal, 2)
-    #                     if existing_odd.odd == decimal: continue
-    #                     existing_odd.odd = odd["odds"]
-    #                     odds_to_update.append(existing_odd)
-    #                     continue
-                    
-    #                 description = bet["headerDetail"] + " " + odd["name"]
-    #                 description = description.replace(name1, "*1*").replace(name2, "*2*").replace("  ", " ")
-    #                 odds_to_create.append(OddModel(
-    #                     bet_id = int(bet_id),
-    #                     odd = odd["odds"],
-    #                     event_id = event_id,
-    #                     market_id = market_id,
-    #                     opp_description = description,
-    #                     tip_type = tip, 
-    #                     bet_order = bet_order,
-    #                     opp_number="0"
-    #                 ))        
-    #         odds_to_delete.extend(existing_match_odds.values())          
-    #     return odds_to_create, odds_to_update, odds_to_delete       
+    def map_odds(self, data) -> tuple[list[OddModel], list[Odd], list[Odd]]:
+        if all(element is None for element in data):
+            raise Exception('No details retrieved.')
+        odds_to_create: list[OddModel] = []
+        odds_to_update: list[Odd] = []
+        forbidden_market_ids = ['9440', '8223', '6389', '10766', '10767', '10783',
+                                '8474', '10782', '9278']
+        forbidden_set = set(forbidden_market_ids)
+        existing_odds = get_existing_odds(self.requests[0].sportsbook_id, True)
+        for dataset in data:
+            for bet in dataset[0][1]['bets']:
+                try:
+                    if bet['marketId'] in forbidden_set: continue
+                    odd_id = int(bet['id'])
+                    home = bet["participants"][0]['sk']
+                    away = bet["participants"][1]['sk']
+                    event_id = int(bet['matchId'])
+                    existing_match_odds = existing_odds[event_id]
+                    for odd in bet['selections']: 
+                        code = odd["code"]
+                        locked = odd["locked"] or not odd["enabled"]
+                        if (odd_id, code) in existing_match_odds: 
+                            existing_odd = existing_match_odds[(odd_id, code)]
+                            del existing_match_odds[(odd_id, code)]
+                            existing_odd.odd = odd["odds"]
+                            existing_odd.locked = locked
+                            odds_to_update.append(existing_odd)
+                            continue
+                        
+                        description = bet["header"]['sk'] + " " + odd["name"]['sk']
+                        description = description.replace(home, "*1*").replace(away, "*2*").replace("  ", " ")
+                        odds_to_create.append(OddModel(
+                            id=None,
+                            odd_id = odd_id,
+                            code= code,
+                            odd = odd["odds"],
+                            is_default=False,
+                            selected=False,
+                            locked = locked, 
+                            event_id = event_id,
+                            sportsbook_id=self.requests[0].sportsbook_id,
+                            description = description,
+                            parent_id=None, 
+                            market_id=bet['marketId']
+                        ))        
+                except Exception as ex:
+                    print(f"Exception in map_odds Nike: {str(ex)}.")
+                    continue     
+        return odds_to_create, odds_to_update       
 
     # def get_data(self):
     #     try:
@@ -127,8 +129,9 @@ class NikeScraper(Scraper):
             event_response = asyncio.run(self.gather_events())
             self.map_events(event_response)
             update_events(self.events, self.requests[0].sportsbook_id)    
-            # update odds
-            pass
+            odds_response = asyncio.run(self.gather_odds())
+            odds_to_create, odds_to_update = self.map_odds(odds_response)
+            update_odds(odds_to_create, odds_to_update, self.requests[0].sportsbook_id)
         except Exception as ex:
             print(f"Failed import Nike data. Exception: {str(ex)}.")
     
