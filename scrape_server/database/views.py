@@ -29,9 +29,6 @@ def get_config(request):
 def set_config(request):
     try:
         data = ConfigResponse.dict_to_config_response(json.loads(request.body))
-        if(data.default_sportsbooks) > 1: 
-            raise ValueError(f"At most one default sportsbook can be selected.")
-        
         sports_ids = [sport.id for sport in data.sports]
         all_sports = Sport.objects.all()
         for sport in all_sports:
@@ -48,7 +45,9 @@ def set_config(request):
             Sport.objects.bulk_update(all_sports, ['selected'])
             Sportsbook.objects.bulk_update(all_sbs, ['selected'])
 
-        response = ConfigResponse.dataclass_from_models(all_sports, all_sbs)
+        regular_sbs = [sb for sb in all_sbs if not sb.is_default]
+        default_sbs = [sb for sb in all_sbs if sb.is_default]
+        response = ConfigResponse.dataclass_from_models(all_sports, regular_sbs, default_sbs)
         return JsonResponse(response.dict, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
