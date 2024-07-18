@@ -43,7 +43,7 @@ class NikeScraper(Scraper):
                         time =time, 
                         home=home, 
                         away=away, 
-                        is_default=False, 
+                        is_default=self.requests[0].is_default, 
                         selected=False, 
                         sportsbook_id=request.sportsbook_id, 
                         sport_id=request.sport_id, 
@@ -68,7 +68,7 @@ class NikeScraper(Scraper):
                     if bet['marketId'] in forbidden_set: continue
                     odd_id = int(bet['id'])
                     home = bet["participants"][0]['sk']
-                    away = bet["participants"][1]['sk']
+                    away = bet["participants"][1]['sk'] if len(bet["participants"]) == 2 else None
                     event_id = int(bet['matchId'])
                     existing_match_odds = existing_odds[event_id]
                     for odd in bet['selections']: 
@@ -83,13 +83,16 @@ class NikeScraper(Scraper):
                             continue
                         
                         description = bet["header"]['sk'] + " " + odd["name"]['sk']
-                        description = description.replace(home, "*1*").replace(away, "*2*").replace("  ", " ")
+                        description = description.replace(home, "*1*")
+                        if away is not None:
+                            description = description.replace(away, "*2*")
+                        description = description.replace("  ", " ")
                         odds_to_create.append(OddModel(
                             id=None,
                             odd_id = odd_id,
                             code= code,
                             odd = odd["odds"],
-                            is_default=False,
+                            is_default=self.requests[0].is_default,
                             selected=False,
                             locked = locked, 
                             event_id = event_id,

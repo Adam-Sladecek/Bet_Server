@@ -1,3 +1,4 @@
+from enum import Enum
 import logging
 from fuzzywuzzy import fuzz
 from .dataclass_models import EventModel, OddModel
@@ -7,7 +8,7 @@ from django.db import transaction
 from django.db.models import Q, F, Value, FloatField, ExpressionWrapper, Sum
 import pytz
 from collections import defaultdict
-from ..enums import DataType
+from ..enums import DataType, TaskState
 from channels.layers import get_channel_layer
 
 def update_events(events_list: list[EventModel], sportsbook_id: int):
@@ -360,14 +361,17 @@ def get_relevant_opportunities(odds: list[OddModel], sportsbook: Sportsbook) -> 
 #         }
 #     ) 
 
-# async def broadcast_error():
-#     channel_layer = get_channel_layer()
-#     group_name = 'scrape_updates'
-#     await channel_layer.group_send(
-#         group_name,
-#         {
-#             'type': 'group_message',
-#             'data_type': DataType.ERROR,
-#             'data': [],
-#         }
-#     ) 
+async def broadcast_data(data_type, data):
+    if isinstance(data, Enum):
+        data = data.value
+
+    channel_layer = get_channel_layer()
+    group_name = 'scrape_updates'
+    await channel_layer.group_send(
+        group_name,
+        {
+            'type': 'group_message',
+            'data_type': data_type,
+            'data': data,
+        }
+    ) 
