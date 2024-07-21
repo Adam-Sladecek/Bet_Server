@@ -2,10 +2,15 @@ from abc import ABC, abstractmethod
 import json
 import aiohttp 
 import asyncio
-from ..dataclass_models import RequestModel
+from ..dataclass_models import EventModel
 from datetime import datetime
+from ...models import  Sport, Sportsbook
 
 class Scraper(ABC):
+    def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
+        self.sportsbook = sportsbook
+        self.sports = sports
+
     @abstractmethod
     def import_all_data(self):
         pass

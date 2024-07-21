@@ -57,19 +57,6 @@ class OddModel:
     market_id: str
    
 @dataclass(frozen=True)
-class RequestModel: 
-    sport_id: int
-    sport_name: str
-    sportsbook_id: int
-    sportsbook_name: str
-    is_default: bool
-    url: str
-
-    @classmethod
-    def dataclass_list_from_models(cls, sb: Sportsbook, sports: list[Sport]) -> list[RequestModel]:
-        return [cls(sport_id=sport.pk, sport_name=sport.name, sportsbook_id=sb.pk, sportsbook_name=sb.name, is_default=sb.is_default, url=getattr(sb, sport.url)) for sport in sports]
-
-@dataclass(frozen=True)
 class Config: 
     id: int
     name: str

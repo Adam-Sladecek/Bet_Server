@@ -9,3 +9,7 @@ class DataType(Enum):
     ERROR = 2 
     MATCHDATA = 3
     IMPORTRUNNING = 4
+
+class Command(Enum):
+    REFRESH = 1
+    IMPORT = 2 

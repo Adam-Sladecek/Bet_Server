@@ -7,9 +7,8 @@ from .Scrapes import scrape_fn, import_job
 from .enums import TaskState, DataType
 from channels.layers import get_channel_layer
 from django.conf import settings
+from queue import Queue
 
-scrape_task_running = False
-import_thread: threading.Thread = None
 class ScrapeConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
@@ -36,11 +35,12 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
 
     async def start_scrape(self):
         try:
-            global scrape_thread, scrape_event, scrape_task_running
+            global scrape_thread, scrape_event, scrape_task_running, import_queue
             if not scrape_task_running:
                 scrape_task_running = True
                 scrape_event = threading.Event()
-                scrape_thread = threading.Thread(target=scrape_fn, args=(scrape_event,))
+                import_queue = Queue()
+                scrape_thread = threading.Thread(target=scrape_fn, args=(scrape_event, import_queue))
                 scrape_thread.start()
                 await broadcast_message(DataType.STATERESPONSE, TaskState.RUNNING)
                 return

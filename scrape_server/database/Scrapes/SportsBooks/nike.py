@@ -1,15 +1,11 @@
 import asyncio
 from decimal import Decimal
 from .scraper import Scraper
-from ..dataclass_models import EventModel, OddModel, RequestModel
+from ..dataclass_models import EventModel, OddModel
 from ..scripts import get_existing_odds, update_events, update_odds
 from ...models import Odd
 
 class NikeScraper(Scraper):
-    def __init__(self, requests: list[RequestModel]):
-        self.requests = requests
-        self.events: list[EventModel] = []
-
     async def gather_events(self):
         data = [(f'https://push.nike.sk/snapshot?format=v2&path=/n1/overview/{request.url}/tournaments/', request) for request in self.requests]
         return await self.gather_data(data)
@@ -22,6 +18,7 @@ class NikeScraper(Scraper):
         return [result[0] for result in results]
     
     def map_events(self, data: list[tuple[object, RequestModel]]) -> list[EventModel]:
+        self.events: list[EventModel] = []
         for result, request in data:
             try:
                 matches = result[0][1]['matches']
