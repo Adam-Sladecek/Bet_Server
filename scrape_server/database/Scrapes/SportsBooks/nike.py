@@ -3,11 +3,17 @@ from decimal import Decimal
 from .scraper import Scraper
 from ..dataclass_models import EventModel, OddModel
 from ..scripts import get_existing_odds, update_events, update_odds
-from ...models import Odd
+from ...models import Odd, Sport
 
 class NikeScraper(Scraper):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass    
+
     async def gather_events(self):
-        data = [(f'https://push.nike.sk/snapshot?format=v2&path=/n1/overview/{request.url}/tournaments/', request) for request in self.requests]
+        data = [(f'https://push.nike.sk/snapshot?format=v2&path=/n1/overview/{getattr(self.sportsbook, sport.url)}/tournaments/', sport) for sport in self.sports]
         return await self.gather_data(data)
 
     async def gather_odds(self):
@@ -17,9 +23,9 @@ class NikeScraper(Scraper):
         results = await self.gather_data(data)
         return [result[0] for result in results]
     
-    def map_events(self, data: list[tuple[object, RequestModel]]) -> list[EventModel]:
+    def map_events(self, data: list[tuple[object, Sport]]) -> list[EventModel]:
         self.events: list[EventModel] = []
-        for result, request in data:
+        for result, sport in data:
             try:
                 matches = result[0][1]['matches']
                 for match in matches:
@@ -40,10 +46,10 @@ class NikeScraper(Scraper):
                         time =time, 
                         home=home, 
                         away=away, 
-                        is_default=self.requests[0].is_default, 
+                        is_default=self.sportsbook.is_default, 
                         selected=False, 
-                        sportsbook_id=request.sportsbook_id, 
-                        sport_id=request.sport_id, 
+                        sportsbook_id=self.sportsbook.pk, 
+                        sport_id=sport.pk, 
                         parent_id=None
                     ))
             except Exception as ex: 
@@ -58,7 +64,7 @@ class NikeScraper(Scraper):
         forbidden_market_ids = ['9440', '8223', '6389', '10766', '10767', '10783',
                                 '8474', '10782', '9278']
         forbidden_set = set(forbidden_market_ids)
-        existing_odds = get_existing_odds(self.requests[0].sportsbook_id, True)
+        existing_odds = get_existing_odds(self.sportsbook.pk, True)
         for dataset in data:
             for bet in dataset[0][1]['bets']:
                 try:
@@ -89,11 +95,11 @@ class NikeScraper(Scraper):
                             odd_id = odd_id,
                             code= code,
                             odd = odd["odds"],
-                            is_default=self.requests[0].is_default,
+                            is_default=self.sportsbook.is_default,
                             selected=False,
                             locked = locked, 
                             event_id = event_id,
-                            sportsbook_id=self.requests[0].sportsbook_id,
+                            sportsbook_id=self.sportsbook.pk,
                             description = description,
                             parent_id=None, 
                             market_id=bet['marketId']
@@ -128,10 +134,10 @@ class NikeScraper(Scraper):
         try:
             event_response = asyncio.run(self.gather_events())
             self.map_events(event_response)
-            update_events(self.events, self.requests[0].sportsbook_id)    
+            update_events(self.events, self.sportsbook.pk)    
             odds_response = asyncio.run(self.gather_odds())
             odds_to_create, odds_to_update = self.map_odds(odds_response)
-            update_odds(odds_to_create, odds_to_update, self.requests[0].sportsbook_id)
+            update_odds(odds_to_create, odds_to_update, self.sportsbook.pk)
         except Exception as ex:
             print(f"Failed import Nike data. Exception: {str(ex)}.")
     

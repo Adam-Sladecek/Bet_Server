@@ -1,15 +1,13 @@
 from abc import ABC, abstractmethod
-import json
 import aiohttp 
 import asyncio
-from ..dataclass_models import EventModel
 from datetime import datetime
 from ...models import  Sport, Sportsbook
 
 class Scraper(ABC):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         self.sportsbook = sportsbook
-        self.sports = sports
+        self.sports = [sport for sport in sports]
 
     @abstractmethod
     def import_all_data(self):
@@ -35,15 +33,15 @@ class Scraper(ABC):
     # def get_data(self):
     #     pass
 
-    async def gather_data(self, data: list[tuple[str, RequestModel]]) -> list[tuple[object, RequestModel]]:
+    async def gather_data(self, data: list[tuple[str, Sport]]) -> list[tuple[object, Sport]]:
         async with aiohttp.ClientSession() as session:
-            tasks = [asyncio.create_task(self.fetch_data(session, url, request)) for url, request in data]
+            tasks = [asyncio.create_task(self.fetch_data(session, url, sport)) for url, sport in data]
             return await asyncio.gather(*tasks)
 
-    async def fetch_data(self, session: aiohttp.ClientSession, url:str, request: RequestModel) -> tuple[object, RequestModel]:
+    async def fetch_data(self, session: aiohttp.ClientSession, url:str, sport: Sport) -> tuple[object, Sport]:
         async with session.get(url) as resp:
             result = await resp.json()    
-            return (result, request)
+            return (result, sport)
         
     def convert_timestamp_to_time_string(self, timestamp_ms):
             current_time = datetime.now()
