@@ -46,15 +46,16 @@ class Scraper(ABC):
     def get_driver(self):
         pass
 
-    async def gather_data(self, data: list[tuple[str, Sport]]) -> list[tuple[object, Sport]]:
+    async def gather_data(self, data: dict[int, str]) -> dict[int, object]:
         async with aiohttp.ClientSession() as session:
-            tasks = [asyncio.create_task(self.fetch_data(session, url, sport)) for url, sport in data]
-            return await asyncio.gather(*tasks)
+            tasks = [asyncio.create_task(self.fetch_data(session, url, sport_id)) for sport_id, url in data.items()]
+            array_data = await asyncio.gather(*tasks)
+            return {sport_id: result for sport_id, result in array_data}
 
-    async def fetch_data(self, session: aiohttp.ClientSession, url:str, sport: Sport) -> tuple[object, Sport]:
+    async def fetch_data(self, session: aiohttp.ClientSession, url: str, sport_id: int) -> tuple[int, object]:
         async with session.get(url) as resp:
             result = await resp.json()    
-            return (result, sport)
+            return (sport_id, result)
         
     def convert_timestamp_to_time_string(self, timestamp_ms):
             current_time = datetime.now()

@@ -14,31 +14,24 @@ class NikeScraper(Scraper):
         pass    
 
     async def gather_events(self, sports: list[Sport]):
-        data = [(f'https://push.nike.sk/snapshot?format=v2&path=/n1/overview/{getattr(self.sportsbook, sport.url)}/tournaments/', sport) for sport in sports]
+        data = {sport.pk: f'https://push.nike.sk/snapshot?format=v2&path=/n1/overview/{getattr(self.sportsbook, sport.url)}/tournaments/' for sport in sports}
         return await self.gather_data(data)
 
     async def gather_odds(self, events: list[Event]):
-        data = []
-        for event in events:
-            data.append((f'https://push.nike.sk/snapshot?format=v2&path=/n1/match/{event.event_id}/bets/portal/', None))
+        data = {}
+        for index, event in enumerate(events):
+            data[index] = f'https://push.nike.sk/snapshot?format=v2&path=/n1/match/{event.event_id}/bets/portal/'
         results = await self.gather_data(data)
-        return [result[0] for result in results]
+        return results.values()
     
-    def map_events(self, data: list[tuple[object, Sport]]) -> list[EventModel]:
+    def map_events(self, data: dict[int, object]) -> list[EventModel]:
         self.events: list[EventModel] = []
-        for result, sport in data:
+        for sport_id, result in data.items():
             try:
                 matches = result[0][1]['matches']
                 for match in matches:
                     event_id = int(match['id'])
-                    time = match['timer']['currentPeriod']['sk']
-                    if 'timestamp' in match['timer']:
-                        timestamp = match['timer']['timestamp']
-                        if 'matchSeconds' in match['timer']:
-                            seconds = match['timer']['matchSeconds']
-                            timestamp -= seconds*1000
-                        converted_time = self.convert_timestamp_to_time_string(timestamp)
-                        time += f' {converted_time}'
+                    time = self.get_time_from_match(match)
                     home = match['home']['sk']
                     away = match['away']['sk']
                     self.events.append(EventModel(
@@ -50,14 +43,14 @@ class NikeScraper(Scraper):
                         is_default=self.sportsbook.is_default, 
                         selected=False, 
                         sportsbook_id=self.sportsbook.pk, 
-                        sport_id=sport.pk, 
+                        sport_id=sport_id, 
                         parent_id=None
                     ))
             except Exception as ex: 
                 print(f"Exception in map_events Nike: {str(ex)}.")
                 continue    
     
-    def map_odds(self, data) -> tuple[list[OddModel], list[Odd], list[Odd]]:
+    def map_odds(self, data: list[object]) -> tuple[list[OddModel], list[Odd], list[Odd]]:
         if all(element is None for element in data):
             raise Exception('No details retrieved.')
         odds_to_create: list[OddModel] = []
@@ -113,58 +106,69 @@ class NikeScraper(Scraper):
     def get_driver(self):
         return None
     
-    def map_events_selected(self, events: list[Event], event_response: list[tuple[object, Sport]]):
+    def map_events_selected(self, events: list[Event], event_response: dict[int, object]):
         events_to_update: list[Event] = []
         events_to_delete: list[Event] = []
         for event in events:
-            result = next((result for result, sport in event_response if event.sport == sport), None)
-            if result is None: 
-                events_to_delete.append(event)
-                continue
-            matches = result[0][1]['matches']
-            match = next((match for match in matches if int(match['id']) == event.event_id), None)
-            if match is None: 
-                events_to_delete.append(event)
-                continue
-            time = match['timer']['currentPeriod']['sk']
-            if 'timestamp' in match['timer']:
-                timestamp = match['timer']['timestamp']
-                if 'matchSeconds' in match['timer']:
-                    seconds = match['timer']['matchSeconds']
-                    timestamp -= seconds*1000
-                converted_time = self.convert_timestamp_to_time_string(timestamp)
-                time += f' {converted_time}'
-            event.time = time    
-            events_to_update.append(event)  
+            try:
+                result = event_response.get(event.sport.pk, None)
+                if result is None: 
+                    events_to_delete.append(event)
+                    continue
+                matches = result[0][1]['matches']
+                match = next((match for match in matches if int(match['id']) == event.event_id), None)
+                if match is None: 
+                    events_to_delete.append(event)
+                    continue
+                time = self.get_time_from_match(match)
+                event.time = time    
+                events_to_update.append(event)  
+            except Exception as ex:
+                print(f"Exception in map_events_selected Nike: {str(ex)}.")
+                continue       
         with transaction.atomic():
             for event in events_to_delete: 
                 event.delete()
             Event.objects.bulk_update(events_to_update, ['time'])
+
+    def get_time_from_match(self, match):
+        time = match['timer']['currentPeriod']['sk']
+        if 'timestamp' in match['timer']:
+            timestamp = match['timer']['timestamp']
+            if 'matchSeconds' in match['timer']:
+                seconds = match['timer']['matchSeconds']
+                timestamp -= seconds*1000
+            converted_time = self.convert_timestamp_to_time_string(timestamp)
+            time += f' {converted_time}'
+        return time    
     
     def map_odds_selected(self, events: list[Event], odds_response: list[object]):
         event_dict = {event.event_id: event for event in events}
         odds_to_update: list[Odd] = []
         for data in odds_response:
-            event_id = int(data[0][1]['matchId'])
-            event = event_dict[event_id]
-            for odd in event.odds.filter(selected=True).all(): 
-                data_bet = next((bet for bet in data[0][1]['bets'] if int(bet['id']) == odd.odd_id), None)
-                if data_bet is None: 
-                    odd.locked = True
-                    odds_to_update.append(odd)
-                    continue
-                for data_odd in data_bet['selections']:
-                    code = data_odd["code"]
-                    if odd.code == code: 
-                        odd.odd = data_odd["odds"]
-                        odd.locked = data_odd["locked"] or not data_odd["enabled"]
+            try:
+                event_id = int(data[0][1]['matchId'])
+                event = event_dict[event_id]
+                bet_dict = {int(bet['id']): bet for bet in data[0][1]['bets']}
+                for odd in event.odds.filter(selected=True).all(): 
+                    data_bet = bet_dict.get(odd.odd_id, None)
+                    if data_bet is None: 
+                        odd.locked = True
                         odds_to_update.append(odd)
-                        break
-
+                        continue
+                    for data_odd in data_bet['selections']:
+                        code = data_odd["code"]
+                        if odd.code == code: 
+                            odd.odd = data_odd["odds"]
+                            odd.locked = data_odd["locked"] or not data_odd["enabled"]
+                            odds_to_update.append(odd)
+                            break
+            except Exception as ex:
+                print(f"Exception in map_odds_selected Nike: {str(ex)}.")
+                continue                   
         with transaction.atomic():
             Odd.objects.bulk_update(odds_to_update, ['odd', 'locked'])
                 
-
     def get_data(self):
         try:
             asyncio.run(asyncio.sleep(1))
