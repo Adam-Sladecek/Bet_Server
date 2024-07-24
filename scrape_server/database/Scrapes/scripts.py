@@ -11,8 +11,7 @@ from collections import defaultdict
 from ..enums import DataType, TaskState
 from channels.layers import get_channel_layer
 
-def update_events(events_list: list[EventModel], sportsbook_id: int):
-    sportsbook = Sportsbook.objects.get(pk=sportsbook_id)
+def update_events(events_list: list[EventModel], sportsbook: Sportsbook):
     existing_events = Event.objects.select_related('sportsbook').filter(sportsbook=sportsbook).all()
     existing_events_dict = {event.event_id: event for event in existing_events}
     new_events = []
@@ -42,9 +41,8 @@ def update_events(events_list: list[EventModel], sportsbook_id: int):
         Event.objects.bulk_update(events_to_update, ['time'])
         Event.objects.bulk_create(new_events)
 
-def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sportsbook_id: int):
+def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sportsbook: Sportsbook):
     # logger = logging.getLogger('django')
-    sportsbook = Sportsbook.objects.get(id=sportsbook_id)
     events = Event.objects.select_related('sport').filter(sportsbook=sportsbook, event_id__in=[odd.event_id for odd in odds_to_create]).all()
     events_dict = {event.event_id: event for event in events}
 
@@ -85,13 +83,30 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sport
         Opportunity.objects.bulk_create(new_opportunities)
         Odd.objects.bulk_create(new_odds)
 
-def get_existing_odds(sportsbook_id: int, include_code: bool=False):
-    sportsbook = Sportsbook.objects.get(id=sportsbook_id)
+def get_existing_odds(sportsbook: Sportsbook, include_code: bool=False):
     events = Event.objects.filter(sportsbook=sportsbook).prefetch_related('odds').all()
     if include_code:
         return {event.event_id: {(odd.odd_id, odd.code): odd for odd in event.odds.all()} for event in events}
     return {event.event_id: {odd.odd_id: odd for odd in event.odds.all()} for event in events}
 
+def get_selected_events(sportsbook: Sportsbook) -> tuple[list[Event], set]:
+    default_events = Event.objects.filter(is_default=True, selected=True).select_related('sport').prefetch_related(
+        'odds',
+        'children', 
+        'children__sportsbook',
+        'children__odds',
+        'children__sport'
+    ).all()
+
+    result: list[Event] = []
+    sport_ids = set()
+    for event in default_events: 
+        ev = event if sportsbook.is_default else event.children.first(sportsbook=sportsbook)
+        if ev is None: continue
+        result.append(ev)
+        sport_ids.add(ev.sport.pk)
+
+    return result, sport_ids
 
 def get_relevant_opportunities(odds: list[OddModel], sportsbook: Sportsbook) -> dict[tuple[int, str], Opportunity]:
     conditions = Q(sportsbook_id=sportsbook.pk)

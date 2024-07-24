@@ -60,8 +60,8 @@ def group_results(command_queues: dict[int, queue.Queue], result_queue: queue.Qu
                     asyncio.run(broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
                     print('Import done.') 
                 result_dictionary[command.value] = 0
-                # for _, sb_queue in command_queues.items():
-                #     sb_queue.put(Command.REFRESH) 
+                for _, sb_queue in command_queues.items():
+                    sb_queue.put(Command.REFRESH) 
                        
         print('Getting results done.')  
     except Exception as ex:

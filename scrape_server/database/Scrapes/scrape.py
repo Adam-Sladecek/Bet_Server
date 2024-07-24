@@ -2,6 +2,7 @@ from queue import Queue
 from database.models import Sportsbook, Sport
 import threading
 from .scrape_service import get_sportsbook_data, group_results, import_fn
+from ..enums import Command
 
 def scrape_fn(event: threading.Event, import_queue: Queue):
     print('Scraping...')    
@@ -19,8 +20,8 @@ def scrape_fn(event: threading.Event, import_queue: Queue):
         thread.start()
     group_results_thread.start()
     import_thread.start()
-    # for _, queue in command_queues.items():
-    #     queue.put(Command.REFRESH) 
+    for _, queue in command_queues.items():
+        queue.put(Command.REFRESH) 
     for thread in driver_threads:
             thread.join()
     group_results_thread.join()

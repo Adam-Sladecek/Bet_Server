@@ -152,3 +152,8 @@ class OpportunityChildrenResponse:
     def dict(self) -> dict:
         return asdict(self)
     
+@dataclass(frozen=True)
+class SelectedEventOdd:  
+    sport: Sport
+    
+    

@@ -2,36 +2,49 @@ from abc import ABC, abstractmethod
 import aiohttp 
 import asyncio
 from datetime import datetime
-from ...models import  Sport, Sportsbook
+from ...models import  Sport, Sportsbook, Event
 
 class Scraper(ABC):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         self.sportsbook = sportsbook
         self.sports = [sport for sport in sports]
+        self.driver = self.get_driver()
 
     @abstractmethod
     def import_all_data(self):
         pass
 
     @abstractmethod
-    async def gather_events(self):
+    async def gather_events(self, sports: list[Sport]):
         pass
 
     @abstractmethod
-    async def gather_odds(self):
+    async def gather_odds(self, events: list[Event]):
         pass
 
     @abstractmethod
     def map_events(self):
         pass
 
-    # @abstractmethod
-    # def map_odds(self):
-    #     pass
+    @abstractmethod
+    def map_odds(self):
+        pass
 
-    # @abstractmethod
-    # def get_data(self):
-    #     pass
+    @abstractmethod
+    def map_events_selected(self, events: list[Event], event_response: list[tuple[object, Sport]]):
+        pass
+
+    @abstractmethod
+    def map_odds_selected(self, events: list[Event], odds_response: list[object]):
+        pass
+
+    @abstractmethod
+    def get_data(self):
+        pass
+
+    @abstractmethod
+    def get_driver(self):
+        pass
 
     async def gather_data(self, data: list[tuple[str, Sport]]) -> list[tuple[object, Sport]]:
         async with aiohttp.ClientSession() as session:

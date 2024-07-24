@@ -2,8 +2,9 @@ import asyncio
 from decimal import Decimal
 from .scraper import Scraper
 from ..dataclass_models import EventModel, OddModel
-from ..scripts import get_existing_odds, update_events, update_odds
-from ...models import Odd, Sport
+from ..scripts import get_existing_odds, update_events, update_odds, get_selected_events
+from ...models import Odd, Sport, Event
+from django.db import transaction
 
 class NikeScraper(Scraper):
     def __enter__(self):
@@ -12,13 +13,13 @@ class NikeScraper(Scraper):
     def __exit__(self, exc_type, exc_value, traceback):
         pass    
 
-    async def gather_events(self):
-        data = [(f'https://push.nike.sk/snapshot?format=v2&path=/n1/overview/{getattr(self.sportsbook, sport.url)}/tournaments/', sport) for sport in self.sports]
+    async def gather_events(self, sports: list[Sport]):
+        data = [(f'https://push.nike.sk/snapshot?format=v2&path=/n1/overview/{getattr(self.sportsbook, sport.url)}/tournaments/', sport) for sport in sports]
         return await self.gather_data(data)
 
-    async def gather_odds(self):
+    async def gather_odds(self, events: list[Event]):
         data = []
-        for event in self.events:
+        for event in events:
             data.append((f'https://push.nike.sk/snapshot?format=v2&path=/n1/match/{event.event_id}/bets/portal/', None))
         results = await self.gather_data(data)
         return [result[0] for result in results]
@@ -64,7 +65,7 @@ class NikeScraper(Scraper):
         forbidden_market_ids = ['9440', '8223', '6389', '10766', '10767', '10783',
                                 '8474', '10782', '9278']
         forbidden_set = set(forbidden_market_ids)
-        existing_odds = get_existing_odds(self.sportsbook.pk, True)
+        existing_odds = get_existing_odds(self.sportsbook, True)
         for dataset in data:
             for bet in dataset[0][1]['bets']:
                 try:
@@ -109,35 +110,82 @@ class NikeScraper(Scraper):
                     continue     
         return odds_to_create, odds_to_update       
 
-    # def get_data(self):
-    #     try:
-    #         order = ''
-    #         counter = 0
-    #         while True:
-    #             if counter >= 100:
-    #                 print('Nike too many requests.')
-    #                 break
-    #             resultjson = asyncio.run(self.gather_events(order)) 
-    #             self.map_events(resultjson)
-    #             if not resultjson[0]['hasMoreBets']:
-    #                 break
-    #             order = '=' + str(int(resultjson[0]['maxBoxOrder']))
-    #             counter += 1
-    #         update_events(self.events, self.request.sport_id, self.request.sportsbook_id)    
-    #         details_results = asyncio.run(self.gather_details())
-    #         return self.map_odds(details_results)
-    #     except Exception as ex:
-    #         print(f"Failed to get Nike driver {str(ex)}.")
-    #         return None, None, None
+    def get_driver(self):
+        return None
+    
+    def map_events_selected(self, events: list[Event], event_response: list[tuple[object, Sport]]):
+        events_to_update: list[Event] = []
+        events_to_delete: list[Event] = []
+        for event in events:
+            result = next((result for result, sport in event_response if event.sport == sport), None)
+            if result is None: 
+                events_to_delete.append(event)
+                continue
+            matches = result[0][1]['matches']
+            match = next((match for match in matches if int(match['id']) == event.event_id), None)
+            if match is None: 
+                events_to_delete.append(event)
+                continue
+            time = match['timer']['currentPeriod']['sk']
+            if 'timestamp' in match['timer']:
+                timestamp = match['timer']['timestamp']
+                if 'matchSeconds' in match['timer']:
+                    seconds = match['timer']['matchSeconds']
+                    timestamp -= seconds*1000
+                converted_time = self.convert_timestamp_to_time_string(timestamp)
+                time += f' {converted_time}'
+            event.time = time    
+            events_to_update.append(event)  
+        with transaction.atomic():
+            for event in events_to_delete: 
+                event.delete()
+            Event.objects.bulk_update(events_to_update, ['time'])
+    
+    def map_odds_selected(self, events: list[Event], odds_response: list[object]):
+        event_dict = {event.event_id: event for event in events}
+        odds_to_update: list[Odd] = []
+        for data in odds_response:
+            event_id = int(data[0][1]['matchId'])
+            event = event_dict[event_id]
+            for odd in event.odds.filter(selected=True).all(): 
+                data_bet = next((bet for bet in data[0][1]['bets'] if int(bet['id']) == odd.odd_id), None)
+                if data_bet is None: 
+                    odd.locked = True
+                    odds_to_update.append(odd)
+                    continue
+                for data_odd in data_bet['selections']:
+                    code = data_odd["code"]
+                    if odd.code == code: 
+                        odd.odd = data_odd["odds"]
+                        odd.locked = data_odd["locked"] or not data_odd["enabled"]
+                        odds_to_update.append(odd)
+                        break
+
+        with transaction.atomic():
+            Odd.objects.bulk_update(odds_to_update, ['odd', 'locked'])
+                
+
+    def get_data(self):
+        try:
+            asyncio.run(asyncio.sleep(1))
+            events, sport_ids = get_selected_events(self.sportsbook)
+            sports = [sport for sport in self.sports if sport.pk in sport_ids]
+            event_response = asyncio.run(self.gather_events(sports))
+            self.map_events_selected(events, event_response)
+            odds_response = asyncio.run(self.gather_odds(events))
+            self.map_odds_selected(events, odds_response)
+
+        except Exception as ex:
+            print(f"Failed to update Nike odds. Exception: {str(ex)}.")
 
     def import_all_data(self):
         try:
-            event_response = asyncio.run(self.gather_events())
+            event_response = asyncio.run(self.gather_events(self.sports))
             self.map_events(event_response)
-            update_events(self.events, self.sportsbook.pk)    
-            odds_response = asyncio.run(self.gather_odds())
+            update_events(self.events, self.sportsbook)    
+            odds_response = asyncio.run(self.gather_odds(self.events))
             odds_to_create, odds_to_update = self.map_odds(odds_response)
-            update_odds(odds_to_create, odds_to_update, self.sportsbook.pk)
+            update_odds(odds_to_create, odds_to_update, self.sportsbook)
         except Exception as ex:
             print(f"Failed import Nike data. Exception: {str(ex)}.")
     
