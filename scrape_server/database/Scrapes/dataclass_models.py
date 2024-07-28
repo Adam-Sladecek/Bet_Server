@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import asdict, dataclass
-from ..models import Opportunity, Sport, Sportsbook, Event
+from ..models import Odd, Opportunity, Sport, Sportsbook, Event
 
 @dataclass(frozen=True)
 class EventModel: 
@@ -40,9 +40,22 @@ class EventResponse:
     @property
     def dict(self) -> dict:
         return asdict(self)
+    
+@dataclass(frozen=True)
+class OddResponse: 
+    odds: list[OddModel]
+    
+    @classmethod
+    def dataclass_from_models(cls, models: list[Odd]) -> OddResponse:
+        odd_models = [OddModel.dataclass_from_model(model) for model in models]
+        return cls(odds=odd_models)
+
+    @property
+    def dict(self) -> dict:
+        return asdict(self)
 
 @dataclass(frozen=True)
-class OddModel: 
+class OddModel:
     id: int
     odd_id: int
     code: int
@@ -55,9 +68,74 @@ class OddModel:
     description: str
     parent_id: int
     market_id: str
-   
+
+    @classmethod
+    def dataclass_from_model(cls, odd: Odd) -> OddModel:
+        return cls(
+            id = odd.pk, 
+            odd_id = odd.odd_id,
+            code = odd.code,
+            odd = float(odd.odd),
+            is_default = odd.is_default,
+            selected = odd.selected,
+            locked = odd.locked,
+            event_id = odd.event.pk,
+            sportsbook_id = odd.sportsbook.pk,
+            description = odd.opportunity.description,
+            parent_id = odd.parent if odd.parent is None else odd.parent.pk,
+            market_id = odd.opportunity.market_id
+            )
+
 @dataclass(frozen=True)
-class Config: 
+class MatchResponse:
+    matches: list[Match]
+    sportsbook_ids: list[int]
+
+    @classmethod
+    def dataclass_from_models(cls, models: list[Event], sportsbooks: list[Sportsbook]) -> MatchResponse:
+        return cls(
+            matches=Match.dataclass_list_from_models(models), 
+            sportsbook_ids= [sb.pk for sb in sportsbooks] 
+            )
+    
+    @property
+    def dict(self) -> dict:
+        return asdict(self)
+
+@dataclass(frozen=True)
+class Match:
+    name: str
+    match_id: int
+    time: str
+    sport_id: int
+    opportunities: list[MatchOpportunity]
+
+    @classmethod
+    def dataclass_list_from_models(cls, models: list[Event]) -> list[Match]:
+        return [cls(
+            name=f"{event.home} vs. {event.away}", 
+            match_id=event.pk,
+            time = event.time,
+            sport_id= event.sport.pk,
+            opportunities = MatchOpportunity.dataclass_list_from_model(event)
+            ) for event in models
+        ]
+
+@dataclass(frozen=True)
+class MatchOpportunity:
+    name: str
+    odds: list[OddModel]
+
+    @classmethod
+    def dataclass_list_from_model(cls, model: Event) -> list[MatchOpportunity]:
+        return [cls(
+            name=odd.opportunity.description.replace('*1*', model.home).replace('*2*', model.away), 
+            odds = [OddModel.dataclass_from_model(odd), *[OddModel.dataclass_from_model(child) for child in odd.children.all()]]
+            ) for odd in model.odds.filter(selected=True).all()
+        ]
+
+@dataclass(frozen=True)
+class Config:
     id: int
     name: str
     selected: bool
@@ -151,9 +229,4 @@ class OpportunityChildrenResponse:
     @property
     def dict(self) -> dict:
         return asdict(self)
-    
-@dataclass(frozen=True)
-class SelectedEventOdd:  
-    sport: Sport
-    
     

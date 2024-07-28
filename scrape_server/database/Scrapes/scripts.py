@@ -1,7 +1,8 @@
+import asyncio
 from enum import Enum
 import logging
 from fuzzywuzzy import fuzz
-from .dataclass_models import EventModel, OddModel
+from .dataclass_models import EventModel, OddModel, MatchResponse
 # from Utils import odds_to_implied_pb, get_profit, stake_for_arbitrage_bet
 from database.models import Sportsbook, Sport, Opportunity, Odd, Event
 from django.db import transaction
@@ -117,6 +118,13 @@ def get_relevant_opportunities(odds: list[OddModel], sportsbook: Sportsbook) -> 
     }
 
     return opportunities_dict
+
+def send_updated_events():
+    sportsbook = Sportsbook.objects.filter(is_default=True).first()
+    events, _ = get_selected_events(sportsbook)
+    response = MatchResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).all())
+    asyncio.run(broadcast_data(DataType.MATCHDATA, response.dict))
+
 
 # def link_all_events(sport_id: int):
 #     number_of_sports_books = Sportsbook.objects.filter(selected=True).count()

@@ -7,9 +7,8 @@ import threading
 import asyncio
 from .SportsBooks.scraper import Scraper
 from ..enums import DataType, TaskState, Command
-from .scripts import broadcast_data
+from .scripts import broadcast_data, send_updated_events
 from ..models import Sportsbook, Sport
-from collections import defaultdict
 
 def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, event: threading.Event, sportsbook: Sportsbook, sports: list[Sport]): 
     try:
@@ -53,8 +52,8 @@ def group_results(command_queues: dict[int, queue.Queue], result_queue: queue.Qu
             result_dictionary[command.value] +=1
             if result_dictionary[command.value] == number_of_sbs:
                 if command == Command.REFRESH: 
-                    # send data to clients
-                    pass
+                    send_updated_events()
+                    asyncio.run(asyncio.sleep(0.9))
                 else:
                     # link_events_and_odds()
                     asyncio.run(broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))

@@ -7,20 +7,18 @@ from .enums import TaskState, DataType, Command
 from channels.layers import get_channel_layer
 from queue import Queue
 
+scrape_task_running = False
+scrape_thread = None
+scrape_event = None
+import_queue = None
 class ScrapeConsumer(AsyncWebsocketConsumer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.scrape_task_running = False
-        self.scrape_thread = None
-        self.scrape_event = None
-        self.import_queue = None
-
     async def connect(self):
         await self.accept()
         self.group_name = 'scrape_updates'
+        global scrape_task_running
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.send_message(DataType.IMPORTRUNNING, TaskState.CLOSED)
-        await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING if self.scrape_task_running else TaskState.CLOSED)
+        await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING if scrape_task_running else TaskState.CLOSED)
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
@@ -38,12 +36,13 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
 
     async def start_scrape(self):
         try:
-            if not self.scrape_task_running:
-                self.scrape_task_running = True
-                self.scrape_event = threading.Event()
-                self.import_queue = Queue(maxsize=2)
-                self.scrape_thread = threading.Thread(target=scrape_fn, args=(self.scrape_event, self.import_queue))
-                self.scrape_thread.start()
+            global scrape_task_running, scrape_event, import_queue, scrape_thread
+            if not scrape_task_running:
+                scrape_task_running = True
+                scrape_event = threading.Event()
+                import_queue = Queue(maxsize=2)
+                scrape_thread = threading.Thread(target=scrape_fn, args=(scrape_event, import_queue))
+                scrape_thread.start()
                 await broadcast_message(DataType.STATERESPONSE, TaskState.RUNNING)
                 return
             await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING)
@@ -52,10 +51,11 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
 
     async def end_scrape(self):
         try:
-            if self.scrape_task_running:
-                self.scrape_event.set()
-                self.scrape_thread.join()
-                self.scrape_task_running = False
+            global scrape_task_running, scrape_event, scrape_thread
+            if scrape_task_running:
+                scrape_event.set()
+                scrape_thread.join()
+                scrape_task_running = False
                 await broadcast_message(DataType.STATERESPONSE, TaskState.CLOSED)
                 return
             await self.send_message(DataType.STATERESPONSE, TaskState.CLOSED)
@@ -64,10 +64,11 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
 
     async def run_import(self):
         try:
-            if not self.scrape_task_running: 
+            global scrape_task_running, import_queue
+            if not scrape_task_running: 
                 await self.send_message(DataType.ERROR, "Start scrape before running import")
                 return
-            self.import_queue.put(Command.IMPORT)
+            import_queue.put(Command.IMPORT)
             await broadcast_message(DataType.IMPORTRUNNING, TaskState.RUNNING)
         except Exception as e:
             await self.send_message(DataType.ERROR, str(e))

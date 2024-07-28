@@ -4,7 +4,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .models import Opportunity, Sportsbook, Sport, Event, Odd
 # from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
-from .Scrapes.dataclass_models import ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, EventResponse
+from .Scrapes.dataclass_models import ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, EventResponse, OddResponse
 from django.db import transaction
 from collections import defaultdict
 
@@ -124,26 +124,27 @@ def change_monitored_events(request):
 @require_GET
 def get_event_odds(request, pk: int):
     try:
-        
-        return JsonResponse({'message': 'Monitored events updated.'}, status=200)
+        response = get_event_oppotunities(pk)
+        return JsonResponse(response.dict, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
         
 @csrf_exempt
 @require_POST
-def change_event_odds(request, event_pk: int):
+def change_event_odds(request, pk: int):
     try:
         data = json.loads(request.body)
         ids = data.get('ids')
-        event = Event.objects.filter(pk=event_pk).first()
+        event = Event.objects.filter(pk=pk).first()
+        odds_to_update = []
+        for odd in event.odds.all(): 
+            odd.selected = odd.pk in ids
+            odds_to_update.append(odd)
         with transaction.atomic():
-            odds_to_update = []
-            for odd in event.odds.all(): 
-                odd.selected = odd.pk in ids
-                odds_to_update.append(odd)
             Odd.objects.bulk_update(odds_to_update, ['selected'])
 
-        return JsonResponse({'message': 'Monitored events updated.'}, status=200)
+        response = get_event_oppotunities(pk)
+        return JsonResponse(response.dict, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
     
@@ -171,6 +172,15 @@ def get_default_events() -> EventResponse:
     events = Event.objects.select_related('sport', 'sportsbook').filter(is_default=True).all()
     response = EventResponse.dataclass_from_models(events)
     return response
+
+def get_event_oppotunities(pk: int) -> OddResponse:
+    event = Event.objects.filter(pk=pk).prefetch_related(
+            'odds',
+            'odds__sportsbook',
+            'odds__opportunity',
+            'odds__parent',
+        ).first()
+    return OddResponse.dataclass_from_models(event.odds.all())
 
 # TODO: add ngrok
 # TODO: users and JWT authorization

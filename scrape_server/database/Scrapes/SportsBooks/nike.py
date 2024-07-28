@@ -90,7 +90,7 @@ class NikeScraper(Scraper):
                             code= code,
                             odd = odd["odds"],
                             is_default=self.sportsbook.is_default,
-                            selected=False,
+                            selected= False,
                             locked = locked, 
                             event_id = event_id,
                             sportsbook_id=self.sportsbook.pk,
@@ -171,8 +171,8 @@ class NikeScraper(Scraper):
                 
     def get_data(self):
         try:
-            asyncio.run(asyncio.sleep(1))
             events, sport_ids = get_selected_events(self.sportsbook)
+            if len(events) == 0: return
             sports = [sport for sport in self.sports if sport.pk in sport_ids]
             event_response = asyncio.run(self.gather_events(sports))
             self.map_events_selected(events, event_response)
