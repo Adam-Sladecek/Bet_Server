@@ -42,6 +42,7 @@ class Event(models.Model):
 class Odd(models.Model):
     odd_id = models.IntegerField()
     code= models.IntegerField()
+    movement= models.IntegerField(default=0)
     odd = models.DecimalField(max_digits=6, decimal_places=2)
     is_default = models.BooleanField(default=False)
     selected = models.BooleanField(default=False)
@@ -63,6 +64,7 @@ class Odd(models.Model):
 class Opportunity(models.Model):
     description = models.CharField(max_length=200)
     is_default = models.BooleanField(default=False)
+    prefered = models.BooleanField(default=False)
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', default=None)

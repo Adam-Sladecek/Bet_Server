@@ -3,6 +3,7 @@ import aiohttp
 import asyncio
 from datetime import datetime
 from ...models import  Sport, Sportsbook, Event
+from ...enums import Movement
 
 class Scraper(ABC):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
@@ -66,6 +67,20 @@ class Scraper(ABC):
             minutes = total_seconds // 60
             seconds = total_seconds % 60
             return f"{minutes}:{seconds:02}'"
+    
+    def convert_seconds_to_time_string(self, seconds):
+        minutes = seconds // 60
+        seconds = seconds % 60
+        return f"{minutes}:{seconds:02}'"
+    
+    def get_movement(self, old_odds: float, new_odds: float) -> int: 
+        old_odds = float(old_odds)
+        if new_odds > old_odds: 
+            return Movement.UP.value
+        elif new_odds < old_odds: 
+            return Movement.DOWN.value    
+        else: 
+            return Movement.NONE.value
 
     # async def execute_driver_script(self, driver, script: str): 
     #     try:

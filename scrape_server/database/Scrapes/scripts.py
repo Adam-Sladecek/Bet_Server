@@ -9,7 +9,7 @@ from django.db import transaction
 from django.db.models import Q, F, Value, FloatField, ExpressionWrapper, Sum
 import pytz
 from collections import defaultdict
-from ..enums import DataType, TaskState
+from ..enums import DataType, TaskState, Movement
 from channels.layers import get_channel_layer
 
 def update_events(events_list: list[EventModel], sportsbook: Sportsbook):
@@ -61,6 +61,7 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sport
             new_odd = Odd(
                 odd_id=odd.odd_id,
                 code=odd.code,
+                movement=odd.movement,
                 odd=odd.odd,
                 is_default=event.is_default,
                 selected=False,

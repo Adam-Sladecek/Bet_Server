@@ -13,3 +13,8 @@ class DataType(Enum):
 class Command(Enum):
     REFRESH = 1
     IMPORT = 2 
+
+class Movement(Enum):
+    NONE = 0
+    UP = 1    
+    DOWN = 2     

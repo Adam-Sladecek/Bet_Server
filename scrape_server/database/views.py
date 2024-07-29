@@ -116,8 +116,7 @@ def change_monitored_events(request):
         with transaction.atomic():
             Event.objects.bulk_update(events, ['selected'])
 
-        response = get_default_events()
-        return JsonResponse(response.dict, status=200)
+        return JsonResponse({}, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
 
@@ -143,8 +142,7 @@ def change_event_odds(request, pk: int):
         with transaction.atomic():
             Odd.objects.bulk_update(odds_to_update, ['selected'])
 
-        response = get_event_oppotunities(pk)
-        return JsonResponse(response.dict, status=200)
+        return JsonResponse({}, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
     
@@ -169,7 +167,7 @@ def get_opportunities_for_children() -> OpportunityChildrenResponse:
     return response 
 
 def get_default_events() -> EventResponse: 
-    events = Event.objects.select_related('sport', 'sportsbook').filter(is_default=True).all()
+    events = Event.objects.select_related('sport', 'sportsbook').filter(is_default=True).order_by('-selected').all()
     response = EventResponse.dataclass_from_models(events)
     return response
 
@@ -180,7 +178,7 @@ def get_event_oppotunities(pk: int) -> OddResponse:
             'odds__opportunity',
             'odds__parent',
         ).first()
-    return OddResponse.dataclass_from_models(event.odds.all())
+    return OddResponse.dataclass_from_models(event.odds.order_by('-opportunity__prefered', '-selected').all())
 
 # TODO: add ngrok
 # TODO: users and JWT authorization

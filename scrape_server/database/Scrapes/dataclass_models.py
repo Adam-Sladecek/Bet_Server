@@ -59,6 +59,7 @@ class OddModel:
     id: int
     odd_id: int
     code: int
+    movement: int
     odd: float
     is_default: bool
     selected: bool
@@ -75,13 +76,14 @@ class OddModel:
             id = odd.pk, 
             odd_id = odd.odd_id,
             code = odd.code,
+            movement = odd.movement,
             odd = float(odd.odd),
             is_default = odd.is_default,
             selected = odd.selected,
             locked = odd.locked,
             event_id = odd.event.pk,
             sportsbook_id = odd.sportsbook.pk,
-            description = odd.opportunity.description,
+            description = odd.opportunity.description.replace('*1*', odd.event.home).replace('*2*', odd.event.away),
             parent_id = odd.parent if odd.parent is None else odd.parent.pk,
             market_id = odd.opportunity.market_id
             )

@@ -56,7 +56,7 @@ class NikeScraper(Scraper):
         odds_to_create: list[OddModel] = []
         odds_to_update: list[Odd] = []
         forbidden_market_ids = ['9440', '8223', '6389', '10766', '10767', '10783',
-                                '8474', '10782', '9278']
+                                '8474', '10782', '9278', '9990', '9993', '9994']
         forbidden_set = set(forbidden_market_ids)
         existing_odds = get_existing_odds(self.sportsbook, True)
         for dataset in data:
@@ -88,6 +88,7 @@ class NikeScraper(Scraper):
                             id=None,
                             odd_id = odd_id,
                             code= code,
+                            movement= 0,
                             odd = odd["odds"],
                             is_default=self.sportsbook.is_default,
                             selected= False,
@@ -134,11 +135,12 @@ class NikeScraper(Scraper):
     def get_time_from_match(self, match):
         time = match['timer']['currentPeriod']['sk']
         if 'timestamp' in match['timer']:
+            countdown = bool(match['timer']['countDown'])
             timestamp = match['timer']['timestamp']
             if 'matchSeconds' in match['timer']:
                 seconds = match['timer']['matchSeconds']
                 timestamp -= seconds*1000
-            converted_time = self.convert_timestamp_to_time_string(timestamp)
+            converted_time = self.convert_timestamp_to_time_string(timestamp) if not countdown else self.convert_seconds_to_time_string(seconds)
             time += f' {converted_time}'
         return time    
     
@@ -149,6 +151,7 @@ class NikeScraper(Scraper):
             try:
                 event_id = int(data[0][1]['matchId'])
                 event = event_dict[event_id]
+                if event.pk is None: continue
                 bet_dict = {int(bet['id']): bet for bet in data[0][1]['bets']}
                 for odd in event.odds.filter(selected=True).all(): 
                     data_bet = bet_dict.get(odd.odd_id, None)
@@ -159,6 +162,7 @@ class NikeScraper(Scraper):
                     for data_odd in data_bet['selections']:
                         code = data_odd["code"]
                         if odd.code == code: 
+                            odd.movement = self.get_movement(odd.odd, data_odd["odds"])      
                             odd.odd = data_odd["odds"]
                             odd.locked = data_odd["locked"] or not data_odd["enabled"]
                             odds_to_update.append(odd)
@@ -167,7 +171,7 @@ class NikeScraper(Scraper):
                 print(f"Exception in map_odds_selected Nike: {str(ex)}.")
                 continue                   
         with transaction.atomic():
-            Odd.objects.bulk_update(odds_to_update, ['odd', 'locked'])
+            Odd.objects.bulk_update(odds_to_update, ['odd', 'locked', 'movement'])
                 
     def get_data(self):
         try:
