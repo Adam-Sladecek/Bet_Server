@@ -38,17 +38,22 @@ def update_events(events_list: list[EventModel], sportsbook: Sportsbook):
 
     with transaction.atomic():
         used_event_ids = [event_data.event_id for event_data in events_list]
-        Event.objects.select_related('sportsbook').filter(sportsbook=sportsbook).exclude(event_id__in=used_event_ids).delete()
+        Event.objects.filter(sportsbook=sportsbook).exclude(event_id__in=used_event_ids).delete()
         Event.objects.bulk_update(events_to_update, ['time'])
         Event.objects.bulk_create(new_events)
+
+def update_selected_events(events_to_update: list[Event], events_to_delete: list[Event]):
+    with transaction.atomic():
+        for event in events_to_delete: 
+            event.delete()
+        Event.objects.bulk_update(events_to_update, ['time'])
 
 def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sportsbook: Sportsbook):
     # logger = logging.getLogger('django')
     events = Event.objects.select_related('sport').filter(sportsbook=sportsbook, event_id__in=[odd.event_id for odd in odds_to_create]).all()
     events_dict = {event.event_id: event for event in events}
 
-    with transaction.atomic():
-        Odd.objects.bulk_update(odds_to_update, ['odd', 'locked'])
+    update_selected_odds(odds_to_update)
 
     new_odds = []
     new_opportunities: list[Opportunity] = []
@@ -81,9 +86,14 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sport
             market_id=odd.market_id
         )
         new_opportunities.append(new_opp)
+        
     with transaction.atomic():
         Opportunity.objects.bulk_create(new_opportunities)
         Odd.objects.bulk_create(new_odds)
+
+def update_selected_odds(odds_to_update: list[Odd]):
+    with transaction.atomic():
+        Odd.objects.bulk_update(odds_to_update, ['odd', 'locked', 'movement'])
 
 def get_existing_odds(sportsbook: Sportsbook, include_code: bool=False):
     events = Event.objects.filter(sportsbook=sportsbook).prefetch_related('odds').all()
@@ -125,6 +135,13 @@ def send_updated_events():
     events, _ = get_selected_events(sportsbook)
     response = MatchResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).all())
     asyncio.run(broadcast_data(DataType.MATCHDATA, response.dict))
+
+def clear_unused_events():
+    unused_sportsbooks = Sportsbook.objects.filter(selected=False).all()
+    sb_ids = [sb.pk for sb in unused_sportsbooks]
+
+    with transaction.atomic():
+        Event.objects.filter(sportsbook_id__in=sb_ids).delete()
 
 
 # def link_all_events(sport_id: int):

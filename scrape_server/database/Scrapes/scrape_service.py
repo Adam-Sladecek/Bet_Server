@@ -7,7 +7,7 @@ import threading
 import asyncio
 from .SportsBooks.scraper import Scraper
 from ..enums import DataType, TaskState, Command
-from .scripts import broadcast_data, send_updated_events
+from .scripts import broadcast_data, send_updated_events, clear_unused_events
 from ..models import Sportsbook, Sport
 
 def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, event: threading.Event, sportsbook: Sportsbook, sports: list[Sport]): 
@@ -30,9 +30,11 @@ def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, e
                     s.get_data()
 
                 result_queue.put(command)
+            scraper.close_driver()    
         print('Done handling drivers.')  
     except Exception as ex:
         print('Exception: ' + str(ex))
+        scraper.close_driver()  
         event.set()
         broadcast_data(DataType.ERROR, str(ex))
 
@@ -89,6 +91,7 @@ def import_fn(command_queues: dict[int, queue.Queue], import_queue: queue.Queue,
         broadcast_data(DataType.ERROR, str(ex))
 
 # def link_events_and_odds(): 
+#     clear_unused_events()
 #     link_all_events(sport_id)
 #     link_odds(sport_id)
 #     get_arbitrage_odds(sport_id)
