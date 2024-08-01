@@ -1,19 +1,21 @@
 import queue
 from django.db import close_old_connections
 from .SportsBooks.nike import NikeScraper
+from .SportsBooks.tipsport import TipsportScraper
 # from .SportsBooks.tipsport import TipsportScraper
 import threading
 # from .scripts import link_all_events, get_arbitrage_odds, update_odds, link_odds, send_data_to_clients, get_all_arbitrage_bets, broadcast_error
 import asyncio
 from .SportsBooks.scraper import Scraper
 from ..enums import DataType, TaskState, Command
-from .scripts import broadcast_data, send_updated_events, clear_unused_events
+from .scripts import broadcast_data, send_updated_events, clear_unused_events, link_all_events
 from ..models import Sportsbook, Sport
 
 def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, event: threading.Event, sportsbook: Sportsbook, sports: list[Sport]): 
     try:
         scraper = get_scraper(sportsbook, sports)
         with scraper as s:
+            s.get_driver()
             while True:
                 if event.is_set():
                     break
@@ -30,7 +32,7 @@ def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, e
                     s.get_data()
 
                 result_queue.put(command)
-            scraper.close_driver()    
+            s.close_driver()    
         print('Done handling drivers.')  
     except Exception as ex:
         print('Exception: ' + str(ex))
@@ -90,22 +92,23 @@ def import_fn(command_queues: dict[int, queue.Queue], import_queue: queue.Queue,
         event.set()
         broadcast_data(DataType.ERROR, str(ex))
 
-# def link_events_and_odds(): 
-#     clear_unused_events()
-#     link_all_events(sport_id)
-#     link_odds(sport_id)
-#     get_arbitrage_odds(sport_id)
-#     arb_bets = get_all_arbitrage_bets()
-#     asyncio.run(send_data_to_clients(arb_bets))
-#     if requests is not None and scrape_queue is not None:
-#         for req in requests:
-#             scrape_queue.put(req, block=True, timeout=None)
-#         close_old_connections()
-#         print(f"End of scrape {sport_name}")    
+def link_events_and_odds(): 
+    clear_unused_events()
+    link_all_events()
+    link_odds(sport_id)
+    get_arbitrage_odds(sport_id)
+    arb_bets = get_all_arbitrage_bets()
+    asyncio.run(send_data_to_clients(arb_bets))
+    if requests is not None and scrape_queue is not None:
+        for req in requests:
+            scrape_queue.put(req, block=True, timeout=None)
+        close_old_connections()
+        print(f"End of scrape {sport_name}")    
 
 def get_scraper(sportsbook: Sportsbook, sports: list[Sport]) -> Scraper: 
     scrapers: dict[str, Scraper]  = {
         'Nike': NikeScraper,
+        'Tipsport': TipsportScraper
     }
     ScraperClass = scrapers[sportsbook.name]
     return ScraperClass(sportsbook, sports)

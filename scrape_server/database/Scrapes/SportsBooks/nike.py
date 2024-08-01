@@ -21,7 +21,7 @@ class NikeScraper(Scraper):
         
         return await self.gather_data(data)
 
-    async def gather_odds(self, events: list[Event]):
+    async def gather_odds(self, events):
         data = {}
         for index, event in enumerate(events):
             data[index] = f'https://push.nike.sk/snapshot?format=v2&path=/n1/match/{event.event_id}/bets/portal/'
@@ -91,7 +91,7 @@ class NikeScraper(Scraper):
                         description = description.replace(home, "*1*")
                         if away is not None:
                             description = description.replace(away, "*2*")
-                        description = description.replace("  ", " ")
+                        description = description.replace("  ", " ").replace("  ", " ").strip()
                         odds_to_create.append(OddModel(
                             id=None,
                             odd_id = odd_id,

@@ -12,7 +12,6 @@ class Scraper(ABC):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         self.sportsbook = sportsbook
         self.sports = [sport for sport in sports]
-        self.driver = self.get_driver()
 
     @abstractmethod
     def get_driver(self):
@@ -27,11 +26,11 @@ class Scraper(ABC):
         pass
 
     @abstractmethod
-    async def gather_odds(self, events: list[Event]):
+    async def gather_odds(self, events):
         pass
 
     @abstractmethod
-    def map_events(self, data: dict[int, object]) -> list[EventModel]:
+    def map_events(self, data) -> list[EventModel]:
         pass
 
     @abstractmethod
@@ -39,7 +38,7 @@ class Scraper(ABC):
         pass
 
     @abstractmethod
-    def map_events_selected(self, events: list[Event], event_response: list[tuple[object, Sport]]) -> tuple[list[Event], list[Event]]:
+    def map_events_selected(self, events: list[Event], event_response) -> tuple[list[Event], list[Event]]:
         pass
 
     @abstractmethod
@@ -113,8 +112,24 @@ class Scraper(ABC):
         
         return Movement.NONE.value
 
-    async def execute_driver_script(self, script: str): 
+    async def execute_driver_script(self, url: str): 
         try:
+            script = f"""
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "{url}", false);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onreadystatechange = function () {{
+                if (xhr.readyState == 4) {{
+                    if (xhr.status == 200) {{
+                        window.responseData = xhr.responseText;
+                    }} else {{
+                        console.error("Request failed with status:", xhr.status);
+                        window.responseData = null;
+                    }}
+                }}
+            }};
+            xhr.send();
+            """
             self.driver.execute_script(script)
             response_data = self.driver.execute_script("return window.responseData;")
 
@@ -123,13 +138,13 @@ class Scraper(ABC):
         except Exception as ex:
             return None
 
-    # def replace_by_tokens(self, text: str, replace_pairs: list[tuple[str, str]]) -> str:
-    #     for str_to_replace, replace_tkn in replace_pairs:
-    #         text = text.replace(str_to_replace, replace_tkn)
-    #         space_indexes = [i for i, char in enumerate(str_to_replace) if char == ' ']
-    #         for index in space_indexes:
-    #             string_list = list(str_to_replace)
-    #             string_list[index] = ''
-    #             new_str_to_replace = ''.join(string_list)
-    #             text = text.replace(new_str_to_replace, replace_tkn)
-    #     return text    
+    def replace_by_tokens(self, text: str, replace_pairs: list[tuple[str, str]]) -> str:
+        for str_to_replace, replace_tkn in replace_pairs:
+            text = text.replace(str_to_replace, replace_tkn)
+            space_indexes = [i for i, char in enumerate(str_to_replace) if char == ' ']
+            for index in space_indexes:
+                string_list = list(str_to_replace)
+                string_list[index] = ''
+                new_str_to_replace = ''.join(string_list)
+                text = text.replace(new_str_to_replace, replace_tkn)
+        return text    

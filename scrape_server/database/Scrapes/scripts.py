@@ -102,7 +102,7 @@ def get_existing_odds(sportsbook: Sportsbook, include_code: bool=False):
     return {event.event_id: {odd.odd_id: odd for odd in event.odds.all()} for event in events}
 
 def get_selected_events(sportsbook: Sportsbook) -> tuple[list[Event], set]:
-    default_events = Event.objects.filter(is_default=True, selected=True).select_related('sport').prefetch_related(
+    default_events = Event.objects.filter(is_default=True, selected=True, sportsbook=sportsbook).select_related('sport').prefetch_related(
         'odds',
         'children', 
         'children__sportsbook',
@@ -131,7 +131,7 @@ def get_relevant_opportunities(odds: list[OddModel], sportsbook: Sportsbook) -> 
     return opportunities_dict
 
 def send_updated_events():
-    sportsbook = Sportsbook.objects.filter(is_default=True).first()
+    sportsbook = Sportsbook.objects.filter(is_default=True, selected=True).first()
     events, _ = get_selected_events(sportsbook)
     response = MatchResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).all())
     asyncio.run(broadcast_data(DataType.MATCHDATA, response.dict))
@@ -143,86 +143,66 @@ def clear_unused_events():
     with transaction.atomic():
         Event.objects.filter(sportsbook_id__in=sb_ids).delete()
 
+def link_all_events():
+    parents = Event.objects.filter(is_default=True).select_related(
+        'sport',
+    ).prefetch_related(
+        'children',
+        'children__sportsbook',
+        'children__sport',
+    ).all()
 
-# def link_all_events(sport_id: int):
-#     number_of_sports_books = Sportsbook.objects.filter(selected=True).count()
-#     events = Event.objects.filter(sport_id=sport_id).select_related(
-#         'sportsbook'
-#     ).prefetch_related(
-#         'first_event_links',
-#         'second_event_links',
-#         'first_event_links__first_event',
-#         'first_event_links__second_event',
-#         'second_event_links__first_event',
-#         'second_event_links__second_event',
-#         'first_event_links__first_event__sportsbook',
-#         'first_event_links__second_event__sportsbook',
-#         'second_event_links__first_event__sportsbook',
-#         'second_event_links__second_event__sportsbook',
-#     ).order_by('sportsbook_id').all()
+    parents_by_sport = defaultdict(list[Event])
+    for parent in parents: 
+        parents_by_sport[parent.sport.pk].append(parent)
 
-#     events_by_sportsbook = defaultdict(list[Event])
-#     for event in events:
-#         events_by_sportsbook[event.sportsbook.pk].append(event)
+    events = Event.objects.filter(is_default=False).select_related(
+        'sportsbook',
+        'sport',
+        'parent',
+    ).all()
 
-#     events_by_target = defaultdict(list[Event])
-#     events_for_targets = [event for event in events if event.number_of_links < number_of_sports_books]
-#     for event in events_for_targets:
-#         targets = event.get_targets()
-#         for sportsbook in targets: 
-#             events_by_target[sportsbook.pk].append(event)
-
-#     used_event_ids = defaultdict(list[int])
-#     event_links = []
-#     for target, events in events_by_target.items(): 
-#         events_to_be_linked = [event for event in events if event.pk not in used_event_ids[target]]
-#         target_events = events_by_sportsbook[target]
-#         if len(target_events) == 0 : continue
-#         for event in events_to_be_linked: 
-#             match_id, event_links = link_event(event, target_events, event_links, sport_id)
-#             if match_id: 
-#                 used_event_ids[event.sportsbook.pk].append(match_id)
+    events_to_link = [event for event in events if not event.has_parent]
+    events_to_update = []
+    events_by_parent = defaultdict(list[Event])
+    for event in events_to_link: 
+        best_match, events_by_parent = find_best_parent(event, parents_by_sport[event.sport.pk], events_by_parent)
+        if best_match is not None: 
+            event.add_parent(best_match)
+            events_to_update.append(event)
     
-#     with transaction.atomic():
-#         EventLink.objects.bulk_create(event_links)
+    with transaction.atomic():
+        Event.objects.bulk_update(events_to_update, ['parent'])
 
-# def link_event(event_to_be_linked: Event, target_events: list[Event], event_links: list[EventLink], sport_id: int) -> tuple[int, list[EventLink]]:
-#     potential_matches: list[Event] = [evnt for evnt in target_events if evnt.is_in_time_window(event_to_be_linked)]
-#     best_score = 0
-#     best_event = None
-#     for pmatch in potential_matches:
-#         score = (fuzz.token_sort_ratio(pmatch.first_name.strip().lower(), event_to_be_linked.first_name.strip().lower()) +
-#                     fuzz.token_sort_ratio(pmatch.second_name.strip().lower(), event_to_be_linked.second_name.strip().lower())) / 2.0
-#         if score > best_score:
-#             best_score = score
-#             best_event = pmatch
+def find_best_parent(event_to_be_linked: Event, parents: list[Event], events_by_parent: dict[int, list[Event]]) -> Event:
+    best_score = 0
+    best_parent = None
+    for parent in parents:
+        score = (fuzz.token_sort_ratio(parent.home.lower(), event_to_be_linked.home.lower()) +
+                    fuzz.token_sort_ratio(parent.away.lower(), event_to_be_linked.away.lower())) / 2.0
+        if score > best_score:
+            best_score = score
+            best_parent = parent
+    
+    if best_parent and best_score >= 70:
+        potential_link_indices = [index for index, link in enumerate(event_links) if link.is_potential_link(best_event, event_to_be_linked)]
+        if len(potential_link_indices) == 1: 
+            link_index = potential_link_indices[0]
+            if event_links[link_index].score < best_score: 
+                event_links[link_index].first_event = event_to_be_linked
+                event_links[link_index].score = best_score
 
-#     if best_event and best_score >= 70:
-#         potential_link_indices = [index for index, link in enumerate(event_links) if link.is_potential_link(best_event, event_to_be_linked)]
-#         if len(potential_link_indices) == 1: 
-#             link_index = potential_link_indices[0]
-#             if event_links[link_index].score < best_score: 
-#                 event_links[link_index].first_event = event_to_be_linked
-#                 event_links[link_index].score = best_score
-
-#             return None, event_links 
+            return None, event_links 
            
-#         position, existing_link = best_event.get_existing_link(event_to_be_linked.sportsbook)
-#         if existing_link and existing_link.score < best_score:
-#             existing_link.change_link(event_to_be_linked, position, best_score)
-#             return None, event_links 
+        position, existing_link = best_event.get_existing_link(event_to_be_linked.sportsbook)
+        if existing_link and existing_link.score < best_score:
+            existing_link.change_link(event_to_be_linked, position, best_score)
+            return None, event_links 
         
-#         if not existing_link:
-#             event_link = EventLink(
-#                 sport_id = sport_id,
-#                 first_event = event_to_be_linked,
-#                 second_event = best_event,
-#                 score = best_score
-#             )
-#             event_links.append(event_link)
-#             return best_event.pk, event_links 
+        if not existing_link:
+            return best_event.pk 
         
-#     return None, event_links 
+    return None, event_links 
 
 # def link_odds(sport_id: int):
 #     event_links = EventLink.objects.filter(sport_id=sport_id).select_related(

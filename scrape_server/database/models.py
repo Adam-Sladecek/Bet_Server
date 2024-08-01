@@ -21,7 +21,7 @@ class Sportsbook(models.Model):
 
 class Event(models.Model):
     event_id = models.IntegerField()
-    time = models.CharField(max_length=30)
+    time = models.CharField(max_length=60)
     home = models.CharField(max_length=50)
     away = models.CharField(max_length=50)
     is_default = models.BooleanField(default=False)
@@ -36,7 +36,10 @@ class Event(models.Model):
         if not parent.is_default: 
             raise ValueError(f"Parent must be from default sportsbook.")
         self.parent = parent
-        self.save()
+
+    @property
+    def has_parent(self) -> bool:
+        return self.parent is not None    
 
 class Odd(models.Model):
     odd_id = models.IntegerField()
@@ -55,7 +58,6 @@ class Odd(models.Model):
         if not parent.is_default: 
             raise ValueError(f"Parent must be from default sportsbook.")
         self.parent = parent
-        self.save()
 
     def can_be_linked(self, odd: Odd) -> bool:
         return self.opportunity.parent == odd.opportunity

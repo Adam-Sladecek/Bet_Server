@@ -35,7 +35,8 @@ def set_config(request):
             sport.selected = sport.pk in sports_ids
 
         sb_ids = [sb.id for sb in data.sportsbooks]
-        sb_ids.extend([sb.id for sb in data.default_sportsbooks])
+        default_sb_ids = [sb.id for sb in data.default_sportsbooks]
+        sb_ids.extend(default_sb_ids)
 
         all_sbs = Sportsbook.objects.all()
         for sb in all_sbs:
