@@ -12,7 +12,6 @@ run server from Scraping_Server_V3/scrape_server:
 
 ```bash
 python manage.py runserver
-$env:DRIVERS = 5 ; python manage.py runserver
 ```
 create migrations running
 

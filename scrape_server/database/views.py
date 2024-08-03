@@ -2,11 +2,11 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from .models import Opportunity, Sportsbook, Sport, Event, Odd
-# from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_exempt
 from .Scrapes.dataclass_models import ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, EventResponse, OddResponse
 from django.db import transaction
 from collections import defaultdict
+# from django.middleware.csrf import get_token
 
 @require_GET
 def get_config(request):

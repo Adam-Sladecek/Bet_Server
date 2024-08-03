@@ -1,5 +1,6 @@
 from __future__ import annotations
 from django.db import models
+from fuzzywuzzy import fuzz
 
 class Sport(models.Model):
     name = models.CharField(max_length=20, unique=True)
@@ -37,6 +38,9 @@ class Event(models.Model):
             raise ValueError(f"Parent must be from default sportsbook.")
         self.parent = parent
 
+    def get_score(self, event: Event) -> float:
+        return (fuzz.token_sort_ratio(self.home.lower(), event.home.lower()) +
+                    fuzz.token_sort_ratio(self.away.lower(), event.away.lower())) / 2.0
     @property
     def has_parent(self) -> bool:
         return self.parent is not None    
@@ -61,6 +65,10 @@ class Odd(models.Model):
 
     def can_be_linked(self, odd: Odd) -> bool:
         return self.opportunity.parent == odd.opportunity
+    
+    @property
+    def has_parent(self) -> bool:
+        return self.parent is not None
 
 class Opportunity(models.Model):
     description = models.CharField(max_length=200)

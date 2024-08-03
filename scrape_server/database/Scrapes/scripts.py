@@ -1,15 +1,12 @@
 import asyncio
 from enum import Enum
 import logging
-from fuzzywuzzy import fuzz
 from .dataclass_models import EventModel, OddModel, MatchResponse
-# from Utils import odds_to_implied_pb, get_profit, stake_for_arbitrage_bet
-from database.models import Sportsbook, Sport, Opportunity, Odd, Event
+from database.models import Sportsbook, Opportunity, Odd, Event
 from django.db import transaction
-from django.db.models import Q, F, Value, FloatField, ExpressionWrapper, Sum
-import pytz
+from django.db.models import Q
 from collections import defaultdict
-from ..enums import DataType, TaskState, Movement
+from ..enums import DataType
 from channels.layers import get_channel_layer
 
 def update_events(events_list: list[EventModel], sportsbook: Sportsbook):
@@ -163,14 +160,24 @@ def link_all_events():
     ).all()
 
     events_to_link = [event for event in events if not event.has_parent]
-    events_to_update = []
     events_by_parent = defaultdict(list[Event])
     for event in events_to_link: 
-        best_match, events_by_parent = find_best_parent(event, parents_by_sport[event.sport.pk], events_by_parent)
-        if best_match is not None: 
-            event.add_parent(best_match)
-            events_to_update.append(event)
+        events_by_parent = find_best_parent(event, parents_by_sport[event.sport.pk], events_by_parent)
     
+    events_to_update = []
+
+    if -1 in events_by_parent:
+        unassigned_events = events_by_parent.pop(-1)
+        for event in unassigned_events: 
+            event.parent = None
+            events_to_update.append(event)
+
+    for key, events in events_by_parent.items():
+        parent = Event.objects.get(pk=key)
+        for event in events: 
+            event.add_parent(parent)
+            events_to_update.append(event)
+
     with transaction.atomic():
         Event.objects.bulk_update(events_to_update, ['parent'])
 
@@ -178,209 +185,56 @@ def find_best_parent(event_to_be_linked: Event, parents: list[Event], events_by_
     best_score = 0
     best_parent = None
     for parent in parents:
-        score = (fuzz.token_sort_ratio(parent.home.lower(), event_to_be_linked.home.lower()) +
-                    fuzz.token_sort_ratio(parent.away.lower(), event_to_be_linked.away.lower())) / 2.0
+        score = parent.get_score(event_to_be_linked)
         if score > best_score:
             best_score = score
             best_parent = parent
     
     if best_parent and best_score >= 70:
-        potential_link_indices = [index for index, link in enumerate(event_links) if link.is_potential_link(best_event, event_to_be_linked)]
-        if len(potential_link_indices) == 1: 
-            link_index = potential_link_indices[0]
-            if event_links[link_index].score < best_score: 
-                event_links[link_index].first_event = event_to_be_linked
-                event_links[link_index].score = best_score
+        existing_child_index = next((index for index, event in enumerate(events_by_parent[best_parent.pk]) if event.sportsbook == event_to_be_linked.sportsbook), None)
+        if existing_child_index is not None:
+            if best_parent.get_score(event_to_be_linked) > best_parent.get_score(events_by_parent[best_parent.pk][existing_child_index]): 
+                events_by_parent[best_parent.pk][existing_child_index] = event_to_be_linked
 
-            return None, event_links 
-           
-        position, existing_link = best_event.get_existing_link(event_to_be_linked.sportsbook)
-        if existing_link and existing_link.score < best_score:
-            existing_link.change_link(event_to_be_linked, position, best_score)
-            return None, event_links 
-        
-        if not existing_link:
-            return best_event.pk 
-        
-    return None, event_links 
+            return events_by_parent
 
-# def link_odds(sport_id: int):
-#     event_links = EventLink.objects.filter(sport_id=sport_id).select_related(
-#         'first_event',
-#         'second_event'
-#     ).prefetch_related(
-#         'first_event__odds',
-#         'second_event__odds',
-#         'first_event__odds__opportunity',
-#         'second_event__odds__opportunity',
-#         'first_event__odds__opportunity__parent',
-#         'second_event__odds__opportunity__parent',
-#         'first_event__odds__opportunity__parent__linked_opportunity',
-#         'second_event__odds__opportunity__parent__linked_opportunity',
-#         'first_event__odds__first_odd_links',
-#         'first_event__odds__first_odd_links__second_odd',
-#         'first_event__odds__first_odd_links__second_odd__event',
-#         'first_event__odds__second_odd_links',
-#         'first_event__odds__second_odd_links__first_odd',
-#         'first_event__odds__second_odd_links__first_odd__event',
-#         'second_event__odds__first_odd_links',
-#         'second_event__odds__first_odd_links__second_odd',
-#         'second_event__odds__first_odd_links__second_odd__event',
-#         'second_event__odds__second_odd_links',
-#         'second_event__odds__second_odd_links__first_odd',
-#         'second_event__odds__second_odd_links__first_odd__event',
-#     ).all()
-#     odd_links = []
-#     for event_link in event_links: 
-#         first_odds = [odd for odd in event_link.first_event.odds.all() if not odd.is_linked_to_event(event_link.second_event)]
-#         second_odds = [odd for odd in event_link.second_event.odds.all() if not odd.is_linked_to_event(event_link.first_event)]
-#         linked = set()
-#         for odd1 in first_odds:
-#             for index2, odd2 in enumerate(second_odds):
-#                 if index2 in linked: continue
-#                 if odd1.can_be_linked(odd2):
-#                     linked.add(index2)
-#                     odd_links.append(OddLink(
-#                         first_odd = odd1,
-#                         second_odd = odd2,
-#                         sport_id = sport_id,
-#                     ))
-#                     break
-#     with transaction.atomic():
-#         OddLink.objects.bulk_create(odd_links)
-  
-# def get_arbitrage_odds(sport_id: int):
-#     potential_odd_pairs = OddLink.objects.filter(sport_id=sport_id).select_related(
-#         'first_odd', 
-#         'second_odd',
-#         'first_odd__opportunity',
-#         'second_odd__opportunity',
-#         'first_odd__event',
-#         'second_odd__event',
-#         'first_odd__event__sportsbook',
-#         'second_odd__event__sportsbook',
-#     )
-#     pairs_with_arbitrage = potential_odd_pairs.annotate(
-#         first_odd_arbitrage=ExpressionWrapper(
-#             Value(100.0) / F('first_odd__odd'),
-#             output_field=FloatField()
-#         ),
-#         second_odd_arbitrage=ExpressionWrapper(
-#             Value(100.0) / F('second_odd__odd'),
-#             output_field=FloatField()
-#         ),
-#         total_arbitrage=Sum(F('first_odd_arbitrage') + F('second_odd_arbitrage'))
-#     ).filter(total_arbitrage__lt=99.5).all()
+        existing_child = best_parent.children.filter(sportsbook=event_to_be_linked.sportsbook).first()
+        if existing_child is not None:
+            if best_parent.get_score(event_to_be_linked) > best_parent.get_score(existing_child): 
+                events_by_parent[-1].append(existing_child)
+                events_by_parent[best_parent.pk].append(event_to_be_linked)
+
+            return events_by_parent
+
+        events_by_parent[best_parent.pk].append(event_to_be_linked)
     
-#     update_arbitrage_bets(pairs_with_arbitrage, sport_id)
+    return events_by_parent
 
-# def update_arbitrage_bets(odd_links: list[OddLink], sport_id: int):
-#     if not odd_links:
-#         with transaction.atomic():
-#             ArbitrageBet.objects.filter(sport_id=sport_id).delete()
-#         return
+def link_odds():
+    parents = Event.objects.filter(is_default=True).prefetch_related(
+        'odds',
+        'odds__opportunity',
+        'children',
+        'children__odds',
+        'children__odds__opportunity',
+        'children__odds__opportunity__parent',
+    ).all()
 
-#     sport = Sport.objects.get(id=sport_id)
-#     arbitrage_bets = ArbitrageBet.objects.prefetch_related(
-#         'details'
-#     ).filter(sport_id=sport_id).all()
-#     arbitrage_bets_dict = {(arbitrage_bet.first_odd_id, arbitrage_bet.second_odd_id): arbitrage_bet for arbitrage_bet in arbitrage_bets}
-#     bets_to_update = []
-#     details_to_update = []
-#     new_bets = []
-#     new_details = []
-#     for oddlink in odd_links:
-#         if (oddlink.first_odd.pk, oddlink.second_odd.pk) in arbitrage_bets_dict:
-#             arbitrage_bet = arbitrage_bets_dict[(oddlink.first_odd.pk, oddlink.second_odd.pk)]
-#             arbitrage_bet.update_instance(oddlink)
-#             bets_to_update.append(arbitrage_bet)
-#             details = arbitrage_bet.details.all()
-#             details[0].update_instance(oddlink.first_odd, oddlink)
-#             details[1].update_instance(oddlink.second_odd, oddlink)
-#             details_to_update.extend([details[0], details[1]])
-#             continue
+    odds_to_update = []
+    for parent in parents: 
+        parent_odds= parent.odds.all()
+        children = parent.children.all()
+        for child in children: 
+            unassigned_odds = [odd for odd in child.odds.all() if not odd.has_parent]
+            for odd in unassigned_odds: 
+                for parent_odd in parent_odds: 
+                    if odd.can_be_linked(parent_odd): 
+                        odd.add_parent(parent_odd)
+                        odds_to_update.append(odd)
+                        break
 
-#         new_bet = ArbitrageBet(
-#             first_odd_id=oddlink.first_odd.pk,
-#             second_odd_id=oddlink.second_odd.pk,
-#             sport_id=sport_id,
-#             sport_name=sport.name,
-#             profit=get_profit(odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
-#         )
-#         first_name = oddlink.first_odd.event.first_name
-#         second_name = oddlink.second_odd.event.second_name
-#         details = [
-#             ArbitrageBetDetail(
-#                 arbitrage_bet=new_bet,
-#                 player_name=first_name,
-#                 sportsbook_name=oddlink.first_odd.event.sportsbook.name,
-#                 opportunity_name=oddlink.first_odd.opportunity.opp_description.replace('*1*', first_name).replace('*2*', second_name),
-#                 odd=oddlink.first_odd.odd,
-#                 amount=stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.first_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
-#             ),
-#             ArbitrageBetDetail(
-#                 arbitrage_bet=new_bet,
-#                 player_name=second_name,
-#                 sportsbook_name=oddlink.second_odd.event.sportsbook.name,
-#                 opportunity_name=oddlink.second_odd.opportunity.opp_description.replace('*1*', first_name).replace('*2*', second_name),
-#                 odd=oddlink.second_odd.odd,
-#                 amount=stake_for_arbitrage_bet(odds_to_implied_pb([oddlink.second_odd.odd]), odds_to_implied_pb([oddlink.first_odd.odd, oddlink.second_odd.odd]))
-#             )
-#         ]
-#         new_bets.append(new_bet)
-#         new_details.extend(details)
-
-#     used_pairs = [(oddlink.first_odd.pk, oddlink.second_odd.pk) for oddlink in odd_links]
-#     with transaction.atomic(): 
-#         ArbitrageBet.objects.bulk_update(bets_to_update, ['updated', 'profit'])
-#         ArbitrageBetDetail.objects.bulk_update(details_to_update, ['odd', 'amount'])
-#         ArbitrageBet.objects.bulk_create(new_bets)
-#         ArbitrageBetDetail.objects.bulk_create(new_details)
-#         arbitrage_bets_to_delete = [arbitrage_bet for key, arbitrage_bet in arbitrage_bets_dict.items() if key not in used_pairs]
-#         for bet in arbitrage_bets_to_delete: 
-#             bet.delete()
-
-# def serialize_arbitrage_bet(arbitrage_bet: ArbitrageBet):
-#     slovakia_timezone = pytz.timezone('Europe/Bratislava')
-#     local_time = arbitrage_bet.updated.astimezone(slovakia_timezone)
-#     return {
-#         'id': arbitrage_bet.pk,
-#         'updated': local_time.strftime('%Y-%m-%d %H:%M:%S'),
-#         'first_odd_id': arbitrage_bet.first_odd_id,
-#         'second_odd_id': arbitrage_bet.second_odd_id,
-#         'sport_id': arbitrage_bet.sport_id,
-#         'sport_name': arbitrage_bet.sport_name,
-#         'profit': float(arbitrage_bet.profit),
-#         'details': [
-#             {
-#                 'id': detail.pk,
-#                 'player_name': detail.player_name,
-#                 'sportsbook_name': detail.sportsbook_name,
-#                 'opportunity_name': detail.opportunity_name,
-#                 'odd': float(detail.odd),
-#                 'amount': float(detail.amount)
-#             }
-#             for detail in arbitrage_bet.details.all()
-#         ]
-#     }
-
-# def get_all_arbitrage_bets(): 
-#     all_bets = ArbitrageBet.objects.prefetch_related(
-#         'details'
-#     ).all()
-#     return [serialize_arbitrage_bet(arbitrage_bet) for arbitrage_bet in all_bets]
-
-# async def send_data_to_clients(arbitrage_bets):
-#     channel_layer = get_channel_layer()
-#     group_name = 'scrape_updates'
-#     await channel_layer.group_send(
-#         group_name,
-#         {
-#             'type': 'group_message',
-#             'data_type': DataType.MATCHDATA,
-#             'data': arbitrage_bets,
-#         }
-#     ) 
+    with transaction.atomic():
+        Odd.objects.bulk_update(odds_to_update, ['parent'])
 
 async def broadcast_data(data_type, data):
     if isinstance(data, Enum):

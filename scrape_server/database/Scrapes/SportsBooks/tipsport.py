@@ -163,7 +163,7 @@ class TipsportScraper(Scraper):
                 event.time = time    
                 events_to_update.append(event)  
             except Exception as ex:
-                print(f"Exception in map_events_selected Nike: {str(ex)}.")
+                print(f"Exception in map_events_selected Tipsport: {str(ex)}.")
                 continue       
         
         return events_to_update, events_to_delete
@@ -194,7 +194,7 @@ class TipsportScraper(Scraper):
                     odd.locked = not cell["active"]
                     odds_to_update.append(odd)
             except Exception as ex:
-                print(f"Exception in map_odds_selected Nike: {str(ex)}.")
+                print(f"Exception in map_odds_selected Tipsport: {str(ex)}.")
                 continue                   
         
         return odds_to_update
