@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import asdict, dataclass
-from ..models import Odd, Opportunity, Sport, Sportsbook, Event
+from ..models import Odd, Opportunity, Sport, Sportsbook, Event, SportsbookMarket
 
 @dataclass(frozen=True)
 class EventModel: 
@@ -246,4 +246,36 @@ class OpportunityChildrenResponse:
     @property
     def dict(self) -> dict:
         return asdict(self)
+    
+@dataclass(frozen=True)
+class Market: 
+    id: int
+    name: str
+
+    @classmethod
+    def data_class_list_from_models(cls, markets: list[SportsbookMarket]) -> list[Market]: 
+        return [cls(id=market.pk, name=market.value) for market in markets]
+    
+@dataclass(frozen=True)
+class SbWithMarkets: 
+    sportsbook_id: int
+    markets: list[Market]
+
+    @classmethod
+    def data_class_from_models(cls, sportsbook: Sportsbook) -> SbWithMarkets:
+        result = Market.data_class_list_from_models(sportsbook.markets.all()) 
+        return cls(sportsbook_id=sportsbook.pk, markets=result)
+    
+@dataclass(frozen=True)
+class MarketResponse: 
+    sb_markets: list[SbWithMarkets]
+
+    @classmethod # prefetch markets 
+    def data_class_from_models(cls, sportsbooks: list[Sportsbook]) -> MarketResponse: 
+        result = [SbWithMarkets.data_class_from_models(sportsbook) for sportsbook in sportsbooks]
+        return cls(sb_markets=result)
+
+    @property
+    def dict(self) -> dict:
+        return asdict(self)    
     

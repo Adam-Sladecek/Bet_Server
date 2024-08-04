@@ -1,7 +1,7 @@
 from .scraper import Scraper
 from ..dataclass_models import EventModel, OddModel
 from ..scripts import get_existing_odds
-from ...models import Odd, Sport, Event
+from ...models import Odd, Sport, Event, SportsbookMarket
 
 class NikeScraper(Scraper):
     def __enter__(self):
@@ -61,15 +61,13 @@ class NikeScraper(Scraper):
             raise Exception('No details retrieved.')
         odds_to_create: list[OddModel] = []
         odds_to_update: list[Odd] = []
-        forbidden_market_ids = ['9440', '8223', '6389', '10766', '10767', '10783',
-                                '8474', '10782', '9278', '9990', '9993', '9994',
-                                '10763']
-        forbidden_set = set(forbidden_market_ids)
+        
+        allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         existing_odds = get_existing_odds(self.sportsbook, True)
         for dataset in data:
             for bet in dataset[0][1]['bets']:
                 try:
-                    if bet['marketId'] in forbidden_set: continue
+                    if bet['marketId'] not in allowed_market_ids: continue
                     odd_id = int(bet['id'])
                     home = bet["participants"][0]['sk']
                     away = bet["participants"][1]['sk'] if len(bet["participants"]) == 2 else None

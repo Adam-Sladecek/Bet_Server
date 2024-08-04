@@ -2,7 +2,7 @@ import asyncio
 from ..dataclass_models import EventModel, OddModel
 from ..common import getCommonDriver
 from ..scripts import get_existing_odds
-from ...models import Odd, Event, Sport
+from ...models import Odd, Event, Sport, SportsbookMarket
 from .scraper import Scraper
 
 class TipsportScraper(Scraper): 
@@ -44,9 +44,7 @@ class TipsportScraper(Scraper):
         for match in matches: 
             try:
                 names = match["nameFull"].split(" - ")
-                if len(names) != 2: 
-                    print(f"Wrong name mapping: {str(match)}.")
-                    continue
+                if len(names) != 2: continue
                 
                 sport_id = sport_ids.get(match["sportId"], None)
                 if sport_id is None: continue
@@ -83,6 +81,8 @@ class TipsportScraper(Scraper):
         odds_to_update: list[Odd] = []
         if all(element is None for element in data):
             raise Exception('No details retrieved.')
+        
+        allowed_selection_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         existing_odds = get_existing_odds(self.sportsbook)
         for dataset in data: 
             if dataset is None: continue
@@ -97,6 +97,7 @@ class TipsportScraper(Scraper):
                 existing_match_odds = existing_odds[match_id]
 
                 for table in match["eventTables"]:
+                    if table["mySelectionId"] not in allowed_selection_ids: continue
                     opp_name = table["name"]
                     for box in table["boxes"]:
                         box_name = box["name"] if "name" in box else None

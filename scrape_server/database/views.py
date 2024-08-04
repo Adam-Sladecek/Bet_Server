@@ -1,9 +1,9 @@
 import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
-from .models import Opportunity, Sportsbook, Sport, Event, Odd
+from .models import Opportunity, Sportsbook, Sport, Event, Odd, SportsbookMarket
 from django.views.decorators.csrf import csrf_exempt
-from .Scrapes.dataclass_models import ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, EventResponse, OddResponse
+from .Scrapes.dataclass_models import ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, EventResponse, OddResponse, MarketResponse
 from django.db import transaction
 from collections import defaultdict
 # from django.middleware.csrf import get_token
@@ -157,6 +157,42 @@ def change_event_odds(request, pk: int):
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
     
+@require_GET
+def get_all_markets(request):
+    try:
+        response = get_markets()
+        return JsonResponse(response.dict, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)    
+    
+@csrf_exempt
+@require_POST
+def add_market(request):
+    try:
+        data = json.loads(request.body)
+        name = data.get('name')
+        sbid = data.get('sbid')
+        sportsbook = Sportsbook.objects.get(pk=sbid)
+        with transaction.atomic():
+            SportsbookMarket.objects.create(value=name, sportsbook=sportsbook)
+
+        response = get_markets()
+        return JsonResponse(response.dict, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400) 
+    
+@csrf_exempt
+def remove_market(request, pk: int):
+    try:
+        with transaction.atomic():
+            market = SportsbookMarket.objects.get(pk=pk)
+            market.delete()
+
+        response = get_markets()
+        return JsonResponse(response.dict, status=200)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)       
+       
 def get_opportunities_for_factory() -> OpportunityFactoryResponse: 
     parents = Opportunity.objects.select_related('sport', 'sportsbook').filter(is_default=True).order_by('sport__pk').all()
     opportunities = Opportunity.objects.select_related('sport', 'sportsbook', 'parent').filter(is_default=False, parent__isnull=True).order_by('sport__pk').all()
@@ -188,6 +224,11 @@ def get_event_oppotunities(pk: int) -> OddResponse:
             'odds__opportunity',
         ).get(pk=pk)
     return OddResponse.dataclass_from_models(event.odds.order_by('-opportunity__prefered', '-selected').all(), event)
+
+def get_markets() -> MarketResponse:
+    sportsbooks = Sportsbook.objects.prefetch_related('markets').all()
+    return MarketResponse.data_class_from_models(sportsbooks)
+
 
 # TODO: add ngrok
 # TODO: users and JWT authorization

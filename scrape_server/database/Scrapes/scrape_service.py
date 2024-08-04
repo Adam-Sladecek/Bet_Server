@@ -23,10 +23,8 @@ def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, e
                     continue
 
                 if command == Command.IMPORT:
-                    print(f"Importing data from {sportsbook.name}.")
                     s.import_all_data()
                 else:    
-                    print(f"Fetching data from {sportsbook.name}.")
                     s.get_data()
 
                 result_queue.put(command)
@@ -55,7 +53,7 @@ def group_results(command_queues: dict[int, queue.Queue], result_queue: queue.Qu
             if result_dictionary[command.value] == number_of_sbs:
                 if command == Command.REFRESH: 
                     send_updated_events()
-                    asyncio.run(asyncio.sleep(2.9))
+                    asyncio.run(asyncio.sleep(0.9))
                 else:
                     link_events_and_odds()
                     asyncio.run(broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))

@@ -20,6 +20,10 @@ class Sportsbook(models.Model):
     table_tennis_url = models.CharField(max_length=20)
     box_url = models.CharField(max_length=20)
 
+class SportsbookMarket(models.Model):
+    value = models.CharField(max_length=50)
+    sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE, related_name='markets')
+
 class Event(models.Model):
     event_id = models.IntegerField()
     time = models.CharField(max_length=60)
