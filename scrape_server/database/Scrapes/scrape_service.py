@@ -55,7 +55,7 @@ def group_results(command_queues: dict[int, queue.Queue], result_queue: queue.Qu
             if result_dictionary[command.value] == number_of_sbs:
                 if command == Command.REFRESH: 
                     send_updated_events()
-                    asyncio.run(asyncio.sleep(4.9))
+                    asyncio.run(asyncio.sleep(2.9))
                 else:
                     link_events_and_odds()
                     asyncio.run(broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))

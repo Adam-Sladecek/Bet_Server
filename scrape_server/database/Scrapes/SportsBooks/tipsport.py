@@ -62,7 +62,6 @@ class TipsportScraper(Scraper):
                     selected=False, 
                     sportsbook_id=self.sportsbook.pk, 
                     sport_id=sport_id, 
-                    parent_id=None
                 ))
             except Exception as ex: 
                 print(f"Exception in map_events Tipsport: {str(ex)}.")
@@ -138,7 +137,6 @@ class TipsportScraper(Scraper):
                                 event_id = match_id,
                                 sportsbook_id = self.sportsbook.pk,
                                 description = description,
-                                parent_id = None, 
                                 market_id = ""
                             ))   
                                  
@@ -182,7 +180,7 @@ class TipsportScraper(Scraper):
                     for box in table["boxes"]:
                         for cell in box["cells"]:
                             bet_dict[cell["id"]] = cell
-                for odd in event.odds.filter(selected=True).all(): 
+                for odd in event.odds.filter(parent__selected=True).all(): 
                     cell = bet_dict.get(odd.odd_id, None)
                     if cell is None: 
                         odd.locked = True

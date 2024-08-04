@@ -49,7 +49,6 @@ class NikeScraper(Scraper):
                         selected=False, 
                         sportsbook_id=self.sportsbook.pk, 
                         sport_id=sport_id, 
-                        parent_id=None
                     ))
             except Exception as ex: 
                 print(f"Exception in map_events Nike: {str(ex)}.")
@@ -63,7 +62,8 @@ class NikeScraper(Scraper):
         odds_to_create: list[OddModel] = []
         odds_to_update: list[Odd] = []
         forbidden_market_ids = ['9440', '8223', '6389', '10766', '10767', '10783',
-                                '8474', '10782', '9278', '9990', '9993', '9994']
+                                '8474', '10782', '9278', '9990', '9993', '9994',
+                                '10763']
         forbidden_set = set(forbidden_market_ids)
         existing_odds = get_existing_odds(self.sportsbook, True)
         for dataset in data:
@@ -104,7 +104,6 @@ class NikeScraper(Scraper):
                             event_id = event_id,
                             sportsbook_id=self.sportsbook.pk,
                             description = description,
-                            parent_id=None, 
                             market_id=bet['marketId']
                         ))        
                 except Exception as ex:

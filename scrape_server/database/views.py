@@ -70,9 +70,7 @@ def add_child_to_parent_opportunity(request, parentid: int, childid: int):
         with transaction.atomic():
             opportunity.add_parent(parent)
 
-        response = get_opportunities_for_factory()
-
-        return JsonResponse(response.dict, status=200)  
+        return JsonResponse({}, status=200)  
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)   
 
@@ -91,11 +89,23 @@ def remove_child_from_parent_opportunity(request, pk: int):
             opportunity = Opportunity.objects.get(id=pk)
             opportunity.remove_parent()
 
-        response = get_opportunities_for_children()
-
-        return JsonResponse(response.dict, status=200)  
+        return JsonResponse({}, status=200)  
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)   
+
+@csrf_exempt
+def set_prefered_opportunity(request, pk: int):
+    try:
+        data = json.loads(request.body)
+        value = bool(data.get('value'))
+        with transaction.atomic():
+            opportunity = Opportunity.objects.get(id=pk)
+            opportunity.prefered = value
+            opportunity.save()
+
+        return JsonResponse({}, status=200)  
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)       
 
 @require_GET
 def get_monitored_events(request):
@@ -135,7 +145,7 @@ def change_event_odds(request, pk: int):
     try:
         data = json.loads(request.body)
         ids = data.get('ids')
-        event = Event.objects.filter(pk=pk).first()
+        event = Event.objects.prefetch_related('odds').get(pk=pk)
         odds_to_update = []
         for odd in event.odds.all(): 
             odd.selected = odd.pk in ids
@@ -148,23 +158,22 @@ def change_event_odds(request, pk: int):
         return JsonResponse({'message': str(e)}, status=400)
     
 def get_opportunities_for_factory() -> OpportunityFactoryResponse: 
-    parents = Opportunity.objects.select_related('sport').filter(is_default=True).all()
-    opportunities = Opportunity.objects.select_related('sport', 'sportsbook').all()
-    opportunities = [opp for opp in opportunities if not opp.has_parent]
+    parents = Opportunity.objects.select_related('sport', 'sportsbook').filter(is_default=True).order_by('sport__pk').all()
+    opportunities = Opportunity.objects.select_related('sport', 'sportsbook', 'parent').filter(is_default=False, parent__isnull=True).order_by('sport__pk').all()
     response = OpportunityFactoryResponse.data_class_from_models(parents, opportunities)
     return response
 
 def get_opportunities_for_children() -> OpportunityChildrenResponse:
-    opportunity_dict = defaultdict(list[Opportunity])
-    parents = Opportunity.objects.select_related('sport').prefetch_related(
+    touples = []
+    parents = Opportunity.objects.select_related('sport', 'sportsbook').prefetch_related(
         'children',
         'children__sport',
         'children__sportsbook',
     ).filter(is_default=True).all()
     for parent in parents: 
-        opportunity_dict[parent.opp_description] = [child for child in parent.children.all()]
+        touples.append((parent, [child for child in parent.children.all()]))
 
-    response = OpportunityChildrenResponse.data_class_from_models(opportunity_dict)
+    response = OpportunityChildrenResponse.data_class_from_models(touples)
     return response 
 
 def get_default_events() -> EventResponse: 
@@ -173,13 +182,12 @@ def get_default_events() -> EventResponse:
     return response
 
 def get_event_oppotunities(pk: int) -> OddResponse:
-    event = Event.objects.filter(pk=pk).prefetch_related(
+    event = Event.objects.prefetch_related(
             'odds',
             'odds__sportsbook',
             'odds__opportunity',
-            'odds__parent',
-        ).first()
-    return OddResponse.dataclass_from_models(event.odds.order_by('-opportunity__prefered', '-selected').all())
+        ).get(pk=pk)
+    return OddResponse.dataclass_from_models(event.odds.order_by('-opportunity__prefered', '-selected').all(), event)
 
 # TODO: add ngrok
 # TODO: users and JWT authorization

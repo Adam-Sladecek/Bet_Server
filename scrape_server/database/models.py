@@ -41,10 +41,7 @@ class Event(models.Model):
     def get_score(self, event: Event) -> float:
         return (fuzz.token_sort_ratio(self.home.lower(), event.home.lower()) +
                     fuzz.token_sort_ratio(self.away.lower(), event.away.lower())) / 2.0
-    @property
-    def has_parent(self) -> bool:
-        return self.parent is not None    
-
+    
 class Odd(models.Model):
     odd_id = models.IntegerField()
     code= models.IntegerField()
@@ -66,10 +63,6 @@ class Odd(models.Model):
     def can_be_linked(self, odd: Odd) -> bool:
         return self.opportunity.parent == odd.opportunity
     
-    @property
-    def has_parent(self) -> bool:
-        return self.parent is not None
-
 class Opportunity(models.Model):
     description = models.CharField(max_length=200)
     is_default = models.BooleanField(default=False)
@@ -98,7 +91,3 @@ class Opportunity(models.Model):
     def remove_parent(self): 
         self.parent = None
         self.save()
-
-    @property
-    def has_parent(self) -> bool:
-        return self.parent is not None

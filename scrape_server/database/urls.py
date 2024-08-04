@@ -1,6 +1,6 @@
 from .views import (get_config, set_config, get_opportunities_to_link, add_child_to_parent_opportunity,
                     get_opportunity_children, remove_child_from_parent_opportunity, change_monitored_events,
-                    change_event_odds, get_monitored_events, get_event_odds)
+                    change_event_odds, get_monitored_events, get_event_odds, set_prefered_opportunity)
 from django.urls import path
 
 urlpatterns = [
@@ -10,6 +10,7 @@ urlpatterns = [
     path('opportunity/<int:parentid>/add/<int:childid>', add_child_to_parent_opportunity, name='add_child_to_parent_opportunity'),
     path('opportunity/children/get', get_opportunity_children, name='get_opportunity_children'),
     path('opportunity/children/remove/<int:pk>', remove_child_from_parent_opportunity, name='remove_child_from_parent_opportunity'),
+    path('opportunity/prefered/<int:pk>', set_prefered_opportunity, name='set_prefered_opportunity'),
     path('event', get_monitored_events, name='get_monitored_events'),
     path('event/update', change_monitored_events, name='change_monitored_events'),
     path('event/<int:pk>/odds', get_event_odds, name='get_event_odds'),
