@@ -2,7 +2,7 @@ import asyncio
 from enum import Enum
 import logging
 from .dataclass_models import EventModel, OddModel, MatchResponse
-from database.models import Sportsbook, Opportunity, Odd, Event
+from database.models import Sportsbook, Opportunity, Odd, Event, Sport
 from django.db import transaction
 from django.db.models import Q
 from collections import defaultdict
@@ -54,10 +54,11 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sport
 
     new_odds = []
     new_opportunities: list[Opportunity] = []
-    opportunities_dict = get_relevant_opportunities(odds_to_create, sportsbook)
+    opportunities_dict_by_sport = get_relevant_opportunities(odds_to_create, sportsbook)
 
     for odd in odds_to_create:
         event = events_dict[odd.event_id]
+        opportunities_dict = opportunities_dict_by_sport[event.sport.pk]
         if odd.description in opportunities_dict: 
             opportunity = opportunities_dict[odd.description]
             new_odd = Odd(
@@ -74,7 +75,7 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sport
             )
             new_odds.append(new_odd)
             continue
-        if odd.description in [opp.description for opp in new_opportunities]: continue
+        if (odd.description, event.sport.pk) in [(opp.description, opp.sport.pk) for opp in new_opportunities]: continue
         new_opp = Opportunity(
             description=odd.description,
             is_default=event.is_default,
@@ -125,12 +126,11 @@ def get_selected_events(sportsbook: Sportsbook) -> tuple[list[Event], set]:
 def get_relevant_opportunities(odds: list[OddModel], sportsbook: Sportsbook) -> dict[tuple[int, str], Opportunity]:
     conditions = Q(sportsbook_id=sportsbook.pk)
     conditions &= Q(description__in=[odd.description for odd in odds])
-    relevant_opportunities = Opportunity.objects.filter(conditions).all()
-    opportunities_dict = {
-        opportunity.description: opportunity for opportunity in relevant_opportunities
-    }
-
-    return opportunities_dict
+    relevant_opportunities = Opportunity.objects.filter(conditions).order_by('sport_id').all()
+    result_dict = { sport.pk: {} for sport in Sport.objects.all()}
+    for opportunity in relevant_opportunities: 
+        result_dict[opportunity.sport.pk][opportunity.description] = opportunity
+    return result_dict
 
 def send_updated_events():
     sportsbook = Sportsbook.objects.get(is_default=True, selected=True)

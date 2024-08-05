@@ -44,10 +44,12 @@ class TipsportScraper(Scraper):
         for match in matches: 
             try:
                 names = match["nameFull"].split(" - ")
-                if len(names) != 2: continue
+                if len(names) != 2: 
+                    continue
                 
-                sport_id = sport_ids.get(match["sportId"], None)
-                if sport_id is None: continue
+                sport_id = sport_ids.get(match["superSportId"], None)
+                if sport_id is None: 
+                    continue
                 names = [name.strip() for name in names]
                 time = match["score"]["statusOffer"] if "statusOffer" in match["score"] else ""
                 events.append(EventModel(
@@ -68,10 +70,14 @@ class TipsportScraper(Scraper):
 
     def get_sportids(self) -> dict[int, int]: 
         sport_ids = {
-            1891: 7, 270: 7, 
-            -7: 3, -4: 3, -8: 3, -5: 3,
-            -1: 1, 291: 1, 
-            -17: 5, 
+            16: 1, #futbal
+            23: 2, #hokej
+            43: 3, #tenis
+            7: 4,  #basketbal
+            -17: 5, #doplnit
+            47: 6, #volejbal
+            40: 7, #stolny tenis
+            -18: 8, #doplnit
         }
         
         return sport_ids

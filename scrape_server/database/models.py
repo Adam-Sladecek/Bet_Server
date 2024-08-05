@@ -43,8 +43,12 @@ class Event(models.Model):
         self.parent = parent
 
     def get_score(self, event: Event) -> float:
-        return (fuzz.token_sort_ratio(self.home.lower(), event.home.lower()) +
+        ratio1= (fuzz.token_sort_ratio(self.home.lower(), event.home.lower()) +
                     fuzz.token_sort_ratio(self.away.lower(), event.away.lower())) / 2.0
+        ratio2= (fuzz.token_sort_ratio(self.home.lower(), event.away.lower()) +
+                    fuzz.token_sort_ratio(self.away.lower(), event.home.lower())) / 2.0
+        
+        return max(ratio1, ratio2)
     
 class Odd(models.Model):
     odd_id = models.IntegerField()
