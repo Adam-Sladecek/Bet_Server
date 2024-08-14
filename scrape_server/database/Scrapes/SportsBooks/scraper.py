@@ -12,6 +12,7 @@ class Scraper(ABC):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         self.sportsbook = sportsbook
         self.sports = [sport for sport in sports]
+        self.get_driver()
 
     @abstractmethod
     def get_driver(self):
@@ -34,7 +35,7 @@ class Scraper(ABC):
         pass
 
     @abstractmethod
-    def map_odds(self, data: list[object]) -> tuple[list[OddModel], list[Odd]]:
+    def map_odds(self, data) -> tuple[list[OddModel], list[Odd]]:
         pass
 
     @abstractmethod
@@ -73,18 +74,24 @@ class Scraper(ABC):
         except Exception as ex:
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
-    async def gather_data(self, data: dict[int, str]) -> dict[int, object]:
+    async def gather_data(self, data: dict[int, str], headers: object) -> dict[int, object]:
         async with aiohttp.ClientSession() as session:
-            tasks = [asyncio.create_task(self.fetch_data(session, url, sport_id)) for sport_id, url in data.items()]
+            tasks = [asyncio.create_task(self.fetch_data(session, url, sport_id, headers)) for sport_id, url in data.items()]
             array_data = await asyncio.gather(*tasks)
 
             return {sport_id: result for sport_id, result in array_data}
 
-    async def fetch_data(self, session: aiohttp.ClientSession, url: str, sport_id: int) -> tuple[int, object]:
-        async with session.get(url) as resp:
+    async def fetch_data(self, session: aiohttp.ClientSession, url: str, sport_id: int, headers: object) -> tuple[int, object]:
+        async with session.get(url, headers=headers) as resp:
             result = await resp.json() 
 
             return (sport_id, result)
+        
+    async def get(self, url: str, headers: object) -> object:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as resp:
+                result = await resp.json() 
+                return result 
         
     def convert_timestamp_to_time_string(self, timestamp_ms) -> str:
             current_time = datetime.now()

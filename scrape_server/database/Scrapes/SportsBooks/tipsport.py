@@ -14,7 +14,7 @@ class TipsportScraper(Scraper):
         
     def get_driver(self):
         self.driver = getCommonDriver(False)
-        url = f"https://www.tipsport.sk/live"
+        url = "https://www.tipsport.sk/live"
         self.driver.get(url)
 
     def close_driver(self):
@@ -74,10 +74,10 @@ class TipsportScraper(Scraper):
             23: 2, #hokej
             43: 3, #tenis
             7: 4,  #basketbal
-            -17: 5, #doplnit
+            -17: 5, #doplnit handball
             47: 6, #volejbal
             40: 7, #stolny tenis
-            -18: 8, #doplnit
+            -18: 8, #doplnit box
         }
         
         return sport_ids

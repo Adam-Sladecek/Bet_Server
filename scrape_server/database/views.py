@@ -170,7 +170,7 @@ def get_all_markets(request):
 def add_market(request):
     try:
         data = json.loads(request.body)
-        name = data.get('name')
+        name = data.get('name').strip()
         sbid = data.get('sbid')
         sportsbook = Sportsbook.objects.get(pk=sbid)
         with transaction.atomic():

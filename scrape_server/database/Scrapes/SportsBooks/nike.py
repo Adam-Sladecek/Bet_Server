@@ -19,13 +19,13 @@ class NikeScraper(Scraper):
     async def gather_events(self, sports: list[Sport]):
         data = {sport.pk: f'https://push.nike.sk/snapshot?format=v2&path=/n1/overview/{getattr(self.sportsbook, sport.url)}/tournaments/' for sport in sports}
         
-        return await self.gather_data(data)
+        return await self.gather_data(data, {})
 
     async def gather_odds(self, events):
         data = {}
-        for index, event in enumerate(events):
-            data[index] = f'https://push.nike.sk/snapshot?format=v2&path=/n1/match/{event.event_id}/bets/portal/'
-        results = await self.gather_data(data)
+        for event in events:
+            data[event.event_id] = f'https://push.nike.sk/snapshot?format=v2&path=/n1/match/{event.event_id}/bets/portal/'
+        results = await self.gather_data(data, {})
         
         return results.values()
     

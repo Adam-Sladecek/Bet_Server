@@ -51,10 +51,10 @@ class Event(models.Model):
         return max(ratio1, ratio2)
     
 class Odd(models.Model):
-    odd_id = models.IntegerField()
+    odd_id = models.BigIntegerField()
     code= models.IntegerField()
     movement= models.IntegerField(default=0)
-    odd = models.DecimalField(max_digits=6, decimal_places=2)
+    odd = models.DecimalField(max_digits=10, decimal_places=2)
     is_default = models.BooleanField(default=False)
     selected = models.BooleanField(default=False)
     locked = models.BooleanField(default=False)

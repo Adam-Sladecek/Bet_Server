@@ -2,6 +2,7 @@ import queue
 from django.db import close_old_connections
 from .SportsBooks.nike import NikeScraper
 from .SportsBooks.tipsport import TipsportScraper
+from .SportsBooks.pinnacle import PinnacleScraper
 import threading
 import asyncio
 from .SportsBooks.scraper import Scraper
@@ -11,9 +12,8 @@ from ..models import Sportsbook, Sport
 
 def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, event: threading.Event, sportsbook: Sportsbook, sports: list[Sport]): 
     try:
-        scraper = get_scraper(sportsbook, sports)
-        with scraper as s:
-            s.get_driver()
+        scraperClass = get_scraper_class(sportsbook)
+        with scraperClass(sportsbook, sports) as s:
             while True:
                 if event.is_set():
                     break
@@ -32,7 +32,7 @@ def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, e
         print('Done handling drivers.')  
     except Exception as ex:
         print('Exception in get_sportsbook_data: ' + str(ex))
-        scraper.close_driver()  
+        s.close_driver()  
         event.set()
         broadcast_data(DataType.ERROR, str(ex))
 
@@ -94,10 +94,10 @@ def link_events_and_odds():
     link_odds()
     # close_old_connections()
 
-def get_scraper(sportsbook: Sportsbook, sports: list[Sport]) -> Scraper: 
+def get_scraper_class(sportsbook: Sportsbook) -> Scraper: 
     scrapers: dict[str, Scraper]  = {
         'Nike': NikeScraper,
-        'Tipsport': TipsportScraper
+        'Tipsport': TipsportScraper,
+        'Pinnacle': PinnacleScraper
     }
-    ScraperClass = scrapers[sportsbook.name]
-    return ScraperClass(sportsbook, sports)
+    return scrapers[sportsbook.name]
