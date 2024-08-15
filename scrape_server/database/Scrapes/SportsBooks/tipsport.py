@@ -61,7 +61,9 @@ class TipsportScraper(Scraper):
                     is_default=self.sportsbook.is_default, 
                     selected=False, 
                     sportsbook_id=self.sportsbook.pk, 
-                    sport_id=sport_id, 
+                    sport_id=sport_id,
+                    available_sportsbooks=[], 
+                    odd_count=0,
                 ))
             except Exception as ex: 
                 print(f"Exception in map_events Tipsport: {str(ex)}.")

@@ -49,6 +49,8 @@ class NikeScraper(Scraper):
                         selected=False, 
                         sportsbook_id=self.sportsbook.pk, 
                         sport_id=sport_id, 
+                        available_sportsbooks=[],
+                        odd_count=0,
                     ))
             except Exception as ex: 
                 print(f"Exception in map_events Nike: {str(ex)}.")
@@ -144,8 +146,8 @@ class NikeScraper(Scraper):
             converted_time = self.convert_timestamp_to_time_string(timestamp) if not countdown else self.convert_seconds_to_time_string(seconds)
             time += f' {converted_time}'
 
-        return time    
-    
+        return time
+
     def map_odds_selected(self, events: list[Event], odds_response: list[object]) -> list[Odd]:
         event_dict = {event.event_id: event for event in events}
         odds_to_update: list[Odd] = []
@@ -154,7 +156,7 @@ class NikeScraper(Scraper):
                 event_id = int(data[0][1]['matchId'])
                 event = event_dict[event_id]
                 bet_dict = {int(bet['id']): bet for bet in data[0][1]['bets']}
-                for odd in event.odds.filter(selected=True).all(): 
+                for odd in event.odds.filter(parent__selected=True).all(): 
                     data_bet = bet_dict.get(odd.odd_id, None)
                     if data_bet is None: 
                         odd.locked = True

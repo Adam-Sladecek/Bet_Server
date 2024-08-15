@@ -71,6 +71,14 @@ class Odd(models.Model):
     def can_be_linked(self, odd: Odd) -> bool:
         return self.opportunity.parent == odd.opportunity
     
+    def to_decimal(self):
+        if not self.is_default: return self.odd
+        if self.odd > 0:
+            decimal_odds = (self.odd / 100) + 1
+        else:
+            decimal_odds = (100 / abs(self.odd)) + 1
+        return round(decimal_odds, 3)
+    
 class Opportunity(models.Model):
     description = models.CharField(max_length=200)
     is_default = models.BooleanField(default=False)

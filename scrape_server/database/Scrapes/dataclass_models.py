@@ -13,6 +13,8 @@ class EventModel:
     selected: bool
     sportsbook_id: int
     sport_id: int
+    available_sportsbooks: list[int]
+    odd_count: int
 
     @classmethod
     def dataclass_list_from_models(cls, events: list[Event]) -> list[EventModel]:
@@ -24,16 +26,18 @@ class EventModel:
                     is_default=event.is_default, 
                     selected=event.selected, 
                     sportsbook_id=event.sportsbook.pk, 
-                    sport_id=event.sport.pk) for event in events]
+                    sport_id=event.sport.pk,
+                    available_sportsbooks=[child.sportsbook.pk for child in event.children.all()],
+                    odd_count=event.odds.count()) for event in events]
 
 @dataclass(frozen=True)
 class EventResponse: 
     events: list[EventModel]
     
-    @classmethod # prefetch sportsbook, sport
-    def dataclass_from_models(cls, models) -> EventResponse:
-        events = EventModel.dataclass_list_from_models(models)
-        return cls(events=events)
+    @classmethod # prefetch sportsbook, sport, children, children__sportsbook
+    def dataclass_from_models(cls, events: list[Event]) -> EventResponse:
+        dataclasses = EventModel.dataclass_list_from_models(events)
+        return cls(events=dataclasses)
 
     @property
     def dict(self) -> dict:
@@ -74,7 +78,7 @@ class OddModel:
             odd_id = odd.odd_id,
             code = odd.code,
             movement = odd.movement,
-            odd = float(odd.odd),
+            odd = float(odd.to_decimal()),
             is_default = odd.is_default,
             selected = odd.selected,
             locked = odd.locked,
@@ -126,7 +130,7 @@ class MatchOpportunity:
 
     @classmethod
     def dataclass_list_from_model(cls, event: Event) -> list[MatchOpportunity]:
-        odds = [odd for odd in event.odds.filter(selected=True).all()]
+        odds = [odd for odd in event.odds.filter(selected=True).order_by('id').all()]
         return [cls(
             name=odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away), 
             odds = [OddModel.dataclass_from_model(odd, event), *[OddModel.dataclass_from_model(child, event) for child in odd.children.all()]]

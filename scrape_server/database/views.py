@@ -213,7 +213,7 @@ def get_opportunities_for_children() -> OpportunityChildrenResponse:
     return response 
 
 def get_default_events() -> EventResponse: 
-    events = Event.objects.select_related('sport', 'sportsbook').filter(is_default=True).order_by('-selected').all()
+    events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook').filter(is_default=True).order_by('-selected').all()
     response = EventResponse.dataclass_from_models(events)
     return response
 

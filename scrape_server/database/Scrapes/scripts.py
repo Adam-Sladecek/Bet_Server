@@ -94,7 +94,7 @@ def update_selected_odds(odds_to_update: list[Odd]):
         Odd.objects.bulk_update(odds_to_update, ['odd', 'locked', 'movement'])
 
 def get_existing_odds(sportsbook: Sportsbook, include_code: bool=False):
-    events = Event.objects.filter(sportsbook=sportsbook).prefetch_related('odds').all()
+    events = Event.objects.filter(sportsbook=sportsbook).prefetch_related('odds', 'odds__opportunity').all()
     if include_code:
         return {event.event_id: {(odd.odd_id, odd.code): odd for odd in event.odds.all()} for event in events}
     return {event.event_id: {odd.odd_id: odd for odd in event.odds.all()} for event in events}

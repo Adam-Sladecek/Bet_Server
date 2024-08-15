@@ -37,14 +37,20 @@ class PinnacleScraper(Scraper):
         sport_ids = self.get_sportids()
         selected_sport_ids = [sport.pk for sport in sports]
         keys = [key for key, item in sport_ids.items() if item in selected_sport_ids]
-        data = {sport_ids.get(sport['id']): f'https://guest.api.arcadia.pinnacle.com/0.1/sports/{sport['id']}/matchups/live?withSpecials=false&brandId=0' for sport in live_sports if sport['id'] in keys}
+        self.available_sport_ids = [sport['id'] for sport in live_sports if sport['id'] in keys]
+        data = {sport_ids.get(id): f'https://guest.api.arcadia.pinnacle.com/0.1/sports/{id}/matchups/live?withSpecials=false&brandId=0' for id in self.available_sport_ids}
         
         return await self.gather_data(data, self.headers)
 
     async def gather_odds(self, events):
         data = {}
-        for event in events:
-            data[(event.event_id, event.sport_id)] = f'https://guest.api.arcadia.pinnacle.com/0.1/matchups/{event.event_id}//markets/related/straight'
+        # for event in events:
+        #     data[(event.event_id, event.sport_id)] = f'https://guest.api.arcadia.pinnacle.com/0.1/matchups/{event.event_id}//markets/related/straight'
+        # results = await self.gather_data(data, self.headers)
+
+        sport_ids = self.get_sportids()
+        for id in self.available_sport_ids:
+            data[sport_ids.get(id)] = f'https://guest.api.arcadia.pinnacle.com/0.1/sports/{id}/markets/live/straight?primaryOnly=true&withSpecials=false'
         results = await self.gather_data(data, self.headers)
         
         return results
@@ -73,11 +79,13 @@ class PinnacleScraper(Scraper):
                 for match in matches:
                     parent_id = int(match['parentId'])
                     if parent_id in parent_ids: 
-                        self.children[parent_id][match['id']] = match
+                        self.children[match['id']] = match
                         continue
                     parent_ids.add(parent_id)
-                    self.children[parent_id] = {parent_id: match['parent'], match['id']: match}
+                    # self.children[parent_id] = {parent_id: match['parent'], match['id']: match}
+                    self.children[match['id']] = match
                     parent = match['parent']
+                    if parent is None: continue
                     if len(parent['participants']) != 2: continue
                     time = self.get_time_from_start_time(parent['startTime'])
                     home = parent['participants'][0]['name']
@@ -92,6 +100,8 @@ class PinnacleScraper(Scraper):
                         selected=False, 
                         sportsbook_id=self.sportsbook.pk, 
                         sport_id=sport_id, 
+                        available_sportsbooks=[],
+                        odd_count=0,
                     ))
             except Exception as ex: 
                 print(f"Exception in map_events Pinnacle: {str(ex)}.")
@@ -99,7 +109,7 @@ class PinnacleScraper(Scraper):
 
         return events
     
-    def map_odds(self, data: dict[tuple[int, int], list[object]]) -> tuple[list[OddModel], list[Odd]]:
+    def map_odds(self, data: dict[int, list[object]]) -> tuple[list[OddModel], list[Odd]]:
         if all(element is None for element in data):
             raise Exception('No details retrieved.')
         odds_to_create: list[OddModel] = []
@@ -107,20 +117,28 @@ class PinnacleScraper(Scraper):
         
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         existing_odds = get_existing_odds(self.sportsbook, False)
-        for tple, dataset in data.items():
-            parent_id = tple[0]
-            sport_id = tple[1]
+        # for tple, dataset in data.items():
+        for sport_id, dataset in data.items():
+            if not isinstance(dataset, list): continue
+            # parent_id = tple[0]
+            # sport_id = tple[1]
+            used_descriptions = {}
             labels = self.labels.get(sport_id)
             for bet in dataset:
                 try:
                     if bet['key'] not in allowed_keys: continue
                     try:
-                        matchup = self.children[parent_id][bet['matchupId']]
+                        matchup = self.children[bet['matchupId']]
                     except: 
                         continue
-                    parent = matchup['parent'] if 'parent' in matchup else matchup
 
-                    existing_match_odds = existing_odds[parent_id]
+                    parent = matchup['parent']
+                    if parent['id'] not in used_descriptions:
+                        used_descriptions[parent['id']] = set()
+
+                    existing_match_odds = existing_odds[parent['id']]
+                    for odd in existing_match_odds.values():
+                        used_descriptions[parent['id']].add(odd.opportunity.description)
 
                     home = parent['participants'][0]['name']
                     away = parent['participants'][1]['name']
@@ -135,6 +153,8 @@ class PinnacleScraper(Scraper):
                         description += ' ' + bet['side']
                     for index, price in enumerate(bet['prices']): 
                         odd_id = int(str(matchup['id']) + str(index))
+                        if 'points' in price: 
+                            odd_id = int(str(odd_id) + str(price['points']).replace('.', '').replace('-', ''))
                         odds = price['price']
                         locked = False
                         if odd_id in existing_match_odds: 
@@ -160,9 +180,10 @@ class PinnacleScraper(Scraper):
                         description = description.replace(home, "*1*")
                         description = description.replace(away, "*2*")
                         description = description.replace("  ", " ").replace("  ", " ").strip()
-                        if 'Match ML Match *1*'==description: 
-                            k=0
-                            pass
+                        
+                        if description in used_descriptions[parent['id']]: continue
+                        
+                        used_descriptions[parent['id']].add(description)
 
                         odds_to_create.append(OddModel(
                             id = None,
@@ -173,7 +194,7 @@ class PinnacleScraper(Scraper):
                             is_default = self.sportsbook.is_default,
                             selected = False,
                             locked = locked, 
-                            event_id = parent_id,
+                            event_id = parent['id'],
                             sportsbook_id = self.sportsbook.pk,
                             description = description,
                             market_id = ""
@@ -187,15 +208,19 @@ class PinnacleScraper(Scraper):
     def map_events_selected(self, events: list[Event], event_response: dict[int, object]) -> tuple[list[Event], list[Event]]:
         events_to_update: list[Event] = []
         events_to_delete: list[Event] = []
+        self.children = {}
         for event in events:
             try:
                 matches = event_response.get(event.sport.pk, None)
-                match = next((match for match in matches if int(match['parentId']) == event.event_id), None)
-                if match is None: 
+                matches = [match for match in matches if int(match['parentId']) == event.event_id]
+                if len(matches) == 0: 
                     events_to_delete.append(event)
                     continue
-                time = self.get_time_from_start_time(match['parent']['startTime'])
-                event.time = time    
+                first_match = matches[0]
+                time = self.get_time_from_start_time(first_match['parent']['startTime'])
+                event.time = time  
+                for match in matches:
+                    self.children[match['id']] = match
                 events_to_update.append(event)  
             except Exception as ex:
                 print(f"Exception in map_events_selected Pinnacle: {str(ex)}.")
@@ -213,17 +238,22 @@ class PinnacleScraper(Scraper):
 
         return formatted_time    
     
-    def map_odds_selected(self, events: list[Event], odds_response: dict[tuple[int, int], list[object]]) -> list[Odd]:
-        event_dict = {event.event_id: event for event in events}
+    def map_odds_selected(self, events: list[Event], odds_response: dict[int, list[object]]) -> list[Odd]:
         odds_to_update: list[Odd] = []
-        for tple, dataset in odds_response.items():
-            parent_id = tple[0]
-            event = event_dict[parent_id]
+        for event in events:
             price_dict = {}
-            for bet in dataset:
+            bets = odds_response[event.sport.pk]
+            for bet in bets:
+                if bet['matchupId'] not in self.children: continue
+                matchup = self.children[bet['matchupId']]
+                parent = matchup['parent']
+                if parent['id'] != event.event_id: continue
                 for index, price in enumerate(bet['prices']):
-                    price_dict[int(str(bet['matchupId']) + str(index))] = price
-            
+                    odd_id = int(str(bet['matchupId']) + str(index))
+                    if 'points' in price: 
+                        odd_id = int(str(odd_id) + str(price['points']).replace('.', '').replace('-', ''))
+                    price_dict[odd_id] = price
+
             for odd in event.odds.filter(selected=True).all(): 
                 try:
                     price = price_dict.get(odd.odd_id, None)
@@ -235,10 +265,9 @@ class PinnacleScraper(Scraper):
                     odd.odd = price['price']
                     odd.locked = False
                     odds_to_update.append(odd)
-                    break
                 except Exception as ex:
                     print(f"Exception in map_odds_selected Pinnacle: {str(ex)}.")
                     continue                   
         
         return odds_to_update
-# add id asi nie je spravne
+# odds sa zamienaju 
