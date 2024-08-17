@@ -135,7 +135,7 @@ def get_relevant_opportunities(odds: list[OddModel], sportsbook: Sportsbook) -> 
 def send_updated_events():
     sportsbook = Sportsbook.objects.get(is_default=True, selected=True)
     events, _ = get_selected_events(sportsbook)
-    response = MatchResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).all())
+    response = MatchResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).order_by('-is_default').all())
     asyncio.run(broadcast_data(DataType.MATCHDATA, response.dict))
 
 def clear_unused_events():

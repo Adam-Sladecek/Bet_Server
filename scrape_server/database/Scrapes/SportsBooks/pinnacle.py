@@ -8,7 +8,11 @@ from datetime import datetime, timezone
 class PinnacleScraper(Scraper):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         super().__init__(sportsbook, sports)
-        self.headers = {'X-Api-Key': 'CmX2KcMrXuFmNg6YFbmTxE0y9CIrOi0R'}
+        self.headers = {
+            'X-Api-Key': 'CmX2KcMrXuFmNg6YFbmTxE0y9CIrOi0R', 
+            'Referer': 'https://www.pinnacle.bet/'
+        }
+        self.designations = ['home', 'away', 'draw', 'over', 'under']
         asyncio.run(self.get_labels())
 
     def __enter__(self):
@@ -50,7 +54,7 @@ class PinnacleScraper(Scraper):
 
         sport_ids = self.get_sportids()
         for id in self.available_sport_ids:
-            data[sport_ids.get(id)] = f'https://guest.api.arcadia.pinnacle.com/0.1/sports/{id}/markets/live/straight?primaryOnly=true&withSpecials=false'
+            data[sport_ids.get(id)] = f'https://guest.api.arcadia.pinnacle.com/0.1/sports/{id}/markets/live/straight?primaryOnly=false&withSpecials=false'
         results = await self.gather_data(data, self.headers)
         
         return results
@@ -153,7 +157,9 @@ class PinnacleScraper(Scraper):
                         description += ' ' + bet['side']
                     for index, price in enumerate(bet['prices']): 
                         odd_id = int(str(matchup['id']) + str(index))
-                        if 'points' in price: 
+                        if 'designation' in price: 
+                            odd_id = int(str(odd_id) + str(self.designations.index(price['designation'])))
+                        if 'points' in price:
                             odd_id = int(str(odd_id) + str(price['points']).replace('.', '').replace('-', ''))
                         odds = price['price']
                         locked = False
@@ -181,7 +187,8 @@ class PinnacleScraper(Scraper):
                         description = description.replace(away, "*2*")
                         description = description.replace("  ", " ").replace("  ", " ").strip()
                         
-                        if description in used_descriptions[parent['id']]: continue
+                        if description in used_descriptions[parent['id']]: 
+                            continue
                         
                         used_descriptions[parent['id']].add(description)
 
@@ -240,16 +247,20 @@ class PinnacleScraper(Scraper):
     
     def map_odds_selected(self, events: list[Event], odds_response: dict[int, list[object]]) -> list[Odd]:
         odds_to_update: list[Odd] = []
+        allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         for event in events:
             price_dict = {}
             bets = odds_response[event.sport.pk]
             for bet in bets:
+                if bet['key'] not in allowed_keys: continue
                 if bet['matchupId'] not in self.children: continue
                 matchup = self.children[bet['matchupId']]
                 parent = matchup['parent']
                 if parent['id'] != event.event_id: continue
                 for index, price in enumerate(bet['prices']):
                     odd_id = int(str(bet['matchupId']) + str(index))
+                    if 'designation' in price: 
+                        odd_id = int(str(odd_id) + str(self.designations.index(price['designation'])))
                     if 'points' in price: 
                         odd_id = int(str(odd_id) + str(price['points']).replace('.', '').replace('-', ''))
                     price_dict[odd_id] = price
