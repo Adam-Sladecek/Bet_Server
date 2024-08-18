@@ -12,7 +12,8 @@ class PinnacleScraper(Scraper):
             'X-Api-Key': 'CmX2KcMrXuFmNg6YFbmTxE0y9CIrOi0R', 
             'Referer': 'https://www.pinnacle.bet/'
         }
-        self.designations = ['home', 'away', 'draw', 'over', 'under']
+        self.designations = []
+        self.types = []
         asyncio.run(self.get_labels())
 
     def __enter__(self):
@@ -91,7 +92,7 @@ class PinnacleScraper(Scraper):
                     parent = match['parent']
                     if parent is None: continue
                     if len(parent['participants']) != 2: continue
-                    time = self.get_time_from_start_time(parent['startTime'])
+                    time = self.get_time_from_mach(match)
                     home = parent['participants'][0]['name']
                     away = parent['participants'][1]['name']
                     events.append(EventModel(
@@ -156,11 +157,7 @@ class PinnacleScraper(Scraper):
                     if 'side' in bet:
                         description += ' ' + bet['side']
                     for index, price in enumerate(bet['prices']): 
-                        odd_id = int(str(matchup['id']) + str(index))
-                        if 'designation' in price: 
-                            odd_id = int(str(odd_id) + str(self.designations.index(price['designation'])))
-                        if 'points' in price:
-                            odd_id = int(str(odd_id) + str(price['points']).replace('.', '').replace('-', ''))
+                        odd_id = self.get_odd_id(bet, price, index)
                         odds = price['price']
                         locked = False
                         if odd_id in existing_match_odds: 
@@ -212,6 +209,23 @@ class PinnacleScraper(Scraper):
 
         return odds_to_create, odds_to_update       
 
+    def get_odd_id(self, bet, price, index) -> int:
+        odd_id = int(str(bet['matchupId']) + str(index))
+        if 'period' in bet: 
+            odd_id = int(str(odd_id) + str(bet['period']))
+        if 'type' in bet: 
+            if bet['type'] not in self.types: 
+                self.types.append(bet['type'])
+            odd_id = int(str(odd_id) + str(self.types.index(bet['type'])))    
+        if 'designation' in price: 
+            if price['designation'] not in self.designations: 
+                self.designations.append(price['designation'])
+            odd_id = int(str(odd_id) + str(self.designations.index(price['designation'])))
+        if 'points' in price:
+            odd_id = int(str(odd_id) + str(price['points']).replace('.', '').replace('-', ''))
+        
+        return odd_id    
+
     def map_events_selected(self, events: list[Event], event_response: dict[int, object]) -> tuple[list[Event], list[Event]]:
         events_to_update: list[Event] = []
         events_to_delete: list[Event] = []
@@ -224,7 +238,7 @@ class PinnacleScraper(Scraper):
                     events_to_delete.append(event)
                     continue
                 first_match = matches[0]
-                time = self.get_time_from_start_time(first_match['parent']['startTime'])
+                time = self.get_time_from_mach(first_match)
                 event.time = time  
                 for match in matches:
                     self.children[match['id']] = match
@@ -235,15 +249,11 @@ class PinnacleScraper(Scraper):
         
         return events_to_update, events_to_delete
 
-    def get_time_from_start_time(self, start_time: str) -> str:
-        start_time = datetime.fromisoformat(start_time)
-        current_time = datetime.now(timezone.utc)
-        elapsed_time = current_time - start_time
-        minutes = elapsed_time.total_seconds() // 60
-        seconds = int(elapsed_time.total_seconds() % 60)
-        formatted_time = f"{int(minutes)}:{seconds:02}"
-
-        return formatted_time    
+    def get_time_from_mach(self, match) -> str:
+        time = ''
+        if 'state' in match and 'minutes' in match['state']:
+            time = str(match['state']['minutes']) + "'"
+        return time    
     
     def map_odds_selected(self, events: list[Event], odds_response: dict[int, list[object]]) -> list[Odd]:
         odds_to_update: list[Odd] = []
@@ -258,20 +268,17 @@ class PinnacleScraper(Scraper):
                 parent = matchup['parent']
                 if parent['id'] != event.event_id: continue
                 for index, price in enumerate(bet['prices']):
-                    odd_id = int(str(bet['matchupId']) + str(index))
-                    if 'designation' in price: 
-                        odd_id = int(str(odd_id) + str(self.designations.index(price['designation'])))
-                    if 'points' in price: 
-                        odd_id = int(str(odd_id) + str(price['points']).replace('.', '').replace('-', ''))
-                    price_dict[odd_id] = price
+                    odd_id = self.get_odd_id(bet, price, index)
+                    price_dict[odd_id] = (price, bool(bet['isAlternate']))
 
             for odd in event.odds.filter(selected=True).all(): 
                 try:
-                    price = price_dict.get(odd.odd_id, None)
-                    if price is None: 
+                    tple = price_dict.get(odd.odd_id, None)
+                    if tple is None or tple[1]: 
                         odd.locked = True
                         odds_to_update.append(odd)
                         continue
+                    price = tple[0]
                     odd.movement = self.get_movement(odd.odd, price['price'])      
                     odd.odd = price['price']
                     odd.locked = False
