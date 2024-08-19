@@ -57,7 +57,8 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sport
     opportunities_dict_by_sport = get_relevant_opportunities(odds_to_create, sportsbook)
 
     for odd in odds_to_create:
-        event = events_dict[odd.event_id]
+        event = events_dict.get(odd.event_id, None)
+        if event is None: continue
         opportunities_dict = opportunities_dict_by_sport[event.sport.pk]
         if odd.description in opportunities_dict: 
             opportunity = opportunities_dict[odd.description]
