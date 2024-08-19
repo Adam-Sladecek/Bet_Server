@@ -44,12 +44,11 @@ class TipsportScraper(Scraper):
         for match in matches: 
             try:
                 names = match["nameFull"].split(" - ")
-                if len(names) != 2: 
-                    continue
+                if len(names) != 2: continue
                 
                 sport_id = sport_ids.get(match["superSportId"], None)
-                if sport_id is None: 
-                    continue
+                if sport_id is None: continue
+                
                 names = [name.strip() for name in names]
                 time = match["score"]["statusOffer"] if "statusOffer" in match["score"] else ""
                 events.append(EventModel(

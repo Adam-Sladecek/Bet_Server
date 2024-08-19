@@ -5,7 +5,6 @@ from .models import Opportunity, Sportsbook, Sport, Event, Odd, SportsbookMarket
 from django.views.decorators.csrf import csrf_exempt
 from .Scrapes.dataclass_models import ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, EventResponse, OddResponse, MarketResponse
 from django.db import transaction
-from collections import defaultdict
 # from django.middleware.csrf import get_token
 
 @require_GET

@@ -1,5 +1,4 @@
 import queue
-from django.db import close_old_connections
 from .SportsBooks.nike import NikeScraper
 from .SportsBooks.tipsport import TipsportScraper
 from .SportsBooks.pinnacle import PinnacleScraper
@@ -92,7 +91,6 @@ def link_events_and_odds():
     clear_unused_events()
     link_all_events()
     link_odds()
-    # close_old_connections()
 
 def get_scraper_class(sportsbook: Sportsbook) -> Scraper: 
     scrapers: dict[str, Scraper]  = {

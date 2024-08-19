@@ -10,9 +10,8 @@ from .scrape_service import scrape_sport
 
 class ScrapeTest(TestCase):
     def setUp(self):
-        self.sport_type = SportType.objects.create(name="WL")
-        self.sport = Sport.objects.create(name="Tennis", selected=True, url="https://example.com", sport_type=self.sport_type)
-        self.sportsbook1 = Sportsbook.objects.create(name="Nike", selected=True)
+        self.sport = Sport.objects.create(name="Tennis", selected=True, url="https://example.com")
+        self.sportsbook1 = Sportsbook.objects.create(name="Nike", selected=True, is_default=True)
         self.sportsbook2 = Sportsbook.objects.create(name="Tipsport", selected=True)
         self.event_models1 = [
             EventModel(1, datetime.now(pytz.utc), 'Roger Federer', 'Rafael Nadal'),

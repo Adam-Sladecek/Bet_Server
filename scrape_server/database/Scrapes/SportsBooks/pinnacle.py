@@ -3,7 +3,6 @@ from ..dataclass_models import EventModel, OddModel
 from ..scripts import get_existing_odds
 from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
 from .scraper import Scraper
-from datetime import datetime, timezone
 
 class PinnacleScraper(Scraper):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
@@ -250,10 +249,9 @@ class PinnacleScraper(Scraper):
         return events_to_update, events_to_delete
 
     def get_time_from_mach(self, match) -> str:
-        time = ''
         if 'state' in match and 'minutes' in match['state']:
-            time = str(match['state']['minutes']) + "'"
-        return time    
+            return str(match['state']['minutes']) + "'"
+        return ''    
     
     def map_odds_selected(self, events: list[Event], odds_response: dict[int, list[object]]) -> list[Odd]:
         odds_to_update: list[Odd] = []
@@ -288,4 +286,3 @@ class PinnacleScraper(Scraper):
                     continue                   
         
         return odds_to_update
-# odds sa zamienaju 
