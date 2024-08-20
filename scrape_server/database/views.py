@@ -61,7 +61,6 @@ def get_opportunities_to_link(request):
         return JsonResponse({'message': str(e)}, status=400)
 
 @csrf_exempt
-@require_POST
 def add_child_to_parent_opportunity(request, parentid: int, childid: int):
     try: 
         parent = Opportunity.objects.get(id=parentid)
