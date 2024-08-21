@@ -8,7 +8,7 @@ Install dependencies for Python >3.6 :
 pip install -r requirements.txt
 ```
 
-run server from Scraping_Server_V3/scrape_server:
+run server from Bet_Server:
 
 ```bash
 python scrape_server/manage.py runserver
