@@ -11,7 +11,7 @@ pip install -r requirements.txt
 run server from Scraping_Server_V3/scrape_server:
 
 ```bash
-python manage.py runserver
+python scrape_server/manage.py runserver
 ```
 create migrations running
 
