@@ -13,6 +13,10 @@ class PinnacleScraper(Scraper):
         }
         self.designations = []
         self.types = []
+        self.subtypes = { 
+            'home': 'team1',
+            'away': 'team2'
+        }
         asyncio.run(self.get_labels())
 
     def __enter__(self):
@@ -130,7 +134,7 @@ class PinnacleScraper(Scraper):
             labels = self.labels.get(sport_id)
             for bet in dataset:
                 try:
-                    if bet['key'] not in allowed_keys: continue
+                    if bet['key'] not in allowed_keys and bet['type'] not in allowed_keys: continue
                     try:
                         matchup = self.children[bet['matchupId']]
                     except: 
@@ -150,11 +154,18 @@ class PinnacleScraper(Scraper):
                     matchup_away = matchup['participants'][1]['name']
                     participants_by_id = {participant['id']: participant for participant in matchup['participants'] if 'id' in participant}
                     label_obj = labels[bet['period']]
-                    market_labels = {label['type']: label for label in label_obj['marketLabels']}
+                    match_description = ''
+                    for label in [lbl for lbl in label_obj['marketLabels'] if lbl['type'] == bet['type']]: 
+                        if 'side' in bet and 'subType' in label:
+                            if label['subType'] == self.subtypes[bet['side']]:
+                                match_description += label['full']
+                                break
+                            continue    
+                        match_description += label['full']  
+                        break
+
                     period_label = label_obj['periodLabel']['full']
-                    match_description = market_labels[bet['type']]['full'] + ' - ' + period_label
-                    if 'side' in bet:
-                        description += ' ' + bet['side']
+                    match_description += f' - {period_label} - '
                     for index, price in enumerate(bet['prices']): 
                         odd_id = self.get_odd_id(bet, price, index)
                         odds = price['price']
@@ -184,7 +195,7 @@ class PinnacleScraper(Scraper):
                         description = description.replace("  ", " ").replace("  ", " ").strip()
                         
                         if description in used_descriptions[parent['id']]: 
-                            continue
+                            continue # which one of the same bets should be used?
                         
                         used_descriptions[parent['id']].add(description)
 
@@ -207,7 +218,7 @@ class PinnacleScraper(Scraper):
                     continue  
 
         return odds_to_create, odds_to_update       
-
+    
     def get_odd_id(self, bet, price, index) -> int:
         odd_id = int(str(bet['matchupId']) + str(index))
         if 'period' in bet: 
@@ -260,7 +271,7 @@ class PinnacleScraper(Scraper):
             price_dict = {}
             bets = odds_response[event.sport.pk]
             for bet in bets:
-                if bet['key'] not in allowed_keys: continue
+                if bet['key'] not in allowed_keys and bet['type'] not in allowed_keys: continue
                 if bet['matchupId'] not in self.children: continue
                 matchup = self.children[bet['matchupId']]
                 parent = matchup['parent']
