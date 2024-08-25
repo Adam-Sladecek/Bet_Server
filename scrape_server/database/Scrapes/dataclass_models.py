@@ -93,7 +93,7 @@ class MatchResponse:
     matches: list[Match]
     sportsbook_ids: list[int]
 
-    @classmethod # prefetch sport, odds, odds__opportunity, 'odds__children', 'odds__children__opportunity', 'odds__children__sportsbook'
+    @classmethod # prefetch sport, children, odds, odds__opportunity, odds__children, odds__children__opportunity, odds__children__sportsbook
     def dataclass_from_models(cls, events: list[Event], sportsbooks: list[Sportsbook]) -> MatchResponse:
         return cls(
             matches=Match.dataclass_list_from_models(events), 
@@ -134,7 +134,8 @@ class MatchOpportunity:
         return [cls(
             name=odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away), 
             odds = [OddModel.dataclass_from_model(odd, event), 
-                    *[OddModel.dataclass_from_model(child, event) for child in odd.children.all()]]
+                *[OddModel.dataclass_from_model(child, event) for child in odd.children.all()]] 
+                if odd.should_be_updated() else []
             ) for odd in odds
         ]
 

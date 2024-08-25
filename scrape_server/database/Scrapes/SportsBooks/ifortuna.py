@@ -125,7 +125,7 @@ class IfortunaScraper(Scraper):
                                     id=None,
                                     odd_id = odd_id,
                                     code= 0,
-                                    movement= 0,
+                                    movement= 1,
                                     odd = odds,
                                     is_default=self.sportsbook.is_default,
                                     selected= False,

@@ -97,7 +97,7 @@ class NikeScraper(Scraper):
                             id=None,
                             odd_id = odd_id,
                             code= code,
-                            movement= 0,
+                            movement= 1,
                             odd = odd["odds"],
                             is_default=self.sportsbook.is_default,
                             selected= False,

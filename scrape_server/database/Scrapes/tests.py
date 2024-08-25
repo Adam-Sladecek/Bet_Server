@@ -134,6 +134,7 @@ class ScrapeTest(TestCase):
         event.save()
         odd = Odd.objects.filter(sportsbook=self.sportsbook1).first()
         odd.selected = True
+        odd.movement = 1
         odd.save()
         sportsbook = Sportsbook.objects.get(is_default=True, selected=True)
         events, _ = get_selected_events(sportsbook)

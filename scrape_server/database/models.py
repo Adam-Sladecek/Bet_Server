@@ -71,6 +71,9 @@ class Odd(models.Model):
     def can_be_linked(self, odd: Odd) -> bool:
         return self.opportunity.parent == odd.opportunity
     
+    def should_be_updated(self) -> bool:
+        return self.movement != 0 or self.locked or any(child.movement != 0 or child.locked for child in self.children.all())
+    
     def to_decimal(self):
         if not self.is_default: return self.odd
         if self.odd > 0:

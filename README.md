@@ -24,6 +24,7 @@ apply migrations running
 python manage.py migrate
 ```
 
+test:
 ```bash
 python manage.py test
 ```
