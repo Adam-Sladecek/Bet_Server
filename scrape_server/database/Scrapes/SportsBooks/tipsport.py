@@ -19,10 +19,9 @@ class TipsportScraper(Scraper):
 
     def close_driver(self):
         try:
-            self.driver.close()
             self.driver.quit()
-        except:
-            pass    
+        except Exception as ex:
+            print(f'Failed to quit tipsport driver. Exception: {str(ex)}')
 
     async def gather_events(self, sports: list[Sport]):
         url= "https://www.tipsport.sk/rest/offer/v1/live/in-play/entities"

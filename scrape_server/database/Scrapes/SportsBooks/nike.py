@@ -67,6 +67,7 @@ class NikeScraper(Scraper):
         allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         existing_odds = get_existing_odds(self.sportsbook, True)
         for dataset in data:
+            if dataset is None: continue
             for bet in dataset[0][1]['bets']:
                 try:
                     if bet['marketId'] not in allowed_market_ids: continue

@@ -102,6 +102,7 @@ def get_existing_odds(sportsbook: Sportsbook, include_code: bool=False):
 
 def get_selected_events(sportsbook: Sportsbook) -> tuple[list[Event], set]:
     events = Event.objects.select_related('sport', 'parent').prefetch_related(
+        'children',
         'odds',
         'odds__parent',
         'odds__opportunity',

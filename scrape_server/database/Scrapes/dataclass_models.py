@@ -117,7 +117,7 @@ class Match:
         return [cls(
             name=f"{event.home} vs. {event.away}", 
             match_id=event.pk,
-            time = event.time,
+            time = event.children.first().time if event.children.count() > 0 else event.time, # time consuming
             sport_id= event.sport.pk,
             opportunities = MatchOpportunity.dataclass_list_from_model(event)
             ) for event in events
@@ -133,7 +133,8 @@ class MatchOpportunity:
         odds = [odd for odd in event.odds.filter(selected=True).order_by('id').all()]
         return [cls(
             name=odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away), 
-            odds = [OddModel.dataclass_from_model(odd, event), *[OddModel.dataclass_from_model(child, event) for child in odd.children.all()]]
+            odds = [OddModel.dataclass_from_model(odd, event), 
+                    *[OddModel.dataclass_from_model(child, event) for child in odd.children.all()]]
             ) for odd in odds
         ]
 

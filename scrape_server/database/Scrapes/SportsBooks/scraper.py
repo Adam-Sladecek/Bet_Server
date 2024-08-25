@@ -83,7 +83,11 @@ class Scraper(ABC):
 
     async def fetch_data(self, session: aiohttp.ClientSession, url: str, sport_id: int, headers: object) -> tuple[int, object]:
         async with session.get(url, headers=headers) as resp:
-            result = await resp.json() 
+            try:
+                result = await resp.json() 
+            except Exception as ex:
+                print(f'Exception in fetch_data {self.sportsbook.name}: {str(ex)}')
+                return (sport_id, None)
 
             return (sport_id, result)
         
@@ -94,15 +98,15 @@ class Scraper(ABC):
                 return result 
         
     def convert_timestamp_to_time_string(self, timestamp_ms) -> str:
-            current_time = datetime.now()
-            timestamp_s = timestamp_ms / 1000
-            timestamp_time = datetime.fromtimestamp(timestamp_s)
-            time_difference = current_time - timestamp_time
-            total_seconds = int(time_difference.total_seconds())
-            minutes = total_seconds // 60
-            seconds = total_seconds % 60
+        current_time = datetime.now()
+        timestamp_s = timestamp_ms / 1000
+        timestamp_time = datetime.fromtimestamp(timestamp_s)
+        time_difference = current_time - timestamp_time
+        total_seconds = int(time_difference.total_seconds())
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
 
-            return f"{minutes}:{seconds:02}'"
+        return f"{minutes}:{seconds:02}'"
     
     def convert_seconds_to_time_string(self, seconds) -> str:
         minutes = seconds // 60

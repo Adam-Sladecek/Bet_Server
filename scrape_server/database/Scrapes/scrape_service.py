@@ -2,6 +2,7 @@ import queue
 from .SportsBooks.nike import NikeScraper
 from .SportsBooks.tipsport import TipsportScraper
 from .SportsBooks.pinnacle import PinnacleScraper
+from .SportsBooks.ifortuna import IfortunaScraper
 import threading
 import asyncio
 from .SportsBooks.scraper import Scraper
@@ -96,6 +97,7 @@ def get_scraper_class(sportsbook: Sportsbook) -> Scraper:
     scrapers: dict[str, Scraper]  = {
         'Nike': NikeScraper,
         'Tipsport': TipsportScraper,
-        'Pinnacle': PinnacleScraper
+        'Pinnacle': PinnacleScraper,
+        'Ifortuna': IfortunaScraper,
     }
     return scrapers[sportsbook.name]

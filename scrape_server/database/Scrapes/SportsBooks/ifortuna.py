@@ -3,12 +3,12 @@ from ..dataclass_models import EventModel, OddModel
 from ..scripts import get_existing_odds
 from ...models import Odd, Sport, Event, SportsbookMarket
 
-class IFortunaScraper(Scraper):
+class IfortunaScraper(Scraper):
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        pass    
+        pass
 
     def get_driver(self):
         return None
@@ -32,10 +32,10 @@ class IFortunaScraper(Scraper):
     async def gather_odds(self, events):
         data = {}
         for event in events:
-            data[event.event_id] = f'https://push.nike.sk/snapshot?format=v2&path=/n1/match/{event.event_id}/bets/portal/'
+            data[event.event_id] = f'https://api.ifortuna.sk/live3/api/live/matches/detail/LSK{str(event.event_id)}'
         results = await self.gather_data(data, {})
         
-        return results.values()
+        return results
     
     def get_sportids(self) -> dict[str, int]: 
         sport_ids = {
@@ -48,7 +48,6 @@ class IFortunaScraper(Scraper):
             'LSKTABLE_TENNIS': 7, #stolny tenis
             6: 8, # box
         }
-        
         return sport_ids
     
     def map_events(self, data: dict[int, object]) -> list[EventModel]:
@@ -77,62 +76,68 @@ class IFortunaScraper(Scraper):
                             odd_count=0,
                         ))
             except Exception as ex: 
-                print(f"Exception in map_events IFortuna: {str(ex)}.")
+                print(f"Exception in map_events Ifortuna: {str(ex)}.")
                 continue  
 
         return events
     
-    def map_odds(self, data: list[object]) -> tuple[list[OddModel], list[Odd]]:
-        if all(element is None for element in data):
+    def map_odds(self, data: dict[int, object]) -> tuple[list[OddModel], list[Odd]]:
+        if all(element is None for element in data.values()):
             raise Exception('No details retrieved.')
         odds_to_create: list[OddModel] = []
         odds_to_update: list[Odd] = []
         
         allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        existing_odds = get_existing_odds(self.sportsbook, True)
-        for dataset in data:
-            for bet in dataset[0][1]['bets']:
-                try:
-                    if bet['marketId'] not in allowed_market_ids: continue
-                    odd_id = int(bet['id'])
-                    home = bet["participants"][0]['sk']
-                    away = bet["participants"][1]['sk'] if len(bet["participants"]) == 2 else None
-                    event_id = int(bet['matchId'])
-                    existing_match_odds = existing_odds[event_id]
-                    for odd in bet['selections']: 
-                        code = odd["code"]
-                        locked = odd["locked"] or not odd["enabled"]
-                        if (odd_id, code) in existing_match_odds: 
-                            existing_odd = existing_match_odds[(odd_id, code)]
-                            del existing_match_odds[(odd_id, code)]
-                            existing_odd.movement = self.get_movement(existing_odd.odd, odd["odds"])
-                            existing_odd.odd = odd["odds"]
-                            existing_odd.locked = locked
-                            odds_to_update.append(existing_odd)
-                            continue
-                        
-                        description = bet["header"]['sk'] + " " + odd["name"]['sk']
-                        description = description.replace(home, "*1*")
-                        if away is not None:
-                            description = description.replace(away, "*2*")
-                        description = description.replace("  ", " ").replace("  ", " ").strip()
-                        odds_to_create.append(OddModel(
-                            id=None,
-                            odd_id = odd_id,
-                            code= code,
-                            movement= 0,
-                            odd = odd["odds"],
-                            is_default=self.sportsbook.is_default,
-                            selected= False,
-                            locked = locked, 
-                            event_id = event_id,
-                            sportsbook_id=self.sportsbook.pk,
-                            description = description,
-                            market_id=bet['marketId']
-                        ))        
-                except Exception as ex:
-                    print(f"Exception in map_odds IFortuna: {str(ex)}.")
-                    continue  
+        existing_odds = get_existing_odds(self.sportsbook)
+        for event_id, dataset in data.items():
+            if dataset is None: continue
+            try:
+                home = dataset["participants"]['HOME']['name']['sk_SK']
+                away = dataset["participants"]['AWAY']['name']['sk_SK']
+            except Exception as ex: 
+                continue
+            existing_match_odds = existing_odds[event_id]
+            for group in dataset['groups']:
+                for market in group['markets']:
+                    subname = market['subNames']['sk_SK']
+                    market_id = market['marketTypeId']
+                    if market_id not in allowed_market_ids: continue
+                    for _, oddArray in market['odds'].items():
+                        for odd in oddArray:
+                            try:
+                                odds = odd["value"]
+                                odd_id = int(odd['id'].replace('LSK', ''))
+                                locked = odd["displayType"] != 'OPEN' or odds < 1
+                                if odd_id in existing_match_odds: 
+                                    existing_odd = existing_match_odds[odd_id]
+                                    del existing_match_odds[odd_id]
+                                    existing_odd.movement = self.get_movement(existing_odd.odd, odds)
+                                    existing_odd.odd = odds
+                                    existing_odd.locked = locked
+                                    odds_to_update.append(existing_odd)
+                                    continue
+
+                                longName = odd['longNames']['sk_SK']
+                                description = f'{subname} {longName}'
+                                description = description.replace(home, "*1*").replace(away, "*2*")
+                                description = description.replace("  ", " ").replace("  ", " ").strip()
+                                odds_to_create.append(OddModel(
+                                    id=None,
+                                    odd_id = odd_id,
+                                    code= 0,
+                                    movement= 0,
+                                    odd = odds,
+                                    is_default=self.sportsbook.is_default,
+                                    selected= False,
+                                    locked = locked, 
+                                    event_id = event_id,
+                                    sportsbook_id=self.sportsbook.pk,
+                                    description = description,
+                                    market_id=market_id
+                                ))        
+                            except Exception as ex:
+                                print(f"Exception in map_odds Ifortuna: {str(ex)}.")
+                                continue  
 
         return odds_to_create, odds_to_update       
 
@@ -145,57 +150,53 @@ class IFortunaScraper(Scraper):
                 if result is None: 
                     events_to_delete.append(event)
                     continue
-                matches = result[0][1]['matches']
-                match = next((match for match in matches if int(match['id']) == event.event_id), None)
+                leagues = result['leagues']
+                match = None
+                for league in leagues: 
+                    matches = league['matches']
+                    match = next((match for match in matches if int(match['id'].replace('LSK', '')) == event.event_id), None)
+                    if match is not None: break
                 if match is None: 
                     events_to_delete.append(event)
                     continue
-                time = self.get_time_from_match(match)
+                time = match['overview']['gameTime']['sk_SK']
                 event.time = time    
                 events_to_update.append(event)  
             except Exception as ex:
-                print(f"Exception in map_events_selected IFortuna: {str(ex)}.")
+                print(f"Exception in map_events_selected Ifortuna: {str(ex)}.")
                 continue       
         
         return events_to_update, events_to_delete
 
-    def get_time_from_match(self, match) -> str:
-        time = match['timer']['currentPeriod']['sk'] if 'currentPeriod' in match['timer'] else ''
-        if 'timestamp' in match['timer']:
-            countdown = bool(match['timer']['countDown'])
-            timestamp = match['timer']['timestamp']
-            if 'matchSeconds' in match['timer']:
-                seconds = match['timer']['matchSeconds']
-                timestamp -= seconds*1000
-            converted_time = self.convert_timestamp_to_time_string(timestamp) if not countdown else self.convert_seconds_to_time_string(seconds)
-            time += f' {converted_time}'
-
-        return time
-
-    def map_odds_selected(self, events: list[Event], odds_response: list[object]) -> list[Odd]:
+    def map_odds_selected(self, events: list[Event], odds_response: dict[int, object]) -> list[Odd]:
         event_dict = {event.event_id: event for event in events}
         odds_to_update: list[Odd] = []
-        for data in odds_response:
+        for event_id, dataset in odds_response.items():
             try:
-                event_id = int(data[0][1]['matchId'])
                 event = event_dict[event_id]
-                bet_dict = {int(bet['id']): bet for bet in data[0][1]['bets']}
+                bet_dict = {}
+                if dataset['groups'] is not None:
+                    for group in dataset['groups']:
+                        for market in group['markets']:
+                            for _, oddArray in market['odds'].items():
+                                for odd in oddArray:
+                                    odd_id = int(odd['id'].replace('LSK', ''))
+                                    bet_dict[odd_id] = odd
+                                
                 for odd in event.odds.filter(parent__selected=True).all(): 
-                    data_bet = bet_dict.get(odd.odd_id, None)
-                    if data_bet is None: 
+                    data_odd = bet_dict.get(odd.odd_id, None)
+                    if data_odd is None: 
                         odd.locked = True
                         odds_to_update.append(odd)
                         continue
-                    for data_odd in data_bet['selections']:
-                        code = data_odd["code"]
-                        if odd.code == code: 
-                            odd.movement = self.get_movement(odd.odd, data_odd["odds"])      
-                            odd.odd = data_odd["odds"]
-                            odd.locked = data_odd["locked"] or not data_odd["enabled"]
-                            odds_to_update.append(odd)
-                            break
+                    odds = data_odd["value"]
+                    locked = data_odd["displayType"] != 'OPEN' or odds < 1
+                    odd.movement = self.get_movement(odd.odd, odds)      
+                    odd.odd = odds
+                    odd.locked = locked
+                    odds_to_update.append(odd)
             except Exception as ex:
-                print(f"Exception in map_odds_selected IFortuna: {str(ex)}.")
+                print(f"Exception in map_odds_selected Ifortuna: {str(ex)}.")
                 continue                   
         
         return odds_to_update
