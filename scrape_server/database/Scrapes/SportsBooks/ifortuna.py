@@ -175,7 +175,7 @@ class IfortunaScraper(Scraper):
             try:
                 event = event_dict[event_id]
                 bet_dict = {}
-                if dataset['groups'] is not None:
+                if dataset is not None and dataset['groups'] is not None:
                     for group in dataset['groups']:
                         for market in group['markets']:
                             for _, oddArray in market['odds'].items():

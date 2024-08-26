@@ -51,11 +51,12 @@ class Scraper(ABC):
             events, sport_ids = get_selected_events(self.sportsbook)
             if len(events) == 0: return
             sports = [sport for sport in self.sports if sport.pk in sport_ids]
-            event_response = asyncio.run(self.gather_events(sports))
+            loop = self.get_loop()
+            event_response = loop.run_until_complete(self.gather_events(sports))
             events_to_update, events_to_delete = self.map_events_selected(events, event_response)
             update_selected_events(events_to_update, events_to_delete)
             events = [event for event in events if event.pk is not None]
-            odds_response = asyncio.run(self.gather_odds(events))
+            odds_response = loop.run_until_complete(self.gather_odds(events))
             odds_to_update = self.map_odds_selected(events, odds_response)
             update_selected_odds(odds_to_update)
 
@@ -64,16 +65,29 @@ class Scraper(ABC):
 
     def import_all_data(self):
         try:
-            event_response = asyncio.run(self.gather_events(self.sports))
+            loop = self.get_loop()
+            event_response = loop.run_until_complete(self.gather_events(self.sports))
             events = self.map_events(event_response)
             update_events(events, self.sportsbook)    
-            odds_response = asyncio.run(self.gather_odds(events))
+            odds_response = loop.run_until_complete(self.gather_odds(events))
             odds_to_create, odds_to_update = self.map_odds(odds_response)
             update_odds(odds_to_create, odds_to_update, self.sportsbook)
 
         except Exception as ex:
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
+    def get_loop(self): 
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        return loop    
+    
     async def gather_data(self, data: dict[int, str], headers: object) -> dict[int, object]:
         async with aiohttp.ClientSession() as session:
             tasks = [asyncio.create_task(self.fetch_data(session, url, sport_id, headers)) for sport_id, url in data.items()]

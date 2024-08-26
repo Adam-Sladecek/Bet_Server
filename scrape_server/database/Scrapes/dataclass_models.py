@@ -89,14 +89,18 @@ class OddModel:
             )
 
 @dataclass(frozen=True)
-class MatchResponse:
-    matches: list[Match]
+class MatchOpportunityResponse:
+    opportunities: list[MatchOpportunity]
+    update_all: bool
+    match_ids: list[int]
     sportsbook_ids: list[int]
 
     @classmethod # prefetch sport, children, odds, odds__opportunity, odds__children, odds__children__opportunity, odds__children__sportsbook
-    def dataclass_from_models(cls, events: list[Event], sportsbooks: list[Sportsbook]) -> MatchResponse:
+    def dataclass_from_models(cls, events: list[Event], sportsbooks: list[Sportsbook], fetch_all: bool) -> MatchResponse:
         return cls(
-            matches=Match.dataclass_list_from_models(events), 
+            opportunities=MatchOpportunity.dataclass_list_from_models(events, fetch_all), 
+            update_all=fetch_all,
+            match_ids=[event.pk for event in events],
             sportsbook_ids= [sb.pk for sb in sportsbooks] 
             )
     
@@ -113,29 +117,33 @@ class Match:
     opportunities: list[MatchOpportunity]
 
     @classmethod
-    def dataclass_list_from_models(cls, events: list[Event]) -> list[Match]:
+    def dataclass_list_from_models(cls, events: list[Event], fetch_all: bool) -> list[Match]:
         return [cls(
             name=f"{event.home} vs. {event.away}", 
             match_id=event.pk,
             time = event.children.first().time if event.children.count() > 0 else event.time, # time consuming
             sport_id= event.sport.pk,
-            opportunities = MatchOpportunity.dataclass_list_from_model(event)
+            opportunities = MatchOpportunity.dataclass_list_from_model(event, fetch_all)
             ) for event in events
         ]
 
 @dataclass(frozen=True)
 class MatchOpportunity:
     name: str
+    match_name: str
+    match_id: int
+    time: str
+    sport_id: int
     odds: list[OddModel]
 
     @classmethod
-    def dataclass_list_from_model(cls, event: Event) -> list[MatchOpportunity]:
+    def dataclass_list_from_model(cls, events: list[Event], fetch_all: bool) -> list[MatchOpportunity]:
         odds = [odd for odd in event.odds.filter(selected=True).order_by('id').all()]
         return [cls(
             name=odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away), 
             odds = [OddModel.dataclass_from_model(odd, event), 
                 *[OddModel.dataclass_from_model(child, event) for child in odd.children.all()]] 
-                if odd.should_be_updated() else []
+                if fetch_all or odd.should_be_updated() else []
             ) for odd in odds
         ]
 

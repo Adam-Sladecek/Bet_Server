@@ -36,7 +36,7 @@ def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, e
         event.set()
         broadcast_data(DataType.ERROR, str(ex))
 
-def group_results(command_queues: dict[int, queue.Queue], result_queue: queue.Queue, event: threading.Event, number_of_sbs: int): 
+def group_results(command_queues: dict[int, queue.Queue], result_queue: queue.Queue, event: threading.Event, number_of_sbs: int, send_all_event: threading.Event): 
     try:
         result_dictionary = {}
         result_dictionary[Command.REFRESH.value] = 0
@@ -52,7 +52,9 @@ def group_results(command_queues: dict[int, queue.Queue], result_queue: queue.Qu
             result_dictionary[command.value] +=1
             if result_dictionary[command.value] == number_of_sbs:
                 if command == Command.REFRESH: 
-                    send_updated_events()
+                    is_set = send_all_event.is_set()
+                    send_updated_events(is_set)
+                    if is_set: send_all_event.clear()
                     asyncio.run(asyncio.sleep(0.9))
                 else:
                     link_events_and_odds()

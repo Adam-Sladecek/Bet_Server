@@ -1,7 +1,7 @@
 import asyncio
 from enum import Enum
 import logging
-from .dataclass_models import EventModel, OddModel, MatchResponse
+from .dataclass_models import EventModel, OddModel, MatchOpportunityResponse
 from database.models import Sportsbook, Opportunity, Odd, Event, Sport
 from django.db import transaction
 from django.db.models import Q
@@ -134,10 +134,10 @@ def get_relevant_opportunities(odds: list[OddModel], sportsbook: Sportsbook) -> 
         result_dict[opportunity.sport.pk][opportunity.description] = opportunity
     return result_dict
 
-def send_updated_events():
+def send_updated_events(fetch_all: bool):
     sportsbook = Sportsbook.objects.get(is_default=True, selected=True)
     events, _ = get_selected_events(sportsbook)
-    response = MatchResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).order_by('-is_default').all())
+    response = MatchOpportunityResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).order_by('-is_default').all(), fetch_all)
     asyncio.run(broadcast_data(DataType.MATCHDATA, response.dict))
 
 def clear_unused_events():
