@@ -1,5 +1,5 @@
 from django.test import TestCase
-from .dataclass_models import EventModel, MatchResponse, OddModel
+from .dataclass_models import EventModel, MatchOpportunityResponse, OddModel
 from .scripts import (update_events, update_odds, update_selected_events, 
                       get_selected_events, clear_unused_events, link_all_events,
                       link_odds)
@@ -138,13 +138,11 @@ class ScrapeTest(TestCase):
         odd.save()
         sportsbook = Sportsbook.objects.get(is_default=True, selected=True)
         events, _ = get_selected_events(sportsbook)
-        response = MatchResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).order_by('-is_default').all())
-        self.assertEqual(len(response.matches), 1)
+        response = MatchOpportunityResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).order_by('-is_default').all(), False)
+        self.assertEqual(len(response.opportunities), 1)
         self.assertEqual(len(response.sportsbook_ids), 2)
-        match = response.matches[0]
-        self.assertEqual(match.match_id, event.pk)
-        self.assertEqual(len(match.opportunities), 1)
-        opportunity = match.opportunities[0]
+        opportunity = response.opportunities[0]
+        self.assertEqual(opportunity.match_id, event.pk)
         self.assertEqual(len(opportunity.odds), 2)
         self.assertEqual(opportunity.odds[0].odd_id, 1)
         self.assertEqual(opportunity.odds[1].odd_id, 1)
