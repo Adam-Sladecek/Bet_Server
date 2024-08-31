@@ -141,6 +141,7 @@ class PinnacleScraper(Scraper):
                         continue
 
                     parent = matchup['parent']
+                    if parent is None: continue
                     if parent['id'] not in used_descriptions:
                         used_descriptions[parent['id']] = set()
 
