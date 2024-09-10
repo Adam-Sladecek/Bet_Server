@@ -82,6 +82,12 @@ class Odd(models.Model):
             decimal_odds = (100 / abs(self.odd)) + 1
         return round(decimal_odds, 3)
     
+    def kelly(self, odds: float) -> float: 
+        parent_odds = float(self.parent.to_decimal())
+        if parent_odds >= odds: return 0
+        impl_prob = 1/parent_odds
+        return round(((impl_prob * (odds-1)) - (1 - impl_prob))/(odds-1), 2)
+    
 class Opportunity(models.Model):
     description = models.CharField(max_length=200)
     is_default = models.BooleanField(default=False)

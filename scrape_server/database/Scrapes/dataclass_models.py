@@ -1,6 +1,7 @@
 from __future__ import annotations
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from ..models import Odd, Opportunity, Sport, Sportsbook, Event, SportsbookMarket
+from typing import Optional
 
 @dataclass(frozen=True)
 class EventModel: 
@@ -70,22 +71,26 @@ class OddModel:
     sportsbook_id: int
     description: str
     market_id: str
+    kelly: Optional[float] = field(default=None)
 
     @classmethod
     def dataclass_from_model(cls, odd: Odd, event: Event) -> OddModel:
+        odds = float(odd.to_decimal())
+        kelly = None if odd.is_default else odd.kelly(odds)
         return cls(
             id = odd.pk, 
             odd_id = odd.odd_id,
             code = odd.code,
             movement = odd.movement,
-            odd = float(odd.to_decimal()),
+            odd = odds,
             is_default = odd.is_default,
             selected = odd.selected,
             locked = odd.locked,
             event_id = event.pk,
             sportsbook_id = odd.sportsbook.pk,
             description = odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away),
-            market_id = odd.opportunity.market_id
+            market_id = odd.opportunity.market_id,
+            kelly = kelly
             )
 
 @dataclass(frozen=True)
