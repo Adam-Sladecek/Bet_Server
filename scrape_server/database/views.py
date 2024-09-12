@@ -119,15 +119,44 @@ def change_monitored_events(request):
     try:
         data = json.loads(request.body)
         ids = data.get('ids')
-        events = Event.objects.filter(is_default=True).all()
+        events = Event.objects.filter(is_default=True)
+        updated_events = []
+        updated_odds = []
         for event in events: 
-            event.selected = event.pk in ids
+            is_selected = event.pk in ids
+            event.selected = is_selected
+            updated_events.append(event)
+
+            for odd in event.odds.all():
+                odd.selected = is_selected
+                updated_odds.append(odd)
+
         with transaction.atomic():
-            Event.objects.bulk_update(events, ['selected'])
+            Event.objects.bulk_update(updated_events, ['selected'])
+            Odd.objects.bulk_update(updated_odds, ['selected'])
 
         return JsonResponse({}, status=200)
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)
+
+@csrf_exempt
+def set_used_event(request, pk: int):
+    try:
+        event = Event.objects.prefetch_related(
+            'odds',
+        ).get(pk=pk)
+        event.used=True
+        event.selected=False
+        updated_odds = []
+        for odd in event.odds.all():
+            odd.selected = False
+            updated_odds.append(odd)
+        with transaction.atomic():
+            event.save()
+            Odd.objects.bulk_update(updated_odds, ['selected'])
+        return JsonResponse({}, status=200)  
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=400)      
 
 @require_GET
 def get_event_odds(request, pk: int):
@@ -211,7 +240,7 @@ def get_opportunities_for_children() -> OpportunityChildrenResponse:
     return response 
 
 def get_default_events() -> EventResponse: 
-    events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook').filter(is_default=True).order_by('-selected').all()
+    events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook').filter(is_default=True, used=False).order_by('-selected').all()
     response = EventResponse.dataclass_from_models(events)
     return response
 
@@ -226,7 +255,6 @@ def get_event_oppotunities(pk: int) -> OddResponse:
 def get_markets() -> MarketResponse:
     sportsbooks = Sportsbook.objects.prefetch_related('markets').all()
     return MarketResponse.data_class_from_models(sportsbooks)
-
 
 # TODO: add ngrok
 # TODO: users and JWT authorization

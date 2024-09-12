@@ -31,6 +31,7 @@ class Event(models.Model):
     away = models.CharField(max_length=50)
     is_default = models.BooleanField(default=False)
     selected = models.BooleanField(default=False)
+    used = models.BooleanField(default=False)
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', default=None)
@@ -83,10 +84,12 @@ class Odd(models.Model):
         return round(decimal_odds, 3)
     
     def kelly(self, odds: float) -> float: 
+        if odds==1: return 0
         parent_odds = float(self.parent.to_decimal())
-        if parent_odds >= odds: return 0
         impl_prob = 1/parent_odds
-        return round(((impl_prob * (odds-1)) - (1 - impl_prob))/(odds-1), 2)
+        #ev = (impl_prob * (odds-1)) - (1 - impl_prob)
+        kelly = impl_prob - (1 - impl_prob)/(odds-1)
+        return round(kelly, 2)
     
 class Opportunity(models.Model):
     description = models.CharField(max_length=200)
