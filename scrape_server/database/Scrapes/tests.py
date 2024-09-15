@@ -138,14 +138,11 @@ class ScrapeTest(TestCase):
         odd.save()
         sportsbook = Sportsbook.objects.get(is_default=True, selected=True)
         events, _ = get_selected_events(sportsbook)
-        response = MatchOpportunityResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).order_by('-is_default').all(), False)
+        response = MatchOpportunityResponse.dataclass_from_models(events, False)
         self.assertEqual(len(response.opportunities), 1)
-        self.assertEqual(len(response.sportsbook_ids), 2)
         opportunity = response.opportunities[0]
         self.assertEqual(opportunity.match_id, event.pk)
-        self.assertEqual(len(opportunity.odds), 2)
-        self.assertEqual(opportunity.odds[0].odd_id, 1)
-        self.assertEqual(opportunity.odds[1].odd_id, 1)
+        self.assertEqual(opportunity.parent.odd_pk, odd.pk)
 
     def run_updates(self): 
         update_events(self.event_models1, self.sportsbook1)

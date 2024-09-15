@@ -49,6 +49,7 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
                 scrape_thread = threading.Thread(target=scrape_fn, args=(scrape_event, import_queue, send_all_event))
                 scrape_thread.start()
                 await broadcast_message(DataType.STATERESPONSE, TaskState.RUNNING)
+                await self.set_send_all_event()
                 return
             await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING)
         except Exception as e:

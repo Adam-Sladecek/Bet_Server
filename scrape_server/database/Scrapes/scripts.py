@@ -108,7 +108,6 @@ def get_selected_events(sportsbook: Sportsbook) -> tuple[list[Event], set]:
         'odds__opportunity',
         'odds__sportsbook',
         'odds__children',
-        'odds__children__opportunity',
         'odds__children__sportsbook',
     )
 
@@ -137,7 +136,7 @@ def get_relevant_opportunities(odds: list[OddModel], sportsbook: Sportsbook) -> 
 def send_updated_events(fetch_all: bool):
     sportsbook = Sportsbook.objects.get(is_default=True, selected=True)
     events, _ = get_selected_events(sportsbook)
-    response = MatchOpportunityResponse.dataclass_from_models(events, Sportsbook.objects.filter(selected=True).order_by('-is_default').all(), fetch_all)
+    response = MatchOpportunityResponse.dataclass_from_models(events, fetch_all)
     asyncio.run(broadcast_data(DataType.MATCHDATA, response.dict))
 
 def clear_unused_events():

@@ -73,22 +73,25 @@ class Odd(models.Model):
         return self.opportunity.parent == odd.opportunity
     
     def should_be_updated(self) -> bool:
-        return self.movement != 0 or self.locked or any(child.movement != 0 or child.locked for child in self.children.all())
+        return self.movement != 0 or self.locked
     
     def to_decimal(self):
-        if not self.is_default: return self.odd
         if self.odd > 0:
             decimal_odds = (self.odd / 100) + 1
         else:
             decimal_odds = (100 / abs(self.odd)) + 1
         return round(decimal_odds, 3)
     
-    def kelly(self, odds: float) -> float: 
-        if odds==1: return 0
-        parent_odds = float(self.parent.to_decimal())
+    def ev(self, parent_odds: float) -> float: 
         impl_prob = 1/parent_odds
-        #ev = (impl_prob * (odds-1)) - (1 - impl_prob)
-        kelly = impl_prob - (1 - impl_prob)/(odds-1)
+        ev = (impl_prob * (float(self.odd)-1)) - (1 - impl_prob)
+        return round(100*ev, 2)
+    
+    def stake(self, parent_odds: float) -> float: 
+        odds_float = float(self.odd)
+        if odds_float==1: return 0
+        impl_prob = 1/parent_odds
+        kelly = impl_prob - (1 - impl_prob)/(odds_float-1)
         return round(kelly, 2)
     
 class Opportunity(models.Model):
