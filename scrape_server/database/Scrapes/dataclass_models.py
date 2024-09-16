@@ -98,12 +98,13 @@ class MatchOpportunityResponse:
 
     @classmethod # prefetch sport, children, odds, odds__opportunity, odds__children, odds__children__sportsbook
     def dataclass_from_models(cls, events: list[Event], fetch_all: bool) -> MatchOpportunityResponse:
-        opportunities = MatchOpportunity.dataclass_list_from_models(events, fetch_all), 
+        odd_ids = set()
+        opportunities = MatchOpportunity.dataclass_list_from_models(events, odd_ids, fetch_all)
         return cls(
-            opportunities=opportunities[0], 
+            opportunities=opportunities, 
             update_all=fetch_all,
             match_ids=[event.pk for event in events],
-            odd_ids = odd_ids
+            odd_ids = list(odd_ids)
             )
     
     @property
@@ -124,9 +125,8 @@ class MatchOpportunity:
     stake: float
 
     @classmethod
-    def dataclass_list_from_models(cls, events: list[Event], fetch_all: bool) -> list[MatchOpportunity]:
+    def dataclass_list_from_models(cls, events: list[Event], odd_ids: set, fetch_all: bool) -> list[MatchOpportunity]:
         result = []
-        odd_ids = set()
         for event in events:
             match_name=f"{event.home} vs. {event.away}"
             match_id=event.pk
@@ -141,7 +141,7 @@ class MatchOpportunity:
                 parent = MatchOdd(odd.pk, parent_odds, odd.locked, odd.movement)
                 opp_name=odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away) if odd.opportunity_id else '', 
                 should_update_parent = odd.should_be_updated()
-                for childOdd in odd.children.all():
+                for childOdd in odd.children.filter(used=False).all():
                     should_update_child = childOdd.should_be_updated()
                     ev = childOdd.ev(parent_odds)
                     if ev > 0: odd_ids.add(childOdd.pk)

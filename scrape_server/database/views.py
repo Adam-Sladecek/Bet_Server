@@ -140,20 +140,20 @@ def change_monitored_events(request):
         return JsonResponse({'message': str(e)}, status=400)
 
 @csrf_exempt
-def set_used_event(request, pk: int):
+def set_used_event(request, pk: int, sbpk: int):
     try:
         event = Event.objects.prefetch_related(
             'odds',
+            'children',
         ).get(pk=pk)
-        event.used=True
-        event.selected=False
+        sportsbook = Sportsbook.objects.get(pk=sbpk)
+        child_event = event.children.filter(sportsbook=sportsbook).first()
         updated_odds = []
-        for odd in event.odds.all():
-            odd.selected = False
+        for odd in child_event.odds.all():
+            odd.used = True
             updated_odds.append(odd)
         with transaction.atomic():
-            event.save()
-            Odd.objects.bulk_update(updated_odds, ['selected'])
+            Odd.objects.bulk_update(updated_odds, ['used'])
         return JsonResponse({}, status=200)  
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)      
@@ -240,7 +240,7 @@ def get_opportunities_for_children() -> OpportunityChildrenResponse:
     return response 
 
 def get_default_events() -> EventResponse: 
-    events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook').filter(is_default=True, used=False).order_by('-selected').all()
+    events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook').filter(is_default=True).order_by('-selected').all()
     response = EventResponse.dataclass_from_models(events)
     return response
 
