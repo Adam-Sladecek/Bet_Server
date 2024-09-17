@@ -52,14 +52,14 @@ class PinnacleScraper(Scraper):
 
     async def gather_odds(self, events):
         data = {}
-        # for event in events:
-        #     data[(event.event_id, event.sport_id)] = f'https://guest.api.arcadia.pinnacle.com/0.1/matchups/{event.event_id}//markets/related/straight'
-        # results = await self.gather_data(data, self.headers)
-
-        sport_ids = self.get_sportids()
-        for id in self.available_sport_ids:
-            data[sport_ids.get(id)] = f'https://guest.api.arcadia.pinnacle.com/0.1/sports/{id}/markets/live/straight?primaryOnly=false&withSpecials=false'
+        for event in events:
+            data[(event.event_id, event.sport_id)] = f'https://guest.api.arcadia.pinnacle.com/0.1/matchups/{event.event_id}//markets/related/straight'
         results = await self.gather_data(data, self.headers)
+
+        # sport_ids = self.get_sportids()
+        # for id in self.available_sport_ids:
+        #     data[sport_ids.get(id)] = f'https://guest.api.arcadia.pinnacle.com/0.1/sports/{id}/markets/live/straight?primaryOnly=false&withSpecials=false'
+        # results = await self.gather_data(data, self.headers)
         
         return results
     
@@ -90,7 +90,6 @@ class PinnacleScraper(Scraper):
                         self.children[match['id']] = match
                         continue
                     parent_ids.add(parent_id)
-                    # self.children[parent_id] = {parent_id: match['parent'], match['id']: match}
                     self.children[match['id']] = match
                     parent = match['parent']
                     if parent is None: continue
@@ -117,7 +116,7 @@ class PinnacleScraper(Scraper):
 
         return events
     
-    def map_odds(self, data: dict[int, list[object]]) -> tuple[list[OddModel], list[Odd]]:
+    def map_odds(self, data: dict[tuple[int, int], list[object]]) -> tuple[list[OddModel], list[Odd]]:
         if all(element is None for element in data):
             raise Exception('No details retrieved.')
         odds_to_create: list[OddModel] = []
@@ -125,98 +124,99 @@ class PinnacleScraper(Scraper):
         
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         existing_odds = get_existing_odds(self.sportsbook)
-        # for tple, dataset in data.items():
-        for sport_id, dataset in data.items():
+        mapped_data = {}
+        for tple, dataset in data.items():
             if not isinstance(dataset, list): continue
-            # parent_id = tple[0]
-            # sport_id = tple[1]
-            used_descriptions = {}
-            labels = self.labels.get(sport_id)
-            for bet in dataset:
-                try:
-                    if bet['key'] not in allowed_keys and bet['type'] not in allowed_keys: continue
-                    try:
-                        matchup = self.children[bet['matchupId']]
-                    except: 
+            parent_id = tple[0]
+            sport_id = tple[1]
+            mapped_data[parent_id] = (sport_id, [bet for bet in dataset if (bet['key'] in allowed_keys or bet['type'] in allowed_keys) and "status" in bet and bet['status']=="open"])
+        
+        used_descriptions = {}
+        for match_id, matchup in self.children.items():
+            try:
+                parent_id = int(matchup['parentId'])
+                parent = matchup['parent']
+                sport_id, bets = mapped_data[parent_id]
+                if parent_id not in used_descriptions:
+                    used_descriptions[parent['id']] = set()
+            except: continue
+            try:
+                labels = self.labels.get(sport_id)
+                match_bet = next((bet for bet in bets if int(bet['matchupId']) == match_id), None)
+                if match_bet is None: continue
+                existing_match_odds = existing_odds[parent_id]
+                for odd in existing_match_odds.values():
+                    used_descriptions[parent_id].add(odd.opportunity.description)
+
+                home = parent['participants'][0]['name']
+                away = parent['participants'][1]['name']
+                matchup_home = matchup['participants'][0]['name']
+                matchup_away = matchup['participants'][1]['name']
+                participants_by_id = {participant['id']: participant for participant in matchup['participants'] if 'id' in participant}
+                label_obj = labels[match_bet['period']]
+                match_description = ''
+                for label in [lbl for lbl in label_obj['marketLabels'] if lbl['type'] == match_bet['type']]: 
+                    if 'side' in match_bet and 'subType' in label:
+                        if label['subType'] == self.subtypes[match_bet['side']]:
+                            match_description += label['full']
+                            break
+                        continue    
+                    match_description += label['full']  
+                    break
+
+                period_label = label_obj['periodLabel']['full']
+                match_description += f' - {period_label} - '
+                for index, price in enumerate(match_bet['prices']): 
+                    odd_id = self.get_odd_id(match_bet, price, index)
+                    odds = price['price']
+                    locked = False
+                    if odd_id in existing_match_odds: 
+                        existing_odd = existing_match_odds[odd_id]
+                        del existing_match_odds[odd_id]
+                        existing_odd.movement = self.get_movement(existing_odd.odd, odds)
+                        existing_odd.odd = odds
+                        existing_odd.locked = locked
+                        odds_to_update.append(existing_odd)
                         continue
+                    description = ''
+                    description += match_description
+                    
+                    if 'designation' in price:
+                        description += ' ' + price['designation']
+                    if 'participantId' in price:
+                        description += ' ' + participants_by_id[price['participantId']]['name']
+                    if 'points' in price: 
+                        description +=  ' ' + price['points']
 
-                    parent = matchup['parent']
-                    if parent is None: continue
-                    if parent['id'] not in used_descriptions:
-                        used_descriptions[parent['id']] = set()
+                    description = description.replace('home', matchup_home)
+                    description = description.replace('away', matchup_away)
+                    description = description.replace(home, "*1*")
+                    description = description.replace(away, "*2*")
+                    description = description.replace("  ", " ").replace("  ", " ").strip()
+                    
+                    if description in used_descriptions[parent_id]: 
+                        continue # which one of the same bets should be used?
+                        # doriesit update odds ktore sa tu odfiltruju
+                    used_descriptions[parent_id].add(description)
 
-                    existing_match_odds = existing_odds[parent['id']]
-                    for odd in existing_match_odds.values():
-                        used_descriptions[parent['id']].add(odd.opportunity.description)
-
-                    home = parent['participants'][0]['name']
-                    away = parent['participants'][1]['name']
-                    matchup_home = matchup['participants'][0]['name']
-                    matchup_away = matchup['participants'][1]['name']
-                    participants_by_id = {participant['id']: participant for participant in matchup['participants'] if 'id' in participant}
-                    label_obj = labels[bet['period']]
-                    match_description = ''
-                    for label in [lbl for lbl in label_obj['marketLabels'] if lbl['type'] == bet['type']]: 
-                        if 'side' in bet and 'subType' in label:
-                            if label['subType'] == self.subtypes[bet['side']]:
-                                match_description += label['full']
-                                break
-                            continue    
-                        match_description += label['full']  
-                        break
-
-                    period_label = label_obj['periodLabel']['full']
-                    match_description += f' - {period_label} - '
-                    for index, price in enumerate(bet['prices']): 
-                        odd_id = self.get_odd_id(bet, price, index)
-                        odds = price['price']
-                        locked = False
-                        if odd_id in existing_match_odds: 
-                            existing_odd = existing_match_odds[odd_id]
-                            del existing_match_odds[odd_id]
-                            existing_odd.movement = self.get_movement(existing_odd.odd, odds)
-                            existing_odd.odd = odds
-                            existing_odd.locked = locked
-                            odds_to_update.append(existing_odd)
-                            continue
-                        description = ''
-                        description += match_description
-                        
-                        if 'designation' in price:
-                            description += ' ' + price['designation']
-                        if 'participantId' in price:
-                            description += ' ' + participants_by_id[price['participantId']]['name']
-                        if 'points' in price: 
-                            description +=  ' ' + price['points']
-
-                        description = description.replace('home', matchup_home)
-                        description = description.replace('away', matchup_away)
-                        description = description.replace(home, "*1*")
-                        description = description.replace(away, "*2*")
-                        description = description.replace("  ", " ").replace("  ", " ").strip()
-                        
-                        if description in used_descriptions[parent['id']]: 
-                            continue # which one of the same bets should be used?
-                        
-                        used_descriptions[parent['id']].add(description)
-
-                        odds_to_create.append(OddModel(
-                            id = None,
-                            odd_id = odd_id,
-                            code = 0,
-                            movement = 1,
-                            odd = odds,
-                            is_default = self.sportsbook.is_default,
-                            selected = False,
-                            locked = locked, 
-                            event_id = parent['id'],
-                            sportsbook_id = self.sportsbook.pk,
-                            description = description,
-                            market_id = ""
-                        ))        
-                except Exception as ex:
-                    print(f"Exception in map_odds Pinnacle: {str(ex)}.")
-                    continue  
+                    # doriesit vigfree odds
+                    odds_to_create.append(OddModel(
+                        id = None,
+                        odd_id = odd_id,
+                        code = 0,
+                        movement = 1,
+                        odd = odds,
+                        is_default = self.sportsbook.is_default,
+                        selected = False,
+                        locked = locked, 
+                        event_id = parent['id'],
+                        sportsbook_id = self.sportsbook.pk,
+                        description = description,
+                        market_id = ""
+                    ))        
+            except Exception as ex:
+                print(f"Exception in map_odds Pinnacle: {str(ex)}.")
+                continue  
 
         return odds_to_create, odds_to_update       
     
@@ -270,9 +270,8 @@ class PinnacleScraper(Scraper):
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         for event in events:
             price_dict = {}
-            bets = odds_response[event.sport.pk]
+            bets = [bet for bet in odds_response[(event.event_id, event.sport.pk)] if (bet['key'] in allowed_keys or bet['type'] in allowed_keys) and "status" in bet and bet['status']=="open"]
             for bet in bets:
-                if bet['key'] not in allowed_keys and bet['type'] not in allowed_keys: continue
                 if bet['matchupId'] not in self.children: continue
                 matchup = self.children[bet['matchupId']]
                 parent = matchup['parent']
