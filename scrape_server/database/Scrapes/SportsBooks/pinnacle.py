@@ -145,8 +145,9 @@ class PinnacleScraper(Scraper):
                 match_bet = next((bet for bet in bets if int(bet['matchupId']) == match_id), None)
                 if match_bet is None: continue
                 existing_match_odds = existing_odds[parent_id]
+                existing_match_odds_key_description = {}
                 for odd in existing_match_odds.values():
-                    used_descriptions[parent_id].add(odd.opportunity.description)
+                    existing_match_odds_key_description[odd.opportunity.description] = odd
 
                 home = parent['participants'][0]['name']
                 away = parent['participants'][1]['name']
@@ -166,18 +167,15 @@ class PinnacleScraper(Scraper):
 
                 period_label = label_obj['periodLabel']['full']
                 match_description += f' - {period_label} - '
+
+                line_odds = [self.american_to_decimal(price['price']) for price in match_bet['prices']]
+                impl_prob = sum(1 / odd for odd in line_odds)
+                true_odds = lambda index: round(line_odds[index] * impl_prob, 3)
+
                 for index, price in enumerate(match_bet['prices']): 
                     odd_id = self.get_odd_id(match_bet, price, index)
-                    odds = price['price']
+                    odds = true_odds(index)
                     locked = False
-                    if odd_id in existing_match_odds: 
-                        existing_odd = existing_match_odds[odd_id]
-                        del existing_match_odds[odd_id]
-                        existing_odd.movement = self.get_movement(existing_odd.odd, odds)
-                        existing_odd.odd = odds
-                        existing_odd.locked = locked
-                        odds_to_update.append(existing_odd)
-                        continue
                     description = ''
                     description += match_description
                     
@@ -194,9 +192,19 @@ class PinnacleScraper(Scraper):
                     description = description.replace(away, "*2*")
                     description = description.replace("  ", " ").replace("  ", " ").strip()
                     
+                    if description in existing_match_odds_key_description: 
+                        existing_odd = existing_match_odds_key_description[description]
+                        if odd_id != existing_odd.odd_id: 
+                            continue
+                        del existing_match_odds_key_description[description]
+                        existing_odd.movement = self.get_movement(existing_odd.odd, odds)
+                        existing_odd.odd = odds
+                        existing_odd.locked = locked
+                        odds_to_update.append(existing_odd)
+                        continue
+
                     if description in used_descriptions[parent_id]: 
-                        continue # which one of the same bets should be used?
-                        # doriesit update odds ktore sa tu odfiltruju
+                        continue
                     used_descriptions[parent_id].add(description)
 
                     # doriesit vigfree odds
@@ -219,6 +227,13 @@ class PinnacleScraper(Scraper):
                 continue  
 
         return odds_to_create, odds_to_update       
+    
+    def american_to_decimal(self, american_odds: int): 
+        if american_odds > 0:
+            decimal_odds = (american_odds / 100) + 1
+        else:
+            decimal_odds = (100 / abs(american_odds)) + 1
+        return round(decimal_odds, 3)
     
     def get_odd_id(self, bet, price, index) -> int:
         odd_id = int(str(bet['matchupId']) + str(index))
@@ -276,9 +291,11 @@ class PinnacleScraper(Scraper):
                 matchup = self.children[bet['matchupId']]
                 parent = matchup['parent']
                 if parent['id'] != event.event_id: continue
+                line_odds = [self.american_to_decimal(price['price']) for price in bet['prices']]
+                impl_prob = sum(1 / odd for odd in line_odds)
                 for index, price in enumerate(bet['prices']):
                     odd_id = self.get_odd_id(bet, price, index)
-                    price_dict[odd_id] = (price, bool(bet['isAlternate']))
+                    price_dict[odd_id] = (price, bool(bet['isAlternate']), impl_prob)
 
             for odd in event.odds.filter(selected=True).all(): 
                 try:
@@ -288,8 +305,12 @@ class PinnacleScraper(Scraper):
                         odds_to_update.append(odd)
                         continue
                     price = tple[0]
-                    odd.movement = self.get_movement(odd.odd, price['price'])      
-                    odd.odd = price['price']
+                    isAlternate = tple[1]
+                    impl_prob = tple[2]
+                    odds = self.american_to_decimal(price['price'])
+                    true_odds = round(odds * impl_prob, 3)
+                    odd.movement = self.get_movement(odd.odd, true_odds)      
+                    odd.odd = true_odds
                     odd.locked = False
                     odds_to_update.append(odd)
                 except Exception as ex:

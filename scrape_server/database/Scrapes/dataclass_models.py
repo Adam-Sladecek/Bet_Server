@@ -73,7 +73,7 @@ class OddModel:
 
     @classmethod
     def dataclass_from_model(cls, odd: Odd, event: Event) -> OddModel:
-        odds = float(odd.to_decimal())
+        odds = float(odd.odd)
         return cls(
             id = odd.pk, 
             odd_id = odd.odd_id,
@@ -137,7 +137,7 @@ class MatchOpportunity:
             except:
                 pass
             for odd in event.odds.filter(selected=True).order_by('id').all():
-                parent_odds = float(odd.to_decimal())
+                parent_odds = float(odd.odd)
                 parent = MatchOdd(odd.pk, parent_odds, odd.locked, odd.movement)
                 opp_name=odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away) if odd.opportunity_id else '', 
                 should_update_parent = odd.should_be_updated()

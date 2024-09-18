@@ -54,7 +54,7 @@ class Odd(models.Model):
     odd_id = models.BigIntegerField()
     code= models.IntegerField()
     movement= models.IntegerField(default=0)
-    odd = models.DecimalField(max_digits=10, decimal_places=2)
+    odd = models.DecimalField(max_digits=10, decimal_places=3)
     is_default = models.BooleanField(default=False)
     selected = models.BooleanField(default=False)
     locked = models.BooleanField(default=False)
@@ -74,13 +74,6 @@ class Odd(models.Model):
     
     def should_be_updated(self) -> bool:
         return self.movement != 0 or self.locked
-    
-    def to_decimal(self):
-        if self.odd > 0:
-            decimal_odds = (self.odd / 100) + 1
-        else:
-            decimal_odds = (100 / abs(self.odd)) + 1
-        return round(decimal_odds, 3)
     
     def ev(self, parent_odds: float) -> float: 
         impl_prob = 1/parent_odds
