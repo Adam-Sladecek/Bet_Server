@@ -145,9 +145,8 @@ class PinnacleScraper(Scraper):
                 match_bet = next((bet for bet in bets if int(bet['matchupId']) == match_id), None)
                 if match_bet is None: continue
                 existing_match_odds = existing_odds[parent_id]
-                existing_match_odds_key_description = {}
                 for odd in existing_match_odds.values():
-                    existing_match_odds_key_description[odd.opportunity.description] = odd
+                    used_descriptions[parent_id].add(odd.opportunity.description)
 
                 home = parent['participants'][0]['name']
                 away = parent['participants'][1]['name']
@@ -176,6 +175,15 @@ class PinnacleScraper(Scraper):
                     odd_id = self.get_odd_id(match_bet, price, index)
                     odds = true_odds(index)
                     locked = False
+                    if odd_id in existing_match_odds: 
+                        existing_odd = existing_match_odds[odd_id]
+                        del existing_match_odds[odd_id]
+                        existing_odd.movement = self.get_movement(existing_odd.odd, odds)
+                        existing_odd.odd = odds
+                        existing_odd.locked = locked
+                        odds_to_update.append(existing_odd)
+                        continue
+
                     description = ''
                     description += match_description
                     
@@ -192,22 +200,9 @@ class PinnacleScraper(Scraper):
                     description = description.replace(away, "*2*")
                     description = description.replace("  ", " ").replace("  ", " ").strip()
                     
-                    if description in existing_match_odds_key_description: 
-                        existing_odd = existing_match_odds_key_description[description]
-                        if odd_id != existing_odd.odd_id: 
-                            continue
-                        del existing_match_odds_key_description[description]
-                        existing_odd.movement = self.get_movement(existing_odd.odd, odds)
-                        existing_odd.odd = odds
-                        existing_odd.locked = locked
-                        odds_to_update.append(existing_odd)
-                        continue
-
-                    if description in used_descriptions[parent_id]: 
-                        continue
+                    if description in used_descriptions[parent_id]: continue
                     used_descriptions[parent_id].add(description)
 
-                    # doriesit vigfree odds
                     odds_to_create.append(OddModel(
                         id = None,
                         odd_id = odd_id,
@@ -285,7 +280,9 @@ class PinnacleScraper(Scraper):
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         for event in events:
             price_dict = {}
-            bets = [bet for bet in odds_response[(event.event_id, event.sport.pk)] if (bet['key'] in allowed_keys or bet['type'] in allowed_keys) and "status" in bet and bet['status']=="open"]
+            bets_unfiltered = odds_response[(event.event_id, event.sport.pk)]
+            if not isinstance(bets_unfiltered, list): continue
+            bets = [bet for bet in bets_unfiltered if (bet['key'] in allowed_keys or bet['type'] in allowed_keys) and "status" in bet and bet['status']=="open"]
             for bet in bets:
                 if bet['matchupId'] not in self.children: continue
                 matchup = self.children[bet['matchupId']]
@@ -315,6 +312,6 @@ class PinnacleScraper(Scraper):
                     odds_to_update.append(odd)
                 except Exception as ex:
                     print(f"Exception in map_odds_selected Pinnacle: {str(ex)}.")
-                    continue                   
+                    continue          
         
         return odds_to_update

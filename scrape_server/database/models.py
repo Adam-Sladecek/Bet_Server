@@ -73,7 +73,7 @@ class Odd(models.Model):
         return self.opportunity.parent == odd.opportunity
     
     def should_be_updated(self) -> bool:
-        return self.movement != 0 or self.locked
+        return self.movement != 0
     
     def ev(self, parent_odds: float) -> float: 
         impl_prob = 1/parent_odds

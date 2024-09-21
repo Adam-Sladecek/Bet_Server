@@ -136,12 +136,12 @@ class MatchOpportunity:
                 time=event.children.first().time # time consuming
             except:
                 pass
-            for odd in event.odds.filter(selected=True).order_by('id').all():
+            for odd in event.odds.filter(selected=True, locked=False).order_by('id').all():
                 parent_odds = float(odd.odd)
                 parent = MatchOdd(odd.pk, parent_odds, odd.locked, odd.movement)
                 opp_name=odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away) if odd.opportunity_id else '', 
                 should_update_parent = odd.should_be_updated()
-                for childOdd in odd.children.filter(used=False).all():
+                for childOdd in odd.children.filter(used=False, locked=False).all():
                     should_update_child = childOdd.should_be_updated()
                     ev = childOdd.ev(parent_odds)
                     if ev > 0: odd_ids.add(childOdd.pk)
