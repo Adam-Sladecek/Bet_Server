@@ -3,6 +3,7 @@ from .SportsBooks.nike import NikeScraper
 from .SportsBooks.tipsport import TipsportScraper
 from .SportsBooks.pinnacle import PinnacleScraper
 from .SportsBooks.ifortuna import IfortunaScraper
+from .SportsBooks.ps3838 import PS3838Scraper
 import threading
 import asyncio
 from .SportsBooks.scraper import Scraper
@@ -101,5 +102,6 @@ def get_scraper_class(sportsbook: Sportsbook) -> Scraper:
         'Tipsport': TipsportScraper,
         'Pinnacle': PinnacleScraper,
         'Ifortuna': IfortunaScraper,
+        'Ps3838': PS3838Scraper,
     }
     return scrapers[sportsbook.name]
