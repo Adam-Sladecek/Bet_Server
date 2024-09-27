@@ -32,16 +32,16 @@ class PinnacleScraper(Scraper):
         pass
     
     async def get_labels(self): 
-        url = 'https://guest.api.arcadia.pinnacle.com/0.1/labels?brandId=0'
-        labels = await self.get(url, self.headers)
+        url = 'https://guest.api.arcadia.pinnacle.com/0.1/labels'
+        labels = await self.get(url, self.headers, {'brandId': 0})
         sport_ids = self.get_sportids()
         selected_sport_ids = [sport.pk for sport in self.sports]
         keys = [key for key, item in sport_ids.items() if item in selected_sport_ids]
         self.labels = {sport_ids.get(label['sport']['id']): label['labels'] for label in labels if label['sport']['id'] in keys}
 
     async def gather_events(self, sports: list[Sport]):
-        url = 'https://guest.api.arcadia.pinnacle.com/0.1/sports/live?brandId=0'
-        live_sports = await self.get(url, self.headers)
+        url = 'https://guest.api.arcadia.pinnacle.com/0.1/sports/live'
+        live_sports = await self.get(url, self.headers, {'brandId': 0})
         sport_ids = self.get_sportids()
         selected_sport_ids = [sport.pk for sport in sports]
         keys = [key for key, item in sport_ids.items() if item in selected_sport_ids]

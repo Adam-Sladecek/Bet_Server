@@ -105,9 +105,9 @@ class Scraper(ABC):
 
             return (sport_id, result)
         
-    async def get(self, url: str, headers: object) -> object:
+    async def get(self, url: str, headers: object, params: object) -> object:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as resp:
+            async with session.get(url, headers=headers, params=params) as resp:
                 result = await resp.json() 
                 return result 
         

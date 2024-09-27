@@ -56,7 +56,7 @@ def group_results(command_queues: dict[int, queue.Queue], result_queue: queue.Qu
                     is_set = send_all_event.is_set()
                     send_updated_events(is_set)
                     if is_set: send_all_event.clear()
-                    asyncio.run(asyncio.sleep(0.9))
+                    asyncio.run(asyncio.sleep(5))
                 else:
                     link_events_and_odds()
                     asyncio.run(broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
