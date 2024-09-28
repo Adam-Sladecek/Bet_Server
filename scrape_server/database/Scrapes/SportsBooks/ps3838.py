@@ -32,8 +32,6 @@ class PS3838Scraper(Scraper):
     def close_driver(self):
         pass
 
-    #import all: get all events -> add all to db -> get settled events -> store since parameters
-    #get data: get increment live events -> get increment settled events -
     def import_all_data(self):
         sport_ids = self.get_sportids()
         selected_sport_ids = [sport.pk for sport in self.sports]
@@ -41,12 +39,20 @@ class PS3838Scraper(Scraper):
         loop = self.get_loop()
         event_response = loop.run_until_complete(self.gather_events(sb_sport_ids))
         events = self.map_events(event_response)
-        update_events(events, self.sportsbook)
+        update_events(events, self.sportsbook, False)
         # add or update
         event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
         # delete redundant events
-        events_ids = [event.pk for event in events if event.pk is not None]
-        odds_response = loop.run_until_complete(self.gather_odds(events))
+        events = [event for event in events if event.pk is not None]
+        event_ids = {}
+        league_ids = {}
+        for event in events: # remove events from settled response
+            if event.sport_id not in event_ids: event_ids[event.sport_id] = set()
+            if event.sport_id not in league_ids: league_ids[event.sport_id] = set()
+            event_ids[event.sport_id].add(event.event_id)
+            league_ids[event.sport_id].add(event.league_id)
+
+        odds_response = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_ids, league_ids))
         odds_to_create, odds_to_update = self.map_odds(odds_response)
         update_odds(odds_to_create, odds_to_update, self.sportsbook)
 
@@ -63,7 +69,7 @@ class PS3838Scraper(Scraper):
         odds_to_update = self.map_odds_selected(events, odds_response)
         update_selected_odds(odds_to_update)
 
-    async def gather_events(self, sport_ids, league_ids=[], event_ids=[]):
+    async def gather_events(self, sport_ids, event_id_dict={}, league_id_dict={}):
         url = 'https://api.ps3838.com/v3/fixtures'
         internal_sport_ids = self.get_sportids()
         result = {}
@@ -74,10 +80,12 @@ class PS3838Scraper(Scraper):
             if since is not None:
                 params['since'] = since
 
-            if len(league_ids) > 0:
+            league_ids = league_id_dict[internal_sport_id]
+            if league_ids is not None and len(league_ids) > 0:
                 params['leagueIds'] = ','.join(map(str, league_ids))
 
-            if len(event_ids) > 0:
+            event_ids = event_id_dict[internal_sport_id]
+            if event_ids is not None and len(event_ids) > 0:
                 params['eventIds'] = ','.join(map(str, event_ids))
 
             response = await self.get(url, self.headers, params)
@@ -101,7 +109,7 @@ class PS3838Scraper(Scraper):
 
         return result
 
-    async def gather_odds(self, sport_ids, event_ids=[], league_ids=[]):
+    async def gather_odds(self, sport_ids, event_id_dict={}, league_id_dict={}):
         url = 'https://api.ps3838.com/v3/odds'
         internal_sport_ids = self.get_sportids()
         result = {}
@@ -112,11 +120,13 @@ class PS3838Scraper(Scraper):
             if since is not None:
                 params['since'] = since
 
-            if len(league_ids) > 0:
+            league_ids = league_id_dict[internal_sport_id]
+            if league_ids is not None and len(league_ids) > 0:
                 params['leagueIds'] = ','.join(map(str, league_ids))
 
-            if len(event_ids) > 0:
-                params['eventIds'] = ','.join(map(str, event_ids))     
+            event_ids = event_id_dict[internal_sport_id]
+            if event_ids is not None and len(event_ids) > 0:
+                params['eventIds'] = ','.join(map(str, event_ids))
 
             response = await self.get(url, self.headers, params)
             result[internal_sport_id] = response
@@ -140,9 +150,11 @@ class PS3838Scraper(Scraper):
     def map_events(self, data: dict[int, object]) -> list[EventModel]:
         events: list[EventModel] = []
         for sport_id, model in data.items():
-            if model is None: continue
-            event_dataclasses = FixturePS3838.dataclass_from_model(model)
-            for league in event_dataclasses.league:
+            if model is None or 'last' not in model: 
+                continue
+            fixture = FixturePS3838.dataclass_from_model(model)
+            self.fixture_since[sport_id] = fixture.last
+            for league in fixture.league:
                 for event in league.events:
                     events.append(
                         EventModel(

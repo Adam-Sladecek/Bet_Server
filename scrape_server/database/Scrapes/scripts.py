@@ -9,7 +9,7 @@ from collections import defaultdict
 from ..enums import DataType
 from channels.layers import get_channel_layer
 
-def update_events(events_list: list[EventModel], sportsbook: Sportsbook):
+def update_events(events_list: list[EventModel], sportsbook: Sportsbook, delete=True):
     existing_events = Event.objects.select_related('sportsbook').filter(sportsbook=sportsbook).all()
     existing_events_dict = {event.event_id: event for event in existing_events}
     new_events = []
@@ -35,8 +35,9 @@ def update_events(events_list: list[EventModel], sportsbook: Sportsbook):
         new_events.append(new_event)
 
     with transaction.atomic():
-        used_event_ids = [event_data.event_id for event_data in events_list]
-        Event.objects.filter(sportsbook=sportsbook).exclude(event_id__in=used_event_ids).delete()
+        if delete: 
+            used_event_ids = [event_data.event_id for event_data in events_list]
+            Event.objects.filter(sportsbook=sportsbook).exclude(event_id__in=used_event_ids).delete()
         Event.objects.bulk_update(events_to_update, ['time'])
         Event.objects.bulk_create(new_events)
 
@@ -63,7 +64,7 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sport
         opportunities_dict = opportunities_dict_by_sport[event.sport.pk]
         if odd.description in opportunities_dict: 
             opportunity = opportunities_dict[odd.description]
-            new_odd = Odd(
+            new_odd = Odd (
                 odd_id=odd.odd_id,
                 code=odd.code,
                 movement=odd.movement,
