@@ -26,6 +26,7 @@ class SportsbookMarket(models.Model):
 
 class Event(models.Model):
     event_id = models.IntegerField()
+    league_id = models.IntegerField(default=0)
     time = models.CharField(max_length=60)
     home = models.CharField(max_length=50)
     away = models.CharField(max_length=50)

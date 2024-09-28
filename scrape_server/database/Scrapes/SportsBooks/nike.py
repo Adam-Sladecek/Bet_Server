@@ -42,6 +42,7 @@ class NikeScraper(Scraper):
                     events.append(EventModel(
                         id=None, 
                         event_id=event_id, 
+                        league_id=0,
                         time =time, 
                         home=home, 
                         away=away, 

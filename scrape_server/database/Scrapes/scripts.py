@@ -23,6 +23,7 @@ def update_events(events_list: list[EventModel], sportsbook: Sportsbook):
         
         new_event = Event(
             event_id=event_data.event_id,
+            league_id=event_data.league_id,
             time= event_data.time,
             home = event_data.home,
             away = event_data.away,

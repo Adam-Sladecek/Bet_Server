@@ -100,6 +100,7 @@ class PinnacleScraper(Scraper):
                     events.append(EventModel(
                         id=None, 
                         event_id=parent_id, 
+                        league_id=0,
                         time =time, 
                         home=home, 
                         away=away, 

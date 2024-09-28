@@ -6,6 +6,7 @@ from ..models import Odd, Opportunity, Sport, Sportsbook, Event, SportsbookMarke
 class EventModel: 
     id: int
     event_id: int
+    league_id: int
     time: str
     home: str
     away: str
@@ -20,6 +21,7 @@ class EventModel:
     def dataclass_list_from_models(cls, events: list[Event]) -> list[EventModel]:
         return [cls(id=event.pk, 
                     event_id=event.event_id, 
+                    league_id=event.league_id, 
                     time=event.time, 
                     home=event.home, 
                     away=event.away, 

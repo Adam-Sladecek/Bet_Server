@@ -11,14 +11,14 @@ class ScrapeTest(TestCase):
         self.sportsbook1 = Sportsbook.objects.create(name="Nike", selected=True, is_default=True)
         self.sportsbook2 = Sportsbook.objects.create(name="Tipsport", selected=True)
         self.event_models1 = [
-            EventModel(None, 1, "", 'Roger Federer', 'Rafael Nadal', self.sportsbook1.is_default, False, self.sportsbook1.pk, self.sport.pk, [], 5),
-            EventModel(None, 2, "", 'Novak Djokovic', 'Andy Murray', self.sportsbook1.is_default, False, self.sportsbook1.pk, self.sport.pk, [], 5),
-            EventModel(None, 3, "", 'Alexander Zverev', 'Dominic Thiem', self.sportsbook1.is_default, False, self.sportsbook1.pk, self.sport.pk, [], 5),
+            EventModel(None, 1, 0, "", 'Roger Federer', 'Rafael Nadal', self.sportsbook1.is_default, False, self.sportsbook1.pk, self.sport.pk, [], 5),
+            EventModel(None, 2, 0, "", 'Novak Djokovic', 'Andy Murray', self.sportsbook1.is_default, False, self.sportsbook1.pk, self.sport.pk, [], 5),
+            EventModel(None, 3, 0, "", 'Alexander Zverev', 'Dominic Thiem', self.sportsbook1.is_default, False, self.sportsbook1.pk, self.sport.pk, [], 5),
         ]
         self.event_models2 = [
-            EventModel(None, 1, "", 'Federer R.', 'Nadal R.', self.sportsbook2.is_default, False, self.sportsbook2.pk, self.sport.pk, [], 5),
-            EventModel(None, 2, "", 'Djokovic N.', 'Murray A.', self.sportsbook2.is_default, False, self.sportsbook2.pk, self.sport.pk, [], 5),
-            EventModel(None, 3, "", 'Lukas Lacko', 'Dominik Hrbaty', self.sportsbook2.is_default, False, self.sportsbook2.pk, self.sport.pk, [], 5)
+            EventModel(None, 1, 0, "", 'Federer R.', 'Nadal R.', self.sportsbook2.is_default, False, self.sportsbook2.pk, self.sport.pk, [], 5),
+            EventModel(None, 2, 0, "", 'Djokovic N.', 'Murray A.', self.sportsbook2.is_default, False, self.sportsbook2.pk, self.sport.pk, [], 5),
+            EventModel(None, 3, 0, "", 'Lukas Lacko', 'Dominik Hrbaty', self.sportsbook2.is_default, False, self.sportsbook2.pk, self.sport.pk, [], 5)
         ]
 
         self.opportunity11 = Opportunity.objects.create(sportsbook= self.sportsbook1, description='Vyhrá *1*', market_id='21', sport=self.sport, is_default=self.sportsbook1.is_default, prefered=False)
@@ -50,7 +50,7 @@ class ScrapeTest(TestCase):
         update_events(first_batch, self.sportsbook1)
         self.assertEqual(Event.objects.count(), 3)
         second_batch = self.event_models1[1:]
-        second_batch[0] = EventModel(None, 2, "new_time", 'Novak Djokovic', 'Andy Murray', False, False, 1, 1, [], 5)
+        second_batch[0] = EventModel(None, 2, 0, "new_time", 'Novak Djokovic', 'Andy Murray', False, False, 1, 1, [], 5)
         update_events(second_batch, self.sportsbook1)
         self.assertEqual(Event.objects.count(), 2)
         changed_event = Event.objects.filter(event_id=second_batch[0].event_id).first()
@@ -103,7 +103,7 @@ class ScrapeTest(TestCase):
         
     def test_chage_of_parents(self):
         self.event_models2.append(
-            EventModel(None, 4, "", 'Roger Federe', 'Rafael Nada', False, False, self.sportsbook2.pk, self.sport.pk, [], 5),
+            EventModel(None, 4, 0, "", 'Roger Federe', 'Rafael Nada', False, False, self.sportsbook2.pk, self.sport.pk, [], 5),
         )
         self.run_updates()
         link_all_events()
@@ -113,7 +113,7 @@ class ScrapeTest(TestCase):
         self.assertEqual(event2.parent, None)
         self.assertEqual(event3.parent, event1)
         self.event_models2.append(
-            EventModel(None, 5, "", 'Roger Federer', 'Rafael Nadal', False, False, self.sportsbook2.pk, self.sport.pk, [], 5),
+            EventModel(None, 5, 0, "", 'Roger Federer', 'Rafael Nadal', False, False, self.sportsbook2.pk, self.sport.pk, [], 5),
         )
         update_events(self.event_models2, self.sportsbook2)
         link_all_events()

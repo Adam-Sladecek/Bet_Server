@@ -53,6 +53,7 @@ class TipsportScraper(Scraper):
                 events.append(EventModel(
                     id=None, 
                     event_id=match["id"], 
+                    league_id=0, 
                     time =time, 
                     home=names[0], 
                     away=names[1], 

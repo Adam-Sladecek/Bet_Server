@@ -45,7 +45,7 @@ class PS3838Scraper(Scraper):
         # add or update
         event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
         # delete redundant events
-        events = [event for event in events if event.pk is not None]
+        events_ids = [event.pk for event in events if event.pk is not None]
         odds_response = loop.run_until_complete(self.gather_odds(events))
         odds_to_create, odds_to_update = self.map_odds(odds_response)
         update_odds(odds_to_create, odds_to_update, self.sportsbook)
@@ -148,6 +148,7 @@ class PS3838Scraper(Scraper):
                         EventModel(
                             id=None,
                             event_id=event.id,
+                            league_id=league.id,
                             time ='',
                             home=event.home,
                             away=event.away,
