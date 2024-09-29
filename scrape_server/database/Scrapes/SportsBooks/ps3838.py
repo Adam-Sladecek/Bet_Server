@@ -3,9 +3,10 @@ from ..dataclass_models import EventModel, OddModel
 from ..scripts import get_existing_odds
 from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
 from .scraper import Scraper
-from..ps3838_dataclasses import SportPS3838, FixturePS3838
+from..ps3838_dataclasses import SportPS3838, FixturePS3838, PeriodPS3838
 import json
-from ..scripts import update_events, update_odds, get_selected_events, update_selected_events, update_selected_odds
+from ..scripts import (update_events, update_odds, get_selected_events, 
+                       update_selected_events, update_selected_odds, delete_settled_events)
 
 class PS3838Scraper(Scraper):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
@@ -15,10 +16,15 @@ class PS3838Scraper(Scraper):
             'Accept': 'application/json',
             'Authorization': 'Basic QklBMDAwMzFGNDpCcmVzdG92YW55MTIz'
         }
+        self.descriptions = {
+            'moneyline': 'moneylineDescription',
+        }
         selected_sport_ids = [sport.pk for sport in self.sports]
+        sb_sport_ids= [key for key, item in self.get_sportids().items() if item in selected_sport_ids]
         self.fixture_since = {id: None for id in selected_sport_ids}
         self.fixture_settled_since = {id: None for id in selected_sport_ids}
         self.odds_since = {id: None for id in selected_sport_ids}
+        asyncio.run(self.gather_periods(sb_sport_ids))
 
     def __enter__(self):
         return self
@@ -40,20 +46,20 @@ class PS3838Scraper(Scraper):
         event_response = loop.run_until_complete(self.gather_events(sb_sport_ids))
         events = self.map_events(event_response)
         update_events(events, self.sportsbook, False)
-        # add or update
         event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
-        # delete redundant events
-        events = [event for event in events if event.pk is not None]
-        event_ids = {}
-        league_ids = {}
-        for event in events: # remove events from settled response
-            if event.sport_id not in event_ids: event_ids[event.sport_id] = set()
-            if event.sport_id not in league_ids: league_ids[event.sport_id] = set()
-            event_ids[event.sport_id].add(event.event_id)
-            league_ids[event.sport_id].add(event.league_id)
+        settled_event_ids = self.get_settled_event_ids(event_settled_response)
+        delete_settled_events(settled_event_ids, self.sportsbook)
+        events = [event for event in events if event.event_id not in settled_event_ids]
+        event_id_dict = {}
+        league_id_dict = {}
+        for event in events:
+            if event.sport_id not in event_id_dict: event_id_dict[event.sport_id] = set()
+            if event.sport_id not in league_id_dict: league_id_dict[event.sport_id] = set()
+            event_id_dict[event.sport_id].add(event.event_id)
+            league_id_dict[event.sport_id].add(event.league_id)
 
-        odds_response = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_ids, league_ids))
-        odds_to_create, odds_to_update = self.map_odds(odds_response)
+        odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_id_dict, league_id_dict))
+        odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
         update_odds(odds_to_create, odds_to_update, self.sportsbook)
 
     def get_data(self):
@@ -69,6 +75,26 @@ class PS3838Scraper(Scraper):
         odds_to_update = self.map_odds_selected(events, odds_response)
         update_selected_odds(odds_to_update)
 
+    def get_settled_event_ids(self, response: dict) -> list[int]:
+        result = []
+        for sport_id, model in response.items():
+            if model is None or 'last' not in model: continue
+            self.fixture_settled_since[sport_id] = model['last']
+            for league in model['leagues']:
+                for event in league['events']:
+                    result.append(event['id'])
+
+        return result
+    
+    async def gather_periods(self, sport_ids: list[int]): 
+        self.periods = {}
+        url = 'https://api.ps3838.com/v1/periods'
+        for sport_id in sport_ids: 
+            params = {'sportId': sport_id}
+            response = await self.get(url, self.headers, params)
+            mapped_periods = PeriodPS3838.dataclass_list_from_model(response)
+            self.periods[sport_id] = {period.number: period for period in mapped_periods}
+            
     async def gather_events(self, sport_ids, event_id_dict={}, league_id_dict={}):
         url = 'https://api.ps3838.com/v3/fixtures'
         internal_sport_ids = self.get_sportids()
@@ -173,9 +199,65 @@ class PS3838Scraper(Scraper):
                         ))
         return events
 
-    def map_odds(self, data: dict[tuple[int, int], list[object]]) -> tuple[list[OddModel], list[Odd]]:
-        pass
+    def map_odds(self, data: dict[int, object]) -> tuple[list[OddModel], list[Odd]]:
+        odds_to_create: list[OddModel] = []
+        odds_to_update: list[Odd] = []
+        allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
+        existing_odds = get_existing_odds(self.sportsbook)
+        for sport_id, dataset in data.items():
+            try:
+                if dataset is None or 'last' not in dataset: continue
+                sport_periods = self.periods[sport_id]
+                self.odds_since[sport_id] = dataset['last']
+                for league in dataset['leagues']: 
+                    for event in league['events']: 
+                        existing_match_odds = existing_odds[event['id']]
+                        for period in event['periods']:
+                            line_id=period['lineId']
+                            label = sport_periods[period['number']]
+                            for all_key in allowed_keys:
+                                if not isinstance(period[all_key], dict): continue
+                                enumerator = 0
+                                for key, odds in period[all_key].items():
+                                    odd_id = int(str(line_id) + str(enumerator))
+                                    enumerator +=1
+                                    if odd_id in existing_match_odds: 
+                                        existing_odd = existing_match_odds[odd_id]
+                                        del existing_match_odds[odd_id]
+                                        existing_odd.movement = self.get_movement(existing_odd.odd, odds)
+                                        existing_odd.odd = odds
+                                        odds_to_update.append(existing_odd)
+                                        continue
+                                    
+                                    description = f'{label[self.descriptions[all_key]]} - {key}'
+                                    description = description.replace('home', "*1*")
+                                    description = description.replace('away', "*2*")
+                                    # check when fixture or odds are invalid
+                                    odds_to_create.append(OddModel(
+                                        id = None,
+                                        odd_id = odd_id,
+                                        code = 0,
+                                        movement = 1,
+                                        odd = odds,
+                                        is_default = self.sportsbook.is_default,
+                                        selected = False,
+                                        locked = False, 
+                                        event_id = event['id'],
+                                        sportsbook_id = self.sportsbook.pk,
+                                        description = description,
+                                        market_id = ""
+                                    ))          
 
+
+            except Exception as ex:
+                print(f"Exception in map_odds Ps3838: {str(ex)}.")
+                continue  
+
+        return odds_to_create, odds_to_update       
+
+    def handle_dict_odds(self):
+        pass
+    
     def map_events_selected(self, events: list[Event], event_response: dict[int, object]) -> tuple[list[Event], list[Event]]:
         pass
 

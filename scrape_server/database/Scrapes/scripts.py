@@ -47,6 +47,10 @@ def update_selected_events(events_to_update: list[Event], events_to_delete: list
             event.delete()
         Event.objects.bulk_update(events_to_update, ['time'])
 
+def delete_settled_events(event_ids: list[int], sportsbook: Sportsbook): 
+    with transaction.atomic():
+        Event.objects.filter(sportsbook=sportsbook).filter(event_id__in=event_ids).delete()
+
 def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sportsbook: Sportsbook):
     # logger = logging.getLogger('django')
     events = Event.objects.select_related('sport').filter(sportsbook=sportsbook, event_id__in=[odd.event_id for odd in odds_to_create]).all()

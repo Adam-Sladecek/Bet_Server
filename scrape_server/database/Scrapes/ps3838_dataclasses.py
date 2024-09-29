@@ -61,3 +61,23 @@ class EventPS3838:
     @classmethod
     def dataclass_list_from_models(cls, objects: list[object]) -> list[EventPS3838]:
         return [cls(**obj) for obj in objects]
+    
+@dataclass(frozen=True)
+class PeriodPS3838: 
+    number: int
+    description: str
+    shortDescription: str
+    spreadDescription: str
+    moneylineDescription: str
+    totalDescription: str
+    team1TotalDescription: str
+    team2TotalDescription: str
+    spreadShortDescription: str
+    moneylineShortDescription: str
+    totalShortDescription: str
+    team1TotalShortDescription: str
+    team2TotalShortDescription: str  
+
+    @classmethod
+    def dataclass_list_from_model(cls, object: list[object]) -> list[PeriodPS3838]:
+        return [cls(**obj) for obj in object['periods']]
