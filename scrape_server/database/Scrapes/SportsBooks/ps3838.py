@@ -3,10 +3,9 @@ from ..dataclass_models import EventModel, OddModel
 from ..scripts import get_existing_odds
 from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
 from .scraper import Scraper
-from..ps3838_dataclasses import SportPS3838, FixturePS3838, PeriodPS3838
-import json
-from ..scripts import (update_events, update_odds, get_selected_events, 
-                       update_selected_events, update_selected_odds, delete_settled_events)
+from..ps3838_dataclasses import FixturePS3838, PeriodPS3838
+from ..scripts import update_events, update_odds, get_selected_events, delete_settled_events
+from datetime import datetime, timezone
 
 class PS3838Scraper(Scraper):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
@@ -37,7 +36,7 @@ class PS3838Scraper(Scraper):
 
     def close_driver(self):
         pass
-
+    
     def import_all_data(self):
         sport_ids = self.get_sportids()
         selected_sport_ids = [sport.pk for sport in self.sports]
@@ -46,10 +45,12 @@ class PS3838Scraper(Scraper):
         event_response = loop.run_until_complete(self.gather_events(sb_sport_ids))
         events = self.map_events(event_response)
         update_events(events, self.sportsbook, False)
+
         event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
         settled_event_ids = self.get_settled_event_ids(event_settled_response)
         delete_settled_events(settled_event_ids, self.sportsbook)
         events = [event for event in events if event.event_id not in settled_event_ids]
+
         event_id_dict = {}
         league_id_dict = {}
         for event in events:
@@ -65,15 +66,19 @@ class PS3838Scraper(Scraper):
     def get_data(self):
         events, sport_ids = get_selected_events(self.sportsbook)
         if len(events) == 0: return
-        sports = [sport for sport in self.sports if sport.pk in sport_ids]
+        event_id_dict = {}
+        league_id_dict = {}
+        for event in events:
+            if event.sport.pk not in event_id_dict: event_id_dict[event.sport.pk] = set()
+            if event.sport.pk not in league_id_dict: league_id_dict[event.sport.pk] = set()
+            event_id_dict[event.sport.pk].add(event.event_id)
+            league_id_dict[event.sport.pk].add(event.league_id)
+
+        sb_sport_ids= [key for key, item in self.get_sportids().items() if item in sport_ids]
         loop = self.get_loop()
-        event_response = loop.run_until_complete(self.gather_events(sports))
-        events_to_update, events_to_delete = self.map_events_selected(events, event_response)
-        update_selected_events(events_to_update, events_to_delete)
-        events = [event for event in events if event.pk is not None]
-        odds_response = loop.run_until_complete(self.gather_odds(events))
-        odds_to_update = self.map_odds_selected(events, odds_response)
-        update_selected_odds(odds_to_update)
+        odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_id_dict, league_id_dict))
+        odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
+        update_odds(odds_to_create, odds_to_update, self.sportsbook)
 
     def get_settled_event_ids(self, response: dict) -> list[int]:
         result = []
@@ -215,6 +220,7 @@ class PS3838Scraper(Scraper):
                         for period in event['periods']:
                             line_id=period['lineId']
                             label = sport_periods[period['number']]
+                            locked = period['status'] != 1 or self.is_in_past(period['cutoff'])
                             for all_key in allowed_keys:
                                 if not isinstance(period[all_key], dict): continue
                                 enumerator = 0
@@ -226,13 +232,14 @@ class PS3838Scraper(Scraper):
                                         del existing_match_odds[odd_id]
                                         existing_odd.movement = self.get_movement(existing_odd.odd, odds)
                                         existing_odd.odd = odds
+                                        existing_odd.locked = locked
                                         odds_to_update.append(existing_odd)
                                         continue
                                     
                                     description = f'{label[self.descriptions[all_key]]} - {key}'
                                     description = description.replace('home', "*1*")
                                     description = description.replace('away', "*2*")
-                                    # check when fixture or odds are invalid
+                                    description = description.replace("  ", " ").replace("  ", " ").strip()
                                     odds_to_create.append(OddModel(
                                         id = None,
                                         odd_id = odd_id,
@@ -241,23 +248,23 @@ class PS3838Scraper(Scraper):
                                         odd = odds,
                                         is_default = self.sportsbook.is_default,
                                         selected = False,
-                                        locked = False, 
+                                        locked = locked, 
                                         event_id = event['id'],
                                         sportsbook_id = self.sportsbook.pk,
                                         description = description,
                                         market_id = ""
                                     ))          
-
-
             except Exception as ex:
                 print(f"Exception in map_odds Ps3838: {str(ex)}.")
                 continue  
 
         return odds_to_create, odds_to_update       
 
-    def handle_dict_odds(self):
-        pass
-    
+    def is_in_past(self, date_time: str) -> bool: 
+        date = datetime.strptime(date_time, "%Y-%m-%dT%H:%M:%SZ")
+        now = datetime.now(timezone.utc)
+        return date <= now
+
     def map_events_selected(self, events: list[Event], event_response: dict[int, object]) -> tuple[list[Event], list[Event]]:
         pass
 
