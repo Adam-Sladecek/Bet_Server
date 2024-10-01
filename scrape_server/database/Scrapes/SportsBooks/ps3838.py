@@ -94,11 +94,12 @@ class PS3838Scraper(Scraper):
     async def gather_periods(self, sport_ids: list[int]): 
         self.periods = {}
         url = 'https://api.ps3838.com/v1/periods'
+        internal_sport_ids = self.get_sportids()
         for sport_id in sport_ids: 
             params = {'sportId': sport_id}
             response = await self.get(url, self.headers, params)
             mapped_periods = PeriodPS3838.dataclass_list_from_model(response)
-            self.periods[sport_id] = {period.number: period for period in mapped_periods}
+            self.periods[internal_sport_ids[sport_id]] = {period.number: period for period in mapped_periods}
             
     async def gather_events(self, sport_ids, event_id_dict={}, league_id_dict={}):
         url = 'https://api.ps3838.com/v3/fixtures'
@@ -111,11 +112,11 @@ class PS3838Scraper(Scraper):
             if since is not None:
                 params['since'] = since
 
-            league_ids = league_id_dict[internal_sport_id]
+            league_ids = league_id_dict.get(internal_sport_id)
             if league_ids is not None and len(league_ids) > 0:
                 params['leagueIds'] = ','.join(map(str, league_ids))
 
-            event_ids = event_id_dict[internal_sport_id]
+            event_ids = event_id_dict.get(internal_sport_id)
             if event_ids is not None and len(event_ids) > 0:
                 params['eventIds'] = ','.join(map(str, event_ids))
 
@@ -151,11 +152,11 @@ class PS3838Scraper(Scraper):
             if since is not None:
                 params['since'] = since
 
-            league_ids = league_id_dict[internal_sport_id]
+            league_ids = league_id_dict.get(internal_sport_id)
             if league_ids is not None and len(league_ids) > 0:
                 params['leagueIds'] = ','.join(map(str, league_ids))
 
-            event_ids = event_id_dict[internal_sport_id]
+            event_ids = event_id_dict.get(internal_sport_id)
             if event_ids is not None and len(event_ids) > 0:
                 params['eventIds'] = ','.join(map(str, event_ids))
 
@@ -222,7 +223,7 @@ class PS3838Scraper(Scraper):
                             label = sport_periods[period['number']]
                             locked = period['status'] != 1 or self.is_in_past(period['cutoff'])
                             for all_key in allowed_keys:
-                                if not isinstance(period[all_key], dict): continue
+                                if all_key not in period or not isinstance(period[all_key], dict): continue
                                 enumerator = 0
                                 for key, odds in period[all_key].items():
                                     odd_id = int(str(line_id) + str(enumerator))
@@ -236,7 +237,8 @@ class PS3838Scraper(Scraper):
                                         odds_to_update.append(existing_odd)
                                         continue
                                     
-                                    description = f'{label[self.descriptions[all_key]]} - {key}'
+                                    # description = f'{label[self.descriptions[all_key]]} - {key}'
+                                    description = f'{label.moneylineDescription} - {key}'
                                     description = description.replace('home', "*1*")
                                     description = description.replace('away', "*2*")
                                     description = description.replace("  ", " ").replace("  ", " ").strip()
@@ -261,10 +263,13 @@ class PS3838Scraper(Scraper):
         return odds_to_create, odds_to_update       
 
     def is_in_past(self, date_time: str) -> bool: 
-        date = datetime.strptime(date_time, "%Y-%m-%dT%H:%M:%SZ")
-        now = datetime.now(timezone.utc)
-        return date <= now
-
+        try:
+            date = datetime.strptime(date_time, "%Y-%m-%dT%H:%M:%SZ")
+            now = datetime.now(timezone.utc)
+            return date <= now
+        except: 
+            return True
+        
     def map_events_selected(self, events: list[Event], event_response: dict[int, object]) -> tuple[list[Event], list[Event]]:
         pass
 

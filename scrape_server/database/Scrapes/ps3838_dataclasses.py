@@ -25,7 +25,7 @@ class FixturePS3838:
         return cls (
             sportId=json['sportId'],
             last=json['last'],
-            leaque= LeaguePS3838.dataclass_list_from_models(json['leaque'])
+            league= LeaguePS3838.dataclass_list_from_models(json['league'])
         )
 
 @dataclass(frozen=True)

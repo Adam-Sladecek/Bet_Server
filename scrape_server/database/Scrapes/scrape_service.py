@@ -102,6 +102,6 @@ def get_scraper_class(sportsbook: Sportsbook) -> Scraper:
         'Tipsport': TipsportScraper,
         'Pinnacle': PinnacleScraper,
         'Ifortuna': IfortunaScraper,
-        'Ps3838': PS3838Scraper,
+        'PS3838': PS3838Scraper,
     }
     return scrapers[sportsbook.name]
