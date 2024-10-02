@@ -108,9 +108,12 @@ class Scraper(ABC):
     async def get(self, url: str, headers: object, params: object) -> object:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, params=params) as resp:
-                result = await resp.json() 
-                return result 
-        
+                try:
+                    result = await resp.json() 
+                    return result 
+                except: 
+                    return None
+                
     def convert_timestamp_to_time_string(self, timestamp_ms) -> str:
         current_time = datetime.now()
         timestamp_s = timestamp_ms / 1000

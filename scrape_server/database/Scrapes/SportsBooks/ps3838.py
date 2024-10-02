@@ -3,13 +3,14 @@ from ..dataclass_models import EventModel, OddModel
 from ..scripts import get_existing_odds
 from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
 from .scraper import Scraper
-from..ps3838_dataclasses import FixturePS3838, PeriodPS3838
-from ..scripts import update_events, update_odds, get_selected_events, delete_settled_events
+from ..ps3838_dataclasses import FixturePS3838, PeriodPS3838
+from ..scripts import update_events, update_odds, get_selected_events, delete_settled_events, delete_all_events
 from datetime import datetime, timezone
 
 class PS3838Scraper(Scraper):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         super().__init__(sportsbook, sports)
+        delete_all_events()
         self.headers = {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
@@ -38,47 +39,53 @@ class PS3838Scraper(Scraper):
         pass
     
     def import_all_data(self):
-        sport_ids = self.get_sportids()
-        selected_sport_ids = [sport.pk for sport in self.sports]
-        sb_sport_ids= [key for key, item in sport_ids.items() if item in selected_sport_ids]
-        loop = self.get_loop()
-        event_response = loop.run_until_complete(self.gather_events(sb_sport_ids))
-        events = self.map_events(event_response)
-        update_events(events, self.sportsbook, False)
+        try:
+            sport_ids = self.get_sportids()
+            selected_sport_ids = [sport.pk for sport in self.sports]
+            sb_sport_ids= [key for key, item in sport_ids.items() if item in selected_sport_ids]
+            loop = self.get_loop()
+            event_response = loop.run_until_complete(self.gather_events(sb_sport_ids))
+            events = self.map_events(event_response)
+            update_events(events, self.sportsbook, False)
 
-        event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
-        settled_event_ids = self.get_settled_event_ids(event_settled_response)
-        delete_settled_events(settled_event_ids, self.sportsbook)
-        events = [event for event in events if event.event_id not in settled_event_ids]
+            event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
+            settled_event_ids = self.get_settled_event_ids(event_settled_response)
+            delete_settled_events(settled_event_ids, self.sportsbook)
+            events = [event for event in events if event.event_id not in settled_event_ids]
 
-        event_id_dict = {}
-        league_id_dict = {}
-        for event in events:
-            if event.sport_id not in event_id_dict: event_id_dict[event.sport_id] = set()
-            if event.sport_id not in league_id_dict: league_id_dict[event.sport_id] = set()
-            event_id_dict[event.sport_id].add(event.event_id)
-            league_id_dict[event.sport_id].add(event.league_id)
+            event_id_dict = {}
+            league_id_dict = {}
+            for event in events:
+                if event.sport_id not in event_id_dict: event_id_dict[event.sport_id] = set()
+                if event.sport_id not in league_id_dict: league_id_dict[event.sport_id] = set()
+                event_id_dict[event.sport_id].add(event.event_id)
+                league_id_dict[event.sport_id].add(event.league_id)
 
-        odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_id_dict, league_id_dict))
-        odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
-        update_odds(odds_to_create, odds_to_update, self.sportsbook)
+            odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_id_dict, league_id_dict))
+            odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
+            update_odds(odds_to_create, odds_to_update, self.sportsbook)
+        except Exception as ex: 
+            print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
     def get_data(self):
-        events, sport_ids = get_selected_events(self.sportsbook)
-        if len(events) == 0: return
-        event_id_dict = {}
-        league_id_dict = {}
-        for event in events:
-            if event.sport.pk not in event_id_dict: event_id_dict[event.sport.pk] = set()
-            if event.sport.pk not in league_id_dict: league_id_dict[event.sport.pk] = set()
-            event_id_dict[event.sport.pk].add(event.event_id)
-            league_id_dict[event.sport.pk].add(event.league_id)
+        try:
+            events, sport_ids = get_selected_events(self.sportsbook)
+            if len(events) == 0: return
+            event_id_dict = {}
+            league_id_dict = {}
+            for event in events:
+                if event.sport.pk not in event_id_dict: event_id_dict[event.sport.pk] = set()
+                if event.sport.pk not in league_id_dict: league_id_dict[event.sport.pk] = set()
+                event_id_dict[event.sport.pk].add(event.event_id)
+                league_id_dict[event.sport.pk].add(event.league_id)
 
-        sb_sport_ids= [key for key, item in self.get_sportids().items() if item in sport_ids]
-        loop = self.get_loop()
-        odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_id_dict, league_id_dict))
-        odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
-        update_odds(odds_to_create, odds_to_update, self.sportsbook)
+            sb_sport_ids= [key for key, item in self.get_sportids().items() if item in sport_ids]
+            loop = self.get_loop()
+            odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_id_dict, league_id_dict))
+            odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
+            update_odds(odds_to_create, odds_to_update, self.sportsbook)
+        except Exception as ex:
+            print(f"Get data in {self.sportsbook.name} failed. Exception: {str(ex)}.")
 
     def get_settled_event_ids(self, response: dict) -> list[int]:
         result = []
@@ -265,6 +272,7 @@ class PS3838Scraper(Scraper):
     def is_in_past(self, date_time: str) -> bool: 
         try:
             date = datetime.strptime(date_time, "%Y-%m-%dT%H:%M:%SZ")
+            date = date.replace(tzinfo=timezone.utc)
             now = datetime.now(timezone.utc)
             return date <= now
         except: 

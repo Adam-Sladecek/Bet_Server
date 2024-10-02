@@ -96,6 +96,10 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sport
         Opportunity.objects.bulk_create(new_opportunities)
         Odd.objects.bulk_create(new_odds)
 
+def delete_all_events():
+    with transaction.atomic(): 
+        Event.objects.all().delete()
+
 def update_selected_odds(odds_to_update: list[Odd]):
     with transaction.atomic():
         Odd.objects.bulk_update(odds_to_update, ['odd', 'locked', 'movement'])
