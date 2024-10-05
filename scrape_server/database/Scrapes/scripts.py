@@ -96,13 +96,18 @@ def update_odds(odds_to_create: list[OddModel], odds_to_update: list[Odd], sport
         Opportunity.objects.bulk_create(new_opportunities)
         Odd.objects.bulk_create(new_odds)
 
-def delete_all_events():
-    with transaction.atomic(): 
-        Event.objects.all().delete()
-
 def update_selected_odds(odds_to_update: list[Odd]):
     with transaction.atomic():
         Odd.objects.bulk_update(odds_to_update, ['odd', 'locked', 'movement'])
+
+def update_movements(sportsbook: Sportsbook, events: list[Event]):
+    event_ids = [event.pk for event in events]
+    odds = Odd.objects.filter(sportsbook=sportsbook, event_id__in=event_ids)
+    for odd in odds: 
+        odd.movement = 0
+
+    with transaction.atomic():
+        Odd.objects.bulk_update(odds, ['movement'])    
 
 def get_existing_odds(sportsbook: Sportsbook, include_code: bool=False):
     events = Event.objects.filter(sportsbook=sportsbook).prefetch_related('odds', 'odds__opportunity').all()

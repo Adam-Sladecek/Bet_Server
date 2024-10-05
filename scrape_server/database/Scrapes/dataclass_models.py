@@ -19,7 +19,11 @@ class EventModel:
 
     @classmethod
     def dataclass_list_from_models(cls, events: list[Event]) -> list[EventModel]:
-        return [cls(id=event.pk, 
+        result = []
+        for event in events:
+            odds_count = event.odds.count()
+            if odds_count > 0:
+                result.append(cls(id=event.pk, 
                     event_id=event.event_id, 
                     league_id=event.league_id, 
                     time=event.time, 
@@ -30,8 +34,8 @@ class EventModel:
                     sportsbook_id=event.sportsbook.pk, 
                     sport_id=event.sport.pk,
                     available_sportsbooks=[child.sportsbook.pk for child in event.children.all()],
-                    odd_count=event.odds.count()) for event in events]
-
+                    odd_count=odds_count))
+        return result
 @dataclass(frozen=True)
 class EventResponse: 
     events: list[EventModel]
