@@ -22,7 +22,8 @@ class EventModel:
         result = []
         for event in events:
             odds_count = event.odds.count()
-            if odds_count > 0:
+            available_sportsbooks=[child.sportsbook.pk for child in event.children.all()]
+            if odds_count > 0 and len(available_sportsbooks) > 0:
                 result.append(cls(id=event.pk, 
                     event_id=event.event_id, 
                     league_id=event.league_id, 
@@ -33,7 +34,7 @@ class EventModel:
                     selected=event.selected, 
                     sportsbook_id=event.sportsbook.pk, 
                     sport_id=event.sport.pk,
-                    available_sportsbooks=[child.sportsbook.pk for child in event.children.all()],
+                    available_sportsbooks=available_sportsbooks,
                     odd_count=odds_count))
         return result
 @dataclass(frozen=True)
