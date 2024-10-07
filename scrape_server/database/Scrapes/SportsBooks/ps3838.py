@@ -104,7 +104,7 @@ class PS3838Scraper(Scraper):
             mapped_periods = PeriodPS3838.dataclass_list_from_model(response)
             self.periods[internal_sport_ids[sport_id]] = {period.number: period for period in mapped_periods}
             
-    async def gather_events(self, sport_ids, event_id_dict={}, league_id_dict={}):
+    async def gather_events(self, sport_ids):
         url = 'https://api.ps3838.com/v3/fixtures'
         internal_sport_ids = self.get_sportids()
         result = {}
@@ -114,15 +114,7 @@ class PS3838Scraper(Scraper):
             since = self.fixture_since.get(internal_sport_id)
             if since is not None:
                 params['since'] = since
-
-            league_ids = league_id_dict.get(internal_sport_id)
-            if league_ids is not None and len(league_ids) > 0:
-                params['leagueIds'] = ','.join(map(str, league_ids))
-
-            event_ids = event_id_dict.get(internal_sport_id)
-            if event_ids is not None and len(event_ids) > 0:
-                params['eventIds'] = ','.join(map(str, event_ids))
-
+                
             response = await self.get(url, self.headers, params)
             result[internal_sport_id] = response
         
@@ -215,7 +207,8 @@ class PS3838Scraper(Scraper):
         existing_odds = get_existing_odds(self.sportsbook)
         for sport_id, dataset in data.items():
             try:
-                if dataset is None or 'last' not in dataset: continue
+                if dataset is None or 'last' not in dataset: 
+                    continue
                 sport_periods = self.periods[sport_id]
                 self.odds_since[sport_id] = dataset['last']
                 for league in dataset['leagues']: 

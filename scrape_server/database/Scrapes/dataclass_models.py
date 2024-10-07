@@ -148,7 +148,7 @@ class MatchOpportunity:
                 parent = MatchOdd(odd.pk, parent_odds, odd.locked, odd.movement)
                 opp_name=odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away) if odd.opportunity_id else '', 
                 should_update_parent = odd.should_be_updated()
-                for childOdd in odd.children.filter(used=False, locked=False).all():
+                for childOdd in odd.children.filter(event__used=False, locked=False).all():
                     should_update_child = childOdd.should_be_updated()
                     ev = childOdd.ev(parent_odds)
                     if ev > 0: odd_ids.add(childOdd.pk)

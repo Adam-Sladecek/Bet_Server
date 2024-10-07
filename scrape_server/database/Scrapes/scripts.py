@@ -124,12 +124,13 @@ def get_selected_events(sportsbook: Sportsbook) -> tuple[list[Event], set]:
         'odds__sportsbook',
         'odds__children',
         'odds__children__sportsbook',
+        'odds__children__event',
     )
 
     if sportsbook.is_default:
-        events = events.filter(sportsbook=sportsbook, selected=True).all()
+        events = events.filter(sportsbook=sportsbook, selected=True, used=False).all()
     else: 
-        events = events.filter(sportsbook=sportsbook, parent__selected=True).all()   
+        events = events.filter(sportsbook=sportsbook, parent__selected=True, used=False).all()   
 
     result: list[Event] = []
     sport_ids = set()

@@ -147,13 +147,22 @@ def set_used_event(request, pk: int, sbpk: int):
             'children',
         ).get(pk=pk)
         sportsbook = Sportsbook.objects.get(pk=sbpk)
-        child_event = event.children.filter(sportsbook=sportsbook).first()
-        updated_odds = []
-        for odd in child_event.odds.all():
-            odd.used = True
-            updated_odds.append(odd)
+        updated_events = []
+        are_all_used = True
+        for child in event.children.all(): 
+            if child.sportsbook == sportsbook: 
+                child.used=True
+                updated_events.append(child)
+                continue
+            if not child.used: 
+                are_all_used=False
+
         with transaction.atomic():
-            Odd.objects.bulk_update(updated_odds, ['used'])
+            if are_all_used:
+                event.used = True
+                event.selected = False
+                event.save()
+            Event.objects.bulk_update(updated_events, ['used'])
         return JsonResponse({}, status=200)  
     except Exception as e:
         return JsonResponse({'message': str(e)}, status=400)      
@@ -240,7 +249,7 @@ def get_opportunities_for_children() -> OpportunityChildrenResponse:
     return response 
 
 def get_default_events() -> EventResponse: 
-    events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook').filter(is_default=True).order_by('-selected').all()
+    events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook').filter(is_default=True, used=False).order_by('-selected').all()
     response = EventResponse.dataclass_from_models(events)
     return response
 
