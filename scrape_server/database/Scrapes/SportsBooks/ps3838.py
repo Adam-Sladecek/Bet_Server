@@ -219,7 +219,11 @@ class PS3838Scraper(Scraper):
                             locked = period['status'] != 1 or self.is_in_past(period['cutoff'])
                             for all_key in allowed_keys:
                                 if all_key not in period or not isinstance(period[all_key], dict): continue
+                                impl_prob = sum(1 / odds for _, odds in period[all_key].items())
+                                true_odds = lambda odds: round(odds * impl_prob, 3)
+
                                 for key, odds in period[all_key].items():
+                                    odds = true_odds(odds)
                                     opp_index = list(self.descriptions.keys()).index("moneyline")
                                     odd_id = int(str(event['id']) + str(period["number"]) + str(opp_index))
                                     outcome_index = self.outcomes.index(key)

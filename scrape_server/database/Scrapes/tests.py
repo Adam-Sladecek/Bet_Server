@@ -1,4 +1,8 @@
 from django.test import TestCase
+from django import setup
+import os 
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scrape_server.settings")
+setup()
 from .dataclass_models import EventModel, MatchOpportunityResponse, OddModel
 from .scripts import (update_events, update_odds, update_selected_events, 
                       get_selected_events, clear_unused_events, link_all_events,

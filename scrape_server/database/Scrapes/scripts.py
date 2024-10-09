@@ -2,7 +2,7 @@ import asyncio
 from enum import Enum
 import logging
 from .dataclass_models import EventModel, OddModel, MatchOpportunityResponse
-from database.models import Sportsbook, Opportunity, Odd, Event, Sport
+from ..models import Sportsbook, Opportunity, Odd, Event, Sport
 from django.db import transaction
 from django.db.models import Q
 from collections import defaultdict

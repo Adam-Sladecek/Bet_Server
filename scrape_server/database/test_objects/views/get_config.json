@@ -1,0 +1,42 @@
+{
+    "config": {
+        "get": {
+            "sports": [
+                {
+                    "id": 1,
+                    "name": "Football",
+                    "selected": true
+                },
+                {
+                    "id": 2,
+                    "name": "Hockey",
+                    "selected": false
+                }
+            ],
+            "sportsbooks": [
+                {
+                    "id": 1,
+                    "name": "Nike",
+                    "selected": true
+                },
+                {
+                    "id": 2,
+                    "name": "Tipsport",
+                    "selected": false
+                }
+            ],
+            "default_sportsbooks": [
+                {
+                    "id": 3,
+                    "name": "Pinnacle",
+                    "selected": true
+                },
+                {
+                    "id": 4,
+                    "name": "PS3838",
+                    "selected": false
+                }
+            ]
+        }
+    }
+}

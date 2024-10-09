@@ -1,5 +1,5 @@
 from queue import Queue
-from database.models import Sportsbook, Sport
+from ..models import Sportsbook, Sport
 import threading
 from .scrape_service import get_sportsbook_data, group_results, import_fn
 from ..enums import Command
