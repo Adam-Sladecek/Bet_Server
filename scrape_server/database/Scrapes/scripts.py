@@ -1,13 +1,13 @@
 import asyncio
 from enum import Enum
 import logging
-from .dataclass_models import EventModel, OddModel, MatchOpportunityResponse
-from ..models import Sportsbook, Opportunity, Odd, Event, Sport
-from django.db import transaction
 from django.db.models import Q
+from django.db import transaction
 from collections import defaultdict
-from ..enums import DataType
 from channels.layers import get_channel_layer
+from database.enums import DataType
+from database.models import Sportsbook, Opportunity, Odd, Event, Sport
+from database.Scrapes.dataclass_models import EventModel, OddModel, MatchOpportunityResponse
 
 def update_events(events_list: list[EventModel], sportsbook: Sportsbook, delete=True):
     existing_events = Event.objects.select_related('sportsbook').filter(sportsbook=sportsbook).all()

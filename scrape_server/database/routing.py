@@ -1,6 +1,6 @@
 from django.urls import re_path
-from . import consumers
+from database.consumers import ScrapeConsumer
 
 websocket_urlpatterns = [
-    re_path('ws/scrape/', consumers.ScrapeConsumer.as_asgi()),
+    re_path('ws/scrape/', ScrapeConsumer.as_asgi()),
 ]

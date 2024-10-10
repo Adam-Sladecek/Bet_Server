@@ -18,3 +18,5 @@ django-cors-headers
 django-silk
 channels
 daphne
+pytest
+pytest-django

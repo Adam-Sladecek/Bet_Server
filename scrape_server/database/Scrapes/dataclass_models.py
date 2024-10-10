@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import asdict, dataclass
-from ..models import Odd, Opportunity, Sport, Sportsbook, Event, SportsbookMarket
+from database.models import Odd, Opportunity, Sport, Sportsbook, Event, SportsbookMarket
 
 @dataclass(frozen=True)
 class EventModel: 

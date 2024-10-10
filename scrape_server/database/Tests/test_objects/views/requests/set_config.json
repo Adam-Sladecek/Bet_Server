@@ -1,0 +1,23 @@
+{
+    "sports": [
+        {
+            "id": 2,
+            "name": "Hockey",
+            "selected": false
+        }
+    ],
+    "sportsbooks": [
+        {
+            "id": 2,
+            "name": "Tipsport",
+            "selected": false
+        }
+    ],
+    "default_sportsbooks": [
+        {
+            "id": 4,
+            "name": "PS3838",
+            "selected": false
+        }
+    ]
+}

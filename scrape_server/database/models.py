@@ -6,6 +6,8 @@ class Sport(models.Model):
     name = models.CharField(max_length=20, unique=True)
     url = models.CharField(max_length=20)
     selected = models.BooleanField(default=False)
+    class Meta:
+        app_label = 'database'
 
 class Sportsbook(models.Model):
     name = models.CharField(max_length=30, unique=True)
@@ -19,11 +21,13 @@ class Sportsbook(models.Model):
     volleyball_url = models.CharField(max_length=20)
     table_tennis_url = models.CharField(max_length=20)
     box_url = models.CharField(max_length=20)
-
+    class Meta:
+        app_label = 'database'
 class SportsbookMarket(models.Model):
     value = models.CharField(max_length=50)
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE, related_name='markets')
-
+    class Meta:
+        app_label = 'database'
 class Event(models.Model):
     event_id = models.IntegerField()
     league_id = models.IntegerField(default=0)
@@ -36,6 +40,8 @@ class Event(models.Model):
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', default=None)
+    class Meta:
+        app_label = 'database'
 
     def add_parent(self, parent: Event) -> None:
         if parent.sport != self.sport: 
@@ -64,6 +70,8 @@ class Odd(models.Model):
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE)
     opportunity = models.ForeignKey('Opportunity', on_delete=models.CASCADE)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', default=None)
+    class Meta:
+        app_label = 'database'
 
     def add_parent(self, parent: Odd) -> None:
         if not parent.is_default: 
@@ -96,8 +104,8 @@ class Opportunity(models.Model):
     sport = models.ForeignKey('Sport', on_delete=models.CASCADE)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', default=None)
     market_id = models.CharField(max_length=20)
-    
     class Meta:
+        app_label = 'database'
         indexes = [
             models.Index(fields=['sportsbook_id', 'sport_id']),
         ]

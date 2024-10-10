@@ -1,0 +1,38 @@
+{
+    "sports": [
+        {
+            "id": 1,
+            "name": "Football",
+            "selected": false
+        },
+        {
+            "id": 2,
+            "name": "Hockey",
+            "selected": true
+        }
+    ],
+    "sportsbooks": [
+        {
+            "id": 1,
+            "name": "Nike",
+            "selected": false
+        },
+        {
+            "id": 2,
+            "name": "Tipsport",
+            "selected": true
+        }
+    ],
+    "default_sportsbooks": [
+        {
+            "id": 3,
+            "name": "Pinnacle",
+            "selected": false
+        },
+        {
+            "id": 4,
+            "name": "PS3838",
+            "selected": true
+        }
+    ]
+}

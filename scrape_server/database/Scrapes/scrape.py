@@ -1,8 +1,8 @@
 from queue import Queue
-from ..models import Sportsbook, Sport
 import threading
-from .scrape_service import get_sportsbook_data, group_results, import_fn
-from ..enums import Command
+from database.models import Sportsbook, Sport
+from database.enums import Command
+from database.Scrapes.scrape_service import get_sportsbook_data, group_results, import_fn
 
 def scrape_fn(event: threading.Event, import_queue: Queue, send_all_event: threading.Event):
     print('Scraping...')    

@@ -1,15 +1,15 @@
-import queue
-from .SportsBooks.nike import NikeScraper
-from .SportsBooks.tipsport import TipsportScraper
-from .SportsBooks.pinnacle import PinnacleScraper
-from .SportsBooks.ifortuna import IfortunaScraper
-from .SportsBooks.ps3838 import PS3838Scraper
 import threading
 import asyncio
-from .SportsBooks.scraper import Scraper
-from ..enums import DataType, TaskState, Command
-from .scripts import broadcast_data, send_updated_events, clear_unused_events, link_all_events, link_odds
-from ..models import Sportsbook, Sport
+import queue
+from database.models import Sportsbook, Sport
+from database.enums import DataType, TaskState, Command
+from database.Scrapes.SportsBooks.nike import NikeScraper
+from database.Scrapes.SportsBooks.tipsport import TipsportScraper
+from database.Scrapes.SportsBooks.pinnacle import PinnacleScraper
+from database.Scrapes.SportsBooks.ifortuna import IfortunaScraper
+from database.Scrapes.SportsBooks.ps3838 import PS3838Scraper
+from database.Scrapes.SportsBooks.scraper import Scraper
+from database.Scrapes.scripts import broadcast_data, send_updated_events, clear_unused_events, link_all_events, link_odds
 
 def get_sportsbook_data(command_queue: queue.Queue, result_queue: queue.Queue, event: threading.Event, sportsbook: Sportsbook, sports: list[Sport]): 
     try:

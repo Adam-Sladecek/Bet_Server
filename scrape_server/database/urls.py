@@ -1,8 +1,8 @@
-from .views import (get_config, set_config, get_opportunities_to_link, add_child_to_parent_opportunity,
+from django.urls import path
+from database.views import (get_config, set_config, get_opportunities_to_link, add_child_to_parent_opportunity,
                     get_opportunity_children, remove_child_from_parent_opportunity, change_monitored_events,
                     change_event_odds, get_monitored_events, get_event_odds, set_prefered_opportunity,
                     get_all_markets, add_market, remove_market, set_used_event)
-from django.urls import path
 
 urlpatterns = [
     path('config/get', get_config, name='configget'),

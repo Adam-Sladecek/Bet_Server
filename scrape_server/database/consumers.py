@@ -1,11 +1,11 @@
 from enum import Enum
 import threading
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
-from .Scrapes import scrape_fn
-from .enums import TaskState, DataType, Command
-from channels.layers import get_channel_layer
 from queue import Queue
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.layers import get_channel_layer
+from database.Scrapes import scrape_fn
+from database.enums import TaskState, DataType, Command
 
 scrape_task_running = False
 scrape_thread = None

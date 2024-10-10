@@ -1,41 +1,52 @@
+import os
+import django
+os.environ['DJANGO_SETTINGS_MODULE'] = 'scrape_server.settings'
+django.setup()
 from django.test import TestCase, RequestFactory
-from django import setup
-import os 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scrape_server.settings")
-setup()
 import json
-from .enums import DataType, TaskState
-from .views import (set_prefered_opportunity, change_monitored_events,
-                    add_child_to_parent_opportunity, remove_child_from_parent_opportunity, 
-                    change_event_odds, add_market, remove_market, get_config, set_config)
-from .models import Sportsbook, Sport, Event, Opportunity, Odd, SportsbookMarket
-from .consumers import ScrapeConsumer, broadcast_message
 from unittest.mock import patch
 from channels.testing import WebsocketCommunicator
+from database.enums import DataType, TaskState
+from database.views import (set_prefered_opportunity, change_monitored_events,
+                    add_child_to_parent_opportunity, remove_child_from_parent_opportunity, 
+                    change_event_odds, add_market, remove_market, get_config, set_config)
+from database.models import Sportsbook, Sport, Event, Opportunity, Odd, SportsbookMarket
+from database.consumers import ScrapeConsumer, broadcast_message
 
-class ConfigTest(TestCase):
-    def setUp(self):
-        self.sportsbook1 = Sportsbook.objects.create(name="Nike", selected=True)
-        self.sportsbook2 = Sportsbook.objects.create(name="Tipsport")
-        self.default_sportsbook1 = Sportsbook.objects.create(name="Pinnacle", selected=True, is_default=True)
-        self.default_sportsbook2 = Sportsbook.objects.create(name="PS3838", is_default=True)
-        self.sport1 = Sport.objects.create(name="Football", selected=True)
-        self.sport2 = Sport.objects.create(name="Hockey")
+class TestConfig(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.sportsbook1 = Sportsbook.objects.create(name="Nike", selected=True)
+        cls.sportsbook2 = Sportsbook.objects.create(name="Tipsport")
+        cls.default_sportsbook1 = Sportsbook.objects.create(name="Pinnacle", selected=True, is_default=True)
+        cls.default_sportsbook2 = Sportsbook.objects.create(name="PS3838", is_default=True)
+        cls.sport1 = Sport.objects.create(name="Football", selected=True)
+        cls.sport2 = Sport.objects.create(name="Hockey")
 
     def test_get_config(self): 
-        request = RequestFactory().patch(f'/config/get', data=json.dumps({}), content_type='application/json')
+        file_path = 'scrape_server/database/Tests/test_objects/views/responses/get_config.json'
+        with open(file_path, 'r') as file:
+            mock_response = json.load(file)
+        request = RequestFactory().get(f'/config/get', data={}, content_type='application/json')
         response = get_config(request)
         self.assertEqual(response.status_code, 200)
-        file_path = 'scrape_server\database\test_objects\views\get_config.json'
+        response_content = response.content
+        json_data = json.loads(response_content.decode('utf-8'))
+        self.assertEqual(mock_response, json_data)
+
+    def test_set_config(self): 
+        file_path = 'scrape_server/database/Tests/test_objects/views/requests/set_config.json'
         with open(file_path, 'r') as file:
-            data = json.load(file)
-        self.assertJSONEqual(data, response.json())
-
-    # def test_set_config(self): 
-
-    #     request = RequestFactory().patch(f'/config/set', data=json.dumps({}), content_type='application/json')
-    #     response = add_child_to_parent_opportunity(request, parentid=self.opportunity1.pk, childid=self.opportunity2.pk)
-    #     self.assertEqual(response.status_code, 200)    
+            mock_request = json.load(file)
+        request = RequestFactory().post(f'/config/set', data=mock_request, content_type='application/json')
+        response = set_config(request)
+        self.assertEqual(response.status_code, 200)
+        file_path = 'scrape_server/database/Tests/test_objects/views/responses/set_config.json'
+        with open(file_path, 'r') as file:
+            mock_response = json.load(file)
+        response_content = response.content
+        json_data = json.loads(response_content.decode('utf-8'))
+        self.assertEqual(mock_response, json_data)
 
 # class ViewTest(TestCase):
 #     def setUp(self):
