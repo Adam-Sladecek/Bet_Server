@@ -1,0 +1,18 @@
+{
+    "odds": [
+        {
+            "id": 1,
+            "odd_id": 0,
+            "code": 0,
+            "movement": 0,
+            "odd": 1.1,
+            "is_default": true,
+            "selected": false,
+            "locked": false,
+            "event_id": 1,
+            "sportsbook_id": 1,
+            "description": "Vyhra Real Madrid",
+            "market_id": ""
+        }
+    ]
+}

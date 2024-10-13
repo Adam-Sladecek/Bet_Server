@@ -1,0 +1,20 @@
+{
+    "opportunities": [
+        {
+            "parent_id": 1,
+            "parent_name": "Vyhra *1*",
+            "parent_prefered": false,
+            "sportsbook_id": 1,
+            "sport_id": 1,
+            "opportunity": {
+                "id": 2,
+                "description": "1X2 *1*",
+                "is_default": false,
+                "prefered": false,
+                "sportsbook_id": 2,
+                "sport_id": 1,
+                "market_id": ""
+            }
+        }
+    ]
+}

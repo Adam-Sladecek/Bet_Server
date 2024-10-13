@@ -1,0 +1,21 @@
+{
+    "events": [
+        {
+            "id": 1,
+            "event_id": 0,
+            "league_id": 0,
+            "time": "",
+            "home": "Real Madrid",
+            "away": "Fc Barcelona",
+            "is_default": true,
+            "selected": false,
+            "sportsbook_id": 1,
+            "sport_id": 1,
+            "available_sportsbooks": [
+                2,
+                3
+            ],
+            "odd_count": 1
+        }
+    ]
+}

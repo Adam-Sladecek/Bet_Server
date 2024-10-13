@@ -23,11 +23,13 @@ class Sportsbook(models.Model):
     box_url = models.CharField(max_length=20)
     class Meta:
         app_label = 'database'
+
 class SportsbookMarket(models.Model):
     value = models.CharField(max_length=50)
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE, related_name='markets')
     class Meta:
         app_label = 'database'
+        
 class Event(models.Model):
     event_id = models.IntegerField()
     league_id = models.IntegerField(default=0)
