@@ -2,11 +2,13 @@ import os
 import django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'scrape_server.settings'
 django.setup()
+
 from django.test import TestCase
-from unittest.mock import patch
 from channels.testing import WebsocketCommunicator
-from database.enums import DataType, TaskState
+from unittest.mock import patch
+
 from database.consumers import ScrapeConsumer, broadcast_message
+from database.enums import DataType, TaskState
 
 class TestConsumer(TestCase):
     @patch('threading.Thread')

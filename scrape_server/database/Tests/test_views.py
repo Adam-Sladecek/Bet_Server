@@ -2,6 +2,7 @@ import os
 import django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'scrape_server.settings'
 django.setup()
+
 from django.test import TestCase, RequestFactory
 import json
 from database.views import (set_prefered_opportunity, change_monitored_events,

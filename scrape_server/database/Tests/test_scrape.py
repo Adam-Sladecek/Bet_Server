@@ -2,14 +2,79 @@ import os
 import django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'scrape_server.settings'
 django.setup()
-from django.test import TestCase
-from database.models import (Event, Opportunity, Sport, Sportsbook, Odd)
-from database.Scrapes.dataclass_models import EventModel, MatchOpportunityResponse, OddModel
-from database.Scrapes.scripts import update_events, update_odds, update_selected_events, get_selected_events, clear_unused_events, link_all_events, link_odds
 
-class TestScrape(TestCase):
-    def setUp(self):
-        pass
+from django.test import TestCase
+import queue
+import threading
+from unittest.mock import patch, MagicMock
+
+from scrape_server.database.Scrapes.main import scrape_fn
+from database.enums import Command
+
+"""
+    This class tests overall scraping flow contained in scrape.py and scrape_service.py.
+"""
+class TestScrapeProcess(TestCase):
+    @patch('database.models.Sport.objects.filter')
+    @patch('database.models.Sportsbook.objects.filter')
+    @patch('database.Scrapes.scrape_service.ScrapeService.link_events_and_odds')
+    @patch('database.Scrapes.scrape_service.send_updated_events')
+    @patch('database.Scrapes.scrape_service.TipsportScraper')
+    @patch('database.Scrapes.scrape_service.NikeScraper')
+    def test_scrape_fn_with_sportsbook_data(self, mock_nike_scraper, mock_tipsport_scraper, mock_send_updated_events, 
+                                            mock_link_events_and_odds, mock_sportsbook_filter, mock_sport_filter):
+        # Arange
+        mock_sportsbook_nike = MagicMock()
+        mock_sportsbook_nike.pk = 1
+        mock_sportsbook_nike.name = 'Nike'
+
+        mock_sportsbook_tipsport = MagicMock()
+        mock_sportsbook_tipsport.pk = 2
+        mock_sportsbook_tipsport.name = 'Tipsport'
+
+        mock_sport_filter.return_value.all.return_value = [MagicMock(name='Sport 1')]
+        mock_sportsbook_filter.return_value.all.return_value = [mock_sportsbook_nike, mock_sportsbook_tipsport]
+
+        # NOTE: this is needed in order for 'with' block to work properly in ScrapeService.get_sportsbook_data test
+        mock_nike_scraper.return_value.__enter__.return_value = mock_nike_scraper.return_value
+        mock_nike_scraper.return_value.__exit__.return_value = False
+        mock_tipsport_scraper.return_value.__enter__.return_value = mock_tipsport_scraper.return_value
+        mock_tipsport_scraper.return_value.__exit__.return_value = False
+
+        mock_nike_scraper.return_value.get_data = MagicMock()
+        mock_tipsport_scraper.return_value.get_data = MagicMock()
+        mock_nike_scraper.return_value.import_all_data = MagicMock()
+        mock_tipsport_scraper.return_value.import_all_data = MagicMock()
+
+        event = threading.Event()
+        send_all_event = threading.Event()
+        import_queue = queue.Queue()
+
+        # Act
+        scrape_thread = threading.Thread(target=scrape_fn, args=(event, import_queue, send_all_event))
+        scrape_thread.start()
+        threading.Event().wait(2)
+        import_queue.put(Command.IMPORT)
+        threading.Event().wait(4)
+        event.set()
+        scrape_thread.join()
+
+        # Assert
+        mock_nike_scraper.assert_called_with(mock_sportsbook_nike, [mock_sport_filter.return_value.all.return_value[0]])
+        mock_tipsport_scraper.assert_called_with(mock_sportsbook_tipsport, [mock_sport_filter.return_value.all.return_value[0]])
+
+        mock_nike_scraper.return_value.get_data.assert_called()
+        mock_tipsport_scraper.return_value.get_data.assert_called()
+        self.assertEqual(mock_nike_scraper.return_value.import_all_data.call_count, 1)
+        self.assertEqual(mock_tipsport_scraper.return_value.import_all_data.call_count, 1)
+
+        mock_link_events_and_odds.assert_called() 
+        mock_send_updated_events.assert_called() 
+        self.assertTrue(import_queue.empty())
+
+# class TestScrape(TestCase):
+    # def setUp(self):
+        # pass
         # self.sport = Sport.objects.create(name="Tennis", selected=True, url="https://example.com")
         # self.sportsbook1 = Sportsbook.objects.create(name="Nike", selected=True, is_default=True)
         # self.sportsbook2 = Sportsbook.objects.create(name="Tipsport", selected=True)
@@ -48,8 +113,8 @@ class TestScrape(TestCase):
         #     OddModel(id=None, odd_id=6, code=0, movement=0, is_default=self.sportsbook2.is_default, selected=False, locked= False, odd=2, event_id=7, market_id='3441', sportsbook_id=self.sportsbook2.pk, description='Unnknown opportunity'),
         # ]
 
-    def test_update_events(self):
-        pass
+    # def test_update_events(self):
+        # pass
     #     first_batch = self.event_models1
     #     update_events(first_batch, self.sportsbook1)
     #     self.assertEqual(Event.objects.count(), 3)
