@@ -1,7 +1,7 @@
 import asyncio
 from ..dataclass_models import EventModel, OddModel
-from ..common import getCommonDriver
-from ..scripts import get_existing_odds
+from ..driver import getCommonDriver
+from ..helpers import get_existing_odds
 from ...models import Odd, Event, Sport, SportsbookMarket
 from .scraper import Scraper
 

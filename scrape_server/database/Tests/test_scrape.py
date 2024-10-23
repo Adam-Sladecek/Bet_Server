@@ -8,7 +8,7 @@ import queue
 import threading
 from unittest.mock import patch, MagicMock
 
-from scrape_server.database.Scrapes.main import scrape_fn
+from database.Scrapes.main import scrape_fn
 from database.enums import Command
 
 """
@@ -17,7 +17,7 @@ from database.enums import Command
 class TestScrapeProcess(TestCase):
     @patch('database.models.Sport.objects.filter')
     @patch('database.models.Sportsbook.objects.filter')
-    @patch('database.Scrapes.scrape_service.ScrapeService.link_events_and_odds')
+    @patch('database.Scrapes.scrape_service.ScrapeHelper.link_events_and_odds')
     @patch('database.Scrapes.scrape_service.send_updated_events')
     @patch('database.Scrapes.scrape_service.TipsportScraper')
     @patch('database.Scrapes.scrape_service.NikeScraper')

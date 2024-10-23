@@ -1,10 +1,10 @@
 import asyncio
 from ..dataclass_models import EventModel, OddModel
-from ..scripts import get_existing_odds
+from ..helpers import get_existing_odds
 from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
 from .scraper import Scraper
 from ..ps3838_dataclasses import FixturePS3838, PeriodPS3838
-from ..scripts import update_events, update_odds, get_selected_events, delete_settled_events, update_movements
+from ..helpers import update_events, update_odds, get_selected_events, delete_settled_events, update_movements
 from datetime import datetime, timezone
 
 class PS3838Scraper(Scraper):

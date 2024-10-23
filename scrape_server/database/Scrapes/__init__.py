@@ -1,1 +1,1 @@
-from scrape_server.database.Scrapes.main import scrape_fn
+from database.Scrapes.main import scrape_fn

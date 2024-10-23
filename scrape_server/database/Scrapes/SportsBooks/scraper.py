@@ -5,7 +5,7 @@ import asyncio
 from datetime import datetime
 from ...models import Sport, Sportsbook, Event, Odd
 from ...enums import Movement
-from ..scripts import update_events, update_odds, get_selected_events, update_selected_events, update_selected_odds
+from ..helpers import update_events, update_odds, get_selected_events, update_selected_events, update_selected_odds
 from ..dataclass_models import EventModel, OddModel
 
 class Scraper(ABC):

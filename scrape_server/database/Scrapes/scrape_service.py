@@ -9,7 +9,7 @@ from database.Scrapes.SportsBooks.pinnacle import PinnacleScraper
 from database.Scrapes.SportsBooks.ifortuna import IfortunaScraper
 from database.Scrapes.SportsBooks.ps3838 import PS3838Scraper
 from database.Scrapes.SportsBooks.scraper import Scraper
-from database.Scrapes.scripts import broadcast_data, send_updated_events, clear_unused_events, link_all_events, link_odds
+from scrape_server.database.Scrapes.helpers import ScrapeHelper
 
 class ScrapeService: 
     def __init__(self, sports: list[Sport], event: threading.Event, send_all_event: threading.Event, 
@@ -49,7 +49,7 @@ class ScrapeService:
                 s.close_driver()  
             except: pass
             self.event.set()
-            broadcast_data(DataType.ERROR, str(ex))
+            ScrapeHelper.broadcast_data(DataType.ERROR, str(ex))
 
     def group_results(self): 
         try:
@@ -68,12 +68,12 @@ class ScrapeService:
                 if result_dictionary[command.value] == self.number_of_sbs:
                     if command == Command.REFRESH: 
                         is_set = self.send_all_event.is_set()
-                        send_updated_events(is_set)
+                        ScrapeHelper.send_updated_events(is_set)
                         if is_set: self.send_all_event.clear()
                         asyncio.run(asyncio.sleep(5))
                     else:
                         self.link_events_and_odds()
-                        asyncio.run(broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
+                        asyncio.run(ScrapeHelper.broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
                         print('Import done.') 
                     result_dictionary[command.value] = 0
                     for _, sb_queue in self.all_command_queues.items():
@@ -83,7 +83,7 @@ class ScrapeService:
         except Exception as ex:
             print('Exception in group_results: ' + str(ex))
             self.event.set()
-            broadcast_data(DataType.ERROR, str(ex))
+            ScrapeHelper.broadcast_data(DataType.ERROR, str(ex))
 
     def import_fn(self):
         try:
@@ -103,12 +103,7 @@ class ScrapeService:
         except Exception as ex:
             print('Exception in import_fn: ' + str(ex))
             self.event.set()
-            broadcast_data(DataType.ERROR, str(ex))
-
-    def link_events_and_odds(self): 
-        clear_unused_events()
-        link_all_events()
-        link_odds()
+            ScrapeHelper.broadcast_data(DataType.ERROR, str(ex))
 
     def get_scraper_class(self, sportsbook: Sportsbook) -> Scraper: 
         scrapers: dict[str, Scraper]  = {

@@ -1,6 +1,6 @@
 import asyncio
 from ..dataclass_models import EventModel, OddModel
-from ..scripts import get_existing_odds
+from ..helpers import get_existing_odds
 from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
 from .scraper import Scraper
 

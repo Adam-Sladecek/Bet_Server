@@ -1,6 +1,6 @@
 from .scraper import Scraper
 from ..dataclass_models import EventModel, OddModel
-from ..scripts import get_existing_odds
+from ..helpers import get_existing_odds
 from ...models import Odd, Sport, Event, SportsbookMarket
 
 class NikeScraper(Scraper):
