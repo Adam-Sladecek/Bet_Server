@@ -1,6 +1,5 @@
 import asyncio
 from ..dataclass_models import EventModel, OddModel
-from ..helpers import get_existing_odds
 from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
 from .scraper import Scraper
 
@@ -124,7 +123,7 @@ class PinnacleScraper(Scraper):
         odds_to_update: list[Odd] = []
         
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        existing_odds = get_existing_odds(self.sportsbook)
+        existing_odds = self.odd_helper.get_existing_odds(self.sportsbook)
         mapped_data = {}
         for tple, dataset in data.items():
             if not isinstance(dataset, list): continue

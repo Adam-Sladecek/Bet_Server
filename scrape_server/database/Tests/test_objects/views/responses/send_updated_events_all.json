@@ -1,0 +1,17 @@
+{
+    "sb_markets": [
+        {
+            "sportsbook_id": 1,
+            "markets": [
+                {
+                    "id": 1,
+                    "name": "moneyline"
+                }
+            ]
+        },
+        {
+            "sportsbook_id": 2,
+            "markets": []
+        }
+    ]
+}

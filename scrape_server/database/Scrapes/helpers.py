@@ -94,7 +94,7 @@ class OddHelper:
 
         new_odds = []
         new_opportunities: list[Opportunity] = []
-        opportunities_dict_by_sport = self.get_relevant_opportunities(odds_to_create, self.sportsbook)
+        opportunities_dict_by_sport = self.get_relevant_opportunities(odds_to_create)
 
         for odd in odds_to_create:
             event = events_dict.get(odd.event_id, None)
@@ -130,6 +130,15 @@ class OddHelper:
             Opportunity.objects.bulk_create(new_opportunities)
             Odd.objects.bulk_create(new_odds)
 
+    def get_relevant_opportunities(self, odds: list[OddModel]) -> dict[tuple[int, str], Opportunity]:
+        conditions = Q(sportsbook_id=self.sportsbook.pk)
+        conditions &= Q(description__in=[odd.description for odd in odds])
+        relevant_opportunities = Opportunity.objects.filter(conditions).order_by('sport_id').all()
+        result_dict = { sport.pk: {} for sport in Sport.objects.all()}
+        for opportunity in relevant_opportunities: 
+            result_dict[opportunity.sport.pk][opportunity.description] = opportunity
+        return result_dict
+    
     def update_selected_odds(self, odds_to_update: list[Odd]):
         with transaction.atomic():
             Odd.objects.bulk_update(odds_to_update, ['odd', 'locked', 'movement'])
@@ -149,21 +158,12 @@ class OddHelper:
             return {event.event_id: {(odd.odd_id, odd.code): odd for odd in event.odds.all()} for event in events}
         return {event.event_id: {odd.odd_id: odd for odd in event.odds.all()} for event in events}
 
-    def get_relevant_opportunities(self, odds: list[OddModel]) -> dict[tuple[int, str], Opportunity]:
-        conditions = Q(sportsbook_id=self.sportsbook.pk)
-        conditions &= Q(description__in=[odd.description for odd in odds])
-        relevant_opportunities = Opportunity.objects.filter(conditions).order_by('sport_id').all()
-        result_dict = { sport.pk: {} for sport in Sport.objects.all()}
-        for opportunity in relevant_opportunities: 
-            result_dict[opportunity.sport.pk][opportunity.description] = opportunity
-        return result_dict
-
 class ScrapeHelper:
     @staticmethod
     def send_updated_events(fetch_all: bool):
         sportsbook = Sportsbook.objects.get(is_default=True, selected=True)
         event_helper = EventHelper(sportsbook)
-        events, _ = event_helper.get_selected_events(sportsbook)
+        events, _ = event_helper.get_selected_events()
         response = MatchOpportunityResponse.dataclass_from_models(events, fetch_all)
         asyncio.run(ScrapeHelper.broadcast_data(DataType.MATCHDATA, response.dict))
 

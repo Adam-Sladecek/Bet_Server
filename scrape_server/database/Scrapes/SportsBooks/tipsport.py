@@ -1,7 +1,6 @@
 import asyncio
 from ..dataclass_models import EventModel, OddModel
-from ..driver import getCommonDriver
-from ..helpers import get_existing_odds
+from ..driver import Driver
 from ...models import Odd, Event, Sport, SportsbookMarket
 from .scraper import Scraper
 
@@ -13,26 +12,24 @@ class TipsportScraper(Scraper):
         pass    
         
     def get_driver(self):
-        self.driver = getCommonDriver(False)
-        url = "https://www.tipsport.sk/live"
-        self.driver.get(url)
+        self.driver = Driver(False, "https://www.tipsport.sk/live")
 
     def close_driver(self):
         try:
-            self.driver.quit()
+            self.driver.close()
         except Exception as ex:
             print(f'Failed to quit tipsport driver. Exception: {str(ex)}')
 
     async def gather_events(self, sports: list[Sport]):
         url= "https://www.tipsport.sk/rest/offer/v1/live/in-play/entities"
-        result = await self.execute_driver_script(url)
+        result = await self.driver.execute_script(url)
         return result
     
     async def gather_odds(self, events):
         tasks = []
         for event in events: 
             url = f"https://www.tipsport.sk/rest/offer/v3/live/matches/{event.event_id}/patches?withEventTables=true"
-            tasks.append(asyncio.create_task(self.execute_driver_script(url)))
+            tasks.append(asyncio.create_task(self.driver.execute_script(url)))
         results = await asyncio.gather(*tasks)
         return results
     
@@ -90,7 +87,7 @@ class TipsportScraper(Scraper):
             raise Exception('No details retrieved.')
         
         allowed_selection_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        existing_odds = get_existing_odds(self.sportsbook)
+        existing_odds = self.odd_helper.get_existing_odds(self.sportsbook)
         for dataset in data: 
             if dataset is None: continue
             try:

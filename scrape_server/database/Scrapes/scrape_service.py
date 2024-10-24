@@ -9,7 +9,7 @@ from database.Scrapes.SportsBooks.pinnacle import PinnacleScraper
 from database.Scrapes.SportsBooks.ifortuna import IfortunaScraper
 from database.Scrapes.SportsBooks.ps3838 import PS3838Scraper
 from database.Scrapes.SportsBooks.scraper import Scraper
-from scrape_server.database.Scrapes.helpers import ScrapeHelper
+from database.Scrapes.helpers import ScrapeHelper
 
 class ScrapeService: 
     def __init__(self, sports: list[Sport], event: threading.Event, send_all_event: threading.Event, 
@@ -72,7 +72,7 @@ class ScrapeService:
                         if is_set: self.send_all_event.clear()
                         asyncio.run(asyncio.sleep(5))
                     else:
-                        self.link_events_and_odds()
+                        ScrapeHelper.link_events_and_odds()
                         asyncio.run(ScrapeHelper.broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
                         print('Import done.') 
                     result_dictionary[command.value] = 0

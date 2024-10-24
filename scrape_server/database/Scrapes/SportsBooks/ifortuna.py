@@ -1,6 +1,5 @@
 from .scraper import Scraper
 from ..dataclass_models import EventModel, OddModel
-from ..helpers import get_existing_odds
 from ...models import Odd, Sport, Event, SportsbookMarket
 
 class IfortunaScraper(Scraper):
@@ -89,7 +88,7 @@ class IfortunaScraper(Scraper):
         odds_to_update: list[Odd] = []
         
         allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        existing_odds = get_existing_odds(self.sportsbook)
+        existing_odds = self.odd_helper.get_existing_odds(self.sportsbook)
         for event_id, dataset in data.items():
             if dataset is None: continue
             try:

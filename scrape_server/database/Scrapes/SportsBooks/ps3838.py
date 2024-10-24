@@ -1,10 +1,8 @@
 import asyncio
 from ..dataclass_models import EventModel, OddModel
-from ..helpers import get_existing_odds
 from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
 from .scraper import Scraper
 from ..ps3838_dataclasses import FixturePS3838, PeriodPS3838
-from ..helpers import update_events, update_odds, get_selected_events, delete_settled_events, update_movements
 from datetime import datetime, timezone
 
 class PS3838Scraper(Scraper):
@@ -46,21 +44,21 @@ class PS3838Scraper(Scraper):
             loop = self.get_loop()
             event_response = loop.run_until_complete(self.gather_events(sb_sport_ids))
             events = self.map_events(event_response)
-            update_events(events, self.sportsbook, False)
+            self.event_helper.update_events(events, self.sportsbook, False)
             event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
             settled_event_ids = self.get_settled_event_ids(event_settled_response)
-            delete_settled_events(settled_event_ids, self.sportsbook)
+            self.event_helper.delete_settled_events(settled_event_ids, self.sportsbook)
             odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, {}, {}))
             odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
-            update_odds(odds_to_create, odds_to_update, self.sportsbook)
+            self.odd_helper.update_odds(odds_to_create, odds_to_update, self.sportsbook)
         except Exception as ex: 
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
     def get_data(self):
         try:
-            events, sport_ids = get_selected_events(self.sportsbook)
+            events, sport_ids = self.event_helper.get_selected_events(self.sportsbook)
             if len(events) == 0: return
-            update_movements(self.sportsbook, events)
+            self.odd_helper.update_movements(self.sportsbook, events)
             event_id_dict = {}
             league_id_dict = {}
             for event in events:
@@ -73,13 +71,13 @@ class PS3838Scraper(Scraper):
             loop = self.get_loop()
             event_response = loop.run_until_complete(self.gather_events(sb_sport_ids))
             events = self.map_events(event_response)
-            update_events(events, self.sportsbook, False)
+            self.event_helper.update_events(events, self.sportsbook, False)
             event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
             settled_event_ids = self.get_settled_event_ids(event_settled_response)
-            delete_settled_events(settled_event_ids, self.sportsbook)
+            self.event_helper.delete_settled_events(settled_event_ids, self.sportsbook)
             odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_id_dict, league_id_dict))
             odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
-            update_odds(odds_to_create, odds_to_update, self.sportsbook)
+            self.odd_helper.update_odds(odds_to_create, odds_to_update, self.sportsbook)
         except Exception as ex:
             print(f"Get data in {self.sportsbook.name} failed. Exception: {str(ex)}.")
 
@@ -204,7 +202,7 @@ class PS3838Scraper(Scraper):
         odds_to_create: list[OddModel] = []
         odds_to_update: list[Odd] = []
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        existing_odds = get_existing_odds(self.sportsbook)
+        existing_odds = self.odd_helper.get_existing_odds(self.sportsbook)
         for sport_id, dataset in data.items():
             try:
                 if dataset is None or 'last' not in dataset: 

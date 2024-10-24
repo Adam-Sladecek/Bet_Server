@@ -1,6 +1,5 @@
 from .scraper import Scraper
 from ..dataclass_models import EventModel, OddModel
-from ..helpers import get_existing_odds
 from ...models import Odd, Sport, Event, SportsbookMarket
 
 class NikeScraper(Scraper):
@@ -66,7 +65,7 @@ class NikeScraper(Scraper):
         odds_to_update: list[Odd] = []
         
         allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        existing_odds = get_existing_odds(self.sportsbook, True)
+        existing_odds = self.odd_helper.get_existing_odds(self.sportsbook, True)
         for dataset in data:
             if dataset is None: continue
             for bet in dataset[0][1]['bets']:

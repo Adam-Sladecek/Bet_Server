@@ -5,13 +5,15 @@ import asyncio
 from datetime import datetime
 from ...models import Sport, Sportsbook, Event, Odd
 from ...enums import Movement
-from ..helpers import update_events, update_odds, get_selected_events, update_selected_events, update_selected_odds
+from ..helpers import OddHelper, EventHelper
 from ..dataclass_models import EventModel, OddModel
 
 class Scraper(ABC):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         self.sportsbook = sportsbook
         self.sports = [sport for sport in sports]
+        self.odd_helper = OddHelper(sportsbook)
+        self.event_helper = EventHelper(sportsbook)
         self.get_driver()
 
     @abstractmethod
@@ -48,17 +50,17 @@ class Scraper(ABC):
 
     def get_data(self):
         try:
-            events, sport_ids = get_selected_events(self.sportsbook)
+            events, sport_ids = self.event_helper.get_selected_events(self.sportsbook)
             if len(events) == 0: return
             sports = [sport for sport in self.sports if sport.pk in sport_ids]
             loop = self.get_loop()
             event_response = loop.run_until_complete(self.gather_events(sports))
             events_to_update, events_to_delete = self.map_events_selected(events, event_response)
-            update_selected_events(events_to_update, events_to_delete)
+            self.event_helper.update_selected_events(events_to_update, events_to_delete)
             events = [event for event in events if event.pk is not None]
             odds_response = loop.run_until_complete(self.gather_odds(events))
             odds_to_update = self.map_odds_selected(events, odds_response)
-            update_selected_odds(odds_to_update)
+            self.odd_helper.update_selected_odds(odds_to_update)
 
         except Exception as ex:
             print(f"Get data in {self.sportsbook.name} failed. Exception: {str(ex)}.")
@@ -68,10 +70,10 @@ class Scraper(ABC):
             loop = self.get_loop()
             event_response = loop.run_until_complete(self.gather_events(self.sports))
             events = self.map_events(event_response)
-            update_events(events, self.sportsbook)    
+            self.event_helper.update_events(events, self.sportsbook)    
             odds_response = loop.run_until_complete(self.gather_odds(events))
             odds_to_create, odds_to_update = self.map_odds(odds_response)
-            update_odds(odds_to_create, odds_to_update, self.sportsbook)
+            self.odd_helper.update_odds(odds_to_create, odds_to_update, self.sportsbook)
 
         except Exception as ex:
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
@@ -139,32 +141,6 @@ class Scraper(ABC):
             return Movement.DOWN.value    
         
         return Movement.NONE.value
-
-    async def execute_driver_script(self, url: str): 
-        try:
-            script = f"""
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", "{url}", false);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            xhr.onreadystatechange = function () {{
-                if (xhr.readyState == 4) {{
-                    if (xhr.status == 200) {{
-                        window.responseData = xhr.responseText;
-                    }} else {{
-                        console.error("Request failed with status:", xhr.status);
-                        window.responseData = null;
-                    }}
-                }}
-            }};
-            xhr.send();
-            """
-            self.driver.execute_script(script)
-            response_data = self.driver.execute_script("return window.responseData;")
-
-            return json.loads(response_data)
-        
-        except Exception as ex:
-            return None
 
     def replace_by_tokens(self, text: str, replace_pairs: list[tuple[str, str]]) -> str:
         for str_to_replace, replace_tkn in replace_pairs:
