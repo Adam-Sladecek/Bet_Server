@@ -25,9 +25,9 @@
     ], 
     "update_all": false, 
     "match_ids": [
-        1
+        1, 2
     ], 
     "odd_ids": [
-        6
+        8, 6
     ]
 }

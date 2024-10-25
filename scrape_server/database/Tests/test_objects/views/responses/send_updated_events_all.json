@@ -1,17 +1,55 @@
 {
-    "sb_markets": [
+    "opportunities": [
         {
-            "sportsbook_id": 1,
-            "markets": [
-                {
-                    "id": 1,
-                    "name": "moneyline"
-                }
-            ]
-        },
+            "match_name": "Roger Federer vs. Rafael Nadal", 
+            "opp_name": "Vyhra Roger Federer", 
+            "match_id": 1, 
+            "time": "", 
+            "parent": {
+                "odd_pk": 1, 
+                "odds": 2.0, 
+                "locked": false, 
+                "movement": 1
+            }, 
+            "child": {
+                "odd_pk": 6,
+                "odds": 2.1, 
+                "locked": false, 
+                "movement": 0
+            }, 
+            "sport_id": 1, 
+            "sportsbook_id": 2, 
+            "ev": 5.0, 
+            "stake": 0.05
+        }, 
         {
-            "sportsbook_id": 2,
-            "markets": []
+            "match_name": "Novak Djokovic vs. Andy Murray", 
+            "opp_name": "Vyhra Novak Djokovic", 
+            "match_id": 2, 
+            "time": "", 
+            "parent": {
+                "odd_pk": 3, 
+                "odds": 2.1, 
+                "locked": false, 
+                "movement": 0
+            }, 
+            "child": {
+                "odd_pk": 8, 
+                "odds": 2.2, 
+                "locked": false, 
+                "movement": 0
+            }, 
+            "sport_id": 1, 
+            "sportsbook_id": 2, 
+            "ev": 4.76, 
+            "stake": 0.04
         }
+    ], 
+    "update_all": true, 
+    "match_ids": [
+        1, 2
+    ], 
+    "odd_ids": [
+        8, 6
     ]
 }
