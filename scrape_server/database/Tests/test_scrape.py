@@ -375,9 +375,9 @@ class TestScrapeHelper(TestCase):
         # opportunity should be sent only if event is selected, odd is selected and its odd movement is up or down or fetch_all is True
         for fetch_all in [False, True]:
             if fetch_all: 
-                file_path = 'scrape_server/database/Tests/test_objects/views/responses/send_updated_events_all.json'
+                file_path = 'scrape_server/database/Tests/test_objects/helpers/responses/send_updated_events_all.json'
             else:
-                file_path = 'scrape_server/database/Tests/test_objects/views/responses/send_updated_events.json'   
+                file_path = 'scrape_server/database/Tests/test_objects/helpers/responses/send_updated_events.json'   
             with open(file_path, 'r') as file:
                 mock_response = json.load(file)
 
