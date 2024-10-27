@@ -1,0 +1,280 @@
+{
+    "groups": [
+        {
+            "id": "f07e2750",
+            "displayOrder": 4,
+            "displayWithPriority": false,
+            "names": {
+                "sk_SK": "HLAVNÉ STÁVKY"
+            },
+            "markets": [
+                {
+                    "id": "0f69cac7",
+                    "eventId": "LSK145926889",
+                    "matchId": "LSK5816211",
+                    "displayOrder": 250000000000000,
+                    "names": {
+                        "sk_SK": "Heidenheim - Hoffenheim"
+                    },
+                    "subNames": {
+                        "sk_SK": "Výsledok zápasu"
+                    },
+                    "descriptions": {
+                        "sk_SK": "Stávka na výsledok zápasu v základnej hracej dobe."
+                    },
+                    "marketTypeId": "LSK10110",
+                    "marketGroupIds": [
+                        "f07e2750"
+                    ],
+                    "marketRows": [
+                        "LSK555131474"
+                    ],
+                    "supportGroup": {
+                        "markets": {
+                            "LSK555131474": 1
+                        }
+                    },
+                    "supportGroupEx": {
+                        "markets": {
+                            "LSK555131474": 1
+                        }
+                    },
+                    "odds": {
+                        "LSK555131474": [
+                            {
+                                "id": "LSK1306923070",
+                                "displayOrder": 1,
+                                "names": {
+                                    "sk_SK": "1"
+                                },
+                                "longNames": {
+                                    "sk_SK": "Heidenheim"
+                                },
+                                "info": 4497947,
+                                "tipId": 1306923070,
+                                "marketId": "LSK555131474",
+                                "value": 14.0,
+                                "readOnly": false,
+                                "relatedContingency": false,
+                                "displayType": "OPEN"
+                            },
+                            {
+                                "id": "LSK1306923071",
+                                "displayOrder": 2,
+                                "names": {
+                                    "sk_SK": "0"
+                                },
+                                "longNames": {
+                                    "sk_SK": "Remíza"
+                                },
+                                "info": 4497947,
+                                "tipId": 1306923071,
+                                "marketId": "LSK555131474",
+                                "value": 1.09,
+                                "readOnly": false,
+                                "relatedContingency": false,
+                                "displayType": "OPEN"
+                            },
+                            {
+                                "id": "LSK1306923072",
+                                "displayOrder": 3,
+                                "names": {
+                                    "sk_SK": "2"
+                                },
+                                "longNames": {
+                                    "sk_SK": "Hoffenheim"
+                                },
+                                "info": 4497947,
+                                "tipId": 1306923072,
+                                "marketId": "LSK555131474",
+                                "value": 10.5,
+                                "readOnly": false,
+                                "relatedContingency": false,
+                                "displayType": "OPEN"
+                            }
+                        ]
+                    },
+                    "unrelatedContingencyTips": false,
+                    "marketSubject": "GENERAL"
+                },
+                {
+                    "id": "6d644d67",
+                    "eventId": "LSK145926889",
+                    "matchId": "LSK5816211",
+                    "displayOrder": 450000000000000,
+                    "names": {
+                        "sk_SK": "Heidenheim - Hoffenheim"
+                    },
+                    "subNames": {
+                        "sk_SK": "Výsledok zápasu: dvojtip"
+                    },
+                    "descriptions": {
+                        "sk_SK": "Stávka na výsledok zápasu v základnej hracej dobe."
+                    },
+                    "marketTypeId": "LSK10364",
+                    "marketGroupIds": [
+                        "f07e2750"
+                    ],
+                    "marketRows": [
+                        "LSK555131412"
+                    ],
+                    "supportGroup": {
+                        "markets": {
+                            "LSK555131412": 1
+                        }
+                    },
+                    "supportGroupEx": {
+                        "markets": {
+                            "LSK555131412": 1
+                        }
+                    },
+                    "odds": {
+                        "LSK555131412": [
+                            {
+                                "id": "LSK1306922931",
+                                "displayOrder": 1,
+                                "names": {
+                                    "sk_SK": "10"
+                                },
+                                "longNames": {
+                                    "sk_SK": "10"
+                                },
+                                "info": 4497968,
+                                "tipId": 1306922931,
+                                "marketId": "LSK555131412",
+                                "value": 1.01,
+                                "readOnly": false,
+                                "relatedContingency": false,
+                                "displayType": "OPEN"
+                            },
+                            {
+                                "id": "LSK1306922933",
+                                "displayOrder": 2,
+                                "names": {
+                                    "sk_SK": "12"
+                                },
+                                "longNames": {
+                                    "sk_SK": "12"
+                                },
+                                "info": 4497968,
+                                "tipId": 1306922933,
+                                "marketId": "LSK555131412",
+                                "value": 6.0,
+                                "readOnly": false,
+                                "relatedContingency": false,
+                                "displayType": "OPEN"
+                            },
+                            {
+                                "id": "LSK1306922934",
+                                "displayOrder": 3,
+                                "names": {
+                                    "sk_SK": "02"
+                                },
+                                "longNames": {
+                                    "sk_SK": "02"
+                                },
+                                "info": 4497968,
+                                "tipId": 1306922934,
+                                "marketId": "LSK555131412",
+                                "value": -1.0,
+                                "readOnly": false,
+                                "relatedContingency": false,
+                                "displayType": "OPEN"
+                            }
+                        ]
+                    },
+                    "unrelatedContingencyTips": false,
+                    "marketSubject": "GENERAL"
+                },
+                {
+                    "id": "018187b5",
+                    "eventId": "LSK145926889",
+                    "matchId": "LSK5816211",
+                    "displayOrder": 550000000000000,
+                    "names": {
+                        "sk_SK": "Heidenheim - Hoffenheim"
+                    },
+                    "subNames": {
+                        "sk_SK": "Výsledok zápasu bez remízy"
+                    },
+                    "descriptions": {
+                        "sk_SK": "Stávka na víťazstvo jedného z tímov. V prípade remízy bude príležitosť vyhodnotená kurzom 1,0. Predčasná výplata je nedostupná"
+                    },
+                    "marketTypeId": "LSK10114",
+                    "marketGroupIds": [
+                        "f07e2750"
+                    ],
+                    "marketRows": [
+                        "LSK555131434"
+                    ],
+                    "supportGroup": {
+                        "markets": {
+                            "LSK555131434": 1
+                        }
+                    },
+                    "supportGroupEx": {
+                        "markets": {
+                            "LSK555131434": 1
+                        }
+                    },
+                    "odds": {
+                        "LSK555131434": [
+                            {
+                                "id": "LSK1306922972",
+                                "displayOrder": 1,
+                                "names": {
+                                    "sk_SK": "1"
+                                },
+                                "longNames": {
+                                    "sk_SK": "Heidenheim"
+                                },
+                                "info": 4497962,
+                                "tipId": 1306922972,
+                                "marketId": "LSK555131434",
+                                "value": 2.2,
+                                "readOnly": false,
+                                "relatedContingency": false,
+                                "displayType": "OPEN"
+                            },
+                            {
+                                "id": "LSK1306922976",
+                                "displayOrder": 2,
+                                "names": {
+                                    "sk_SK": "2"
+                                },
+                                "longNames": {
+                                    "sk_SK": "Hoffenheim"
+                                },
+                                "info": 4497962,
+                                "tipId": 1306922976,
+                                "marketId": "LSK555131434",
+                                "value": 1.6,
+                                "readOnly": false,
+                                "relatedContingency": false,
+                                "displayType": "OPEN"
+                            }
+                        ]
+                    },
+                    "unrelatedContingencyTips": false,
+                    "marketSubject": "GENERAL"
+                }
+            ]
+        }
+    ],
+    "participants": {
+        "HOME": {
+            "id": 721386,
+            "name": {
+                "en_US": "Heidenheim",
+                "sk_SK": "Heidenheim"
+            }
+        },
+        "AWAY": {
+            "id": 677875,
+            "name": {
+                "en_US": "Hoffenheim",
+                "sk_SK": "Hoffenheim"
+            }
+        }
+    }
+}

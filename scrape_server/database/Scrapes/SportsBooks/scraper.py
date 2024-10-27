@@ -50,7 +50,7 @@ class Scraper(ABC):
 
     def get_data(self):
         try:
-            events, sport_ids = self.event_helper.get_selected_events(self.sportsbook)
+            events, sport_ids = self.event_helper.get_selected_events()
             if len(events) == 0: return
             sports = [sport for sport in self.sports if sport.pk in sport_ids]
             loop = self.get_loop()
@@ -73,7 +73,7 @@ class Scraper(ABC):
             self.event_helper.update_events(events, self.sportsbook)    
             odds_response = loop.run_until_complete(self.gather_odds(events))
             odds_to_create, odds_to_update = self.map_odds(odds_response)
-            self.odd_helper.update_odds(odds_to_create, odds_to_update, self.sportsbook)
+            self.odd_helper.update_odds(odds_to_create, odds_to_update)
 
         except Exception as ex:
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  

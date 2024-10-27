@@ -1,0 +1,59 @@
+[
+    {
+        "id": "LSKFOOTBALL",
+        "displayOrder": 0,
+        "sport": "FOOTBALL",
+        "site": "SK",
+        "names": {
+            "sk_SK": "Futbal"
+        },
+        "leagues": [
+            {
+                "id": "SPANIELSKOLALIGA.LSKFOOTBALL",
+                "displayOrder": 1,
+                "sportId": "LSKFOOTBALL",
+                "isDefault": false,
+                "names": {
+                    "sk_SK": "Španielsko - LaLiga"
+                },
+                "matches": [
+                    {
+                        "id": "LSK5815721",
+                        "displayOrder": 1,
+                        "status": "RUNNING",
+                        "sportId": "LSKFOOTBALL",
+                        "leagueId": "SPANIELSKOLALIGA.LSKFOOTBALL",
+                        "overview": {
+                            "matchId": "LSK5815721",
+                            "splitGameTime": {},
+                            "info": {},
+                            "actual": {},
+                            "gameTime": {
+                                "sk_SK": "Začíná 27.10. 14:00"
+                            },
+                            "shortInfo": {},
+                            "shortActual": {},
+                            "shortGameTime": {
+                                "sk_SK": " 27.10. 14:00"
+                            }
+                        },
+                        "startDate": "2024-10-27T14:00:00.000+01:00",
+                        "names": {
+                            "sk_SK": "Leganes - Celta Vigo"
+                        },
+                        "competitionNames": {
+                            "sk_SK": "Španielsko - LaLiga"
+                        },
+                        "team1Names": {
+                            "sk_SK": "Leganes"
+                        },
+                        "team2Names": {
+                            "sk_SK": "Celta Vigo"
+                        }
+                    }
+                ],
+                "default": false
+            }
+        ]
+    }
+]
