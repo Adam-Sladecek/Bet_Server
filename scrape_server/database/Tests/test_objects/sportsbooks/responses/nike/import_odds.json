@@ -1,0 +1,298 @@
+[
+    [
+        "/n1/match/45368102/bets/portal/",
+        {
+            "version": 1730147289612,
+            "matchId": "45368102",
+            "bets": [
+                {
+                    "id": "699605893",
+                    "matchId": "45368102",
+                    "marketId": "8441",
+                    "tournamentId": "13872",
+                    "countryId": "3",
+                    "sportId": "1",
+                    "channelId": 2,
+                    "state": "Running",
+                    "expirationTime": "2024-10-30T20:00:00+01:00",
+                    "game": "Live",
+                    "order": 0,
+                    "selections": [
+                        {
+                            "name": {
+                                "sk": "Brentford 21",
+                                "en": "Brentford 21",
+                                "hu": "Brentford 21"
+                            },
+                            "code": 49,
+                            "odds": 1,
+                            "enabled": true,
+                            "locked": false
+                        },
+                        {
+                            "name": {
+                                "sk": "remíza",
+                                "en": "draw",
+                                "hu": "Döntetlen"
+                            },
+                            "code": 88,
+                            "odds": 12.43,
+                            "enabled": true,
+                            "locked": false
+                        },
+                        {
+                            "name": {
+                                "sk": "Q. P. Rangers 21",
+                                "en": "Q. P. Rangers U21",
+                                "hu": "Q. P. Rangers U21"
+                            },
+                            "code": 50,
+                            "odds": 52.59,
+                            "enabled": true,
+                            "locked": false
+                        }
+                    ],
+                    "betNumber": 1131489,
+                    "header": {
+                        "sk": "Zápas - Výsledok",
+                        "en": "Full Time Result",
+                        "hu": "A mérkőzés végeredménye"
+                    },
+                    "participants": [
+                        {
+                            "sk": "Brentford 21",
+                            "en": "Brentford 21",
+                            "hu": "Brentford 21"
+                        },
+                        {
+                            "sk": "Q. P. Rangers 21",
+                            "en": "Q. P. Rangers U21",
+                            "hu": "Q. P. Rangers U21"
+                        }
+                    ],
+                    "overview": {},
+                    "detail": {},
+                    "detailMobile": {},
+                    "betParticipants": []
+                },
+                {
+                    "id": "699605894",
+                    "matchId": "45368102",
+                    "marketId": "9475",
+                    "tournamentId": "13872",
+                    "countryId": "3",
+                    "sportId": "1",
+                    "channelId": 2,
+                    "state": "Running",
+                    "expirationTime": "2024-10-30T20:00:00+01:00",
+                    "game": "Live",
+                    "order": 0,
+                    "selections": [
+                        {
+                            "name": {
+                                "sk": "Brentford 21 / remíza",
+                                "en": "Brentford 21 / draw",
+                                "hu": "Brentford 21 / Döntetlen"
+                            },
+                            "code": 52,
+                            "odds": 1,
+                            "enabled": false,
+                            "locked": true
+                        },
+                        {
+                            "name": {
+                                "sk": "Brentford 21 / Q. P. Rangers 21",
+                                "en": "Brentford 21 / Q. P. Rangers U21",
+                                "hu": "Brentford 21 / Q. P. Rangers U21"
+                            },
+                            "code": 51,
+                            "odds": 1.02,
+                            "enabled": true,
+                            "locked": false
+                        },
+                        {
+                            "name": {
+                                "sk": "remíza / Q. P. Rangers 21",
+                                "en": "draw / Q. P. Rangers U21",
+                                "hu": "Döntetlen / Q. P. Rangers U21"
+                            },
+                            "code": 53,
+                            "odds": 11.5,
+                            "enabled": true,
+                            "locked": false
+                        }
+                    ],
+                    "betNumber": 1131490,
+                    "header": {
+                        "sk": "Zápas - Dvojtip",
+                        "en": "Match - Double Chance",
+                        "hu": "Mérkőzés - Kettős esély"
+                    },
+                    "participants": [
+                        {
+                            "sk": "Brentford 21",
+                            "en": "Brentford 21",
+                            "hu": "Brentford 21"
+                        },
+                        {
+                            "sk": "Q. P. Rangers 21",
+                            "en": "Q. P. Rangers U21",
+                            "hu": "Q. P. Rangers U21"
+                        }
+                    ],
+                    "overview": {},
+                    "detail": {},
+                    "detailMobile": {},
+                    "betParticipants": []
+                },
+                {
+                    "id": "699605895",
+                    "matchId": "45368102",
+                    "marketId": "9559",
+                    "tournamentId": "13872",
+                    "countryId": "3",
+                    "sportId": "1",
+                    "channelId": 2,
+                    "state": "Running",
+                    "expirationTime": "2024-10-30T20:00:00+01:00",
+                    "game": "Live",
+                    "order": 0,
+                    "selections": [
+                        {
+                            "name": {
+                                "sk": "Brentford 21 1:0, 2:0, 3:0",
+                                "en": "Brentford 21 1:0, 2:0, 3:0",
+                                "hu": "Brentford 21 1:0, 2:0, 3:0"
+                            },
+                            "code": 49,
+                            "odds": 1,
+                            "enabled": false,
+                            "locked": true
+                        },
+                        {
+                            "name": {
+                                "sk": "Brentford 21 2:1, 3:1, 4:1",
+                                "en": "Brentford 21 2:1, 3:1, 4:1",
+                                "hu": "Brentford 21 2:1, 3:1, 4:1"
+                            },
+                            "code": 50,
+                            "odds": 2,
+                            "enabled": true,
+                            "locked": false
+                        },
+                        {
+                            "name": {
+                                "sk": "Brentford 21 3:2, 4:2, 5:2",
+                                "en": "Brentford 21 3:2, 4:2, 5:2",
+                                "hu": "Brentford 21 3:2, 4:2, 5:2"
+                            },
+                            "code": 51,
+                            "odds": 2.75,
+                            "enabled": true,
+                            "locked": false
+                        },
+                        {
+                            "name": {
+                                "sk": "Brentford 21 iný výsledok",
+                                "en": "Brentford 21 Any other score",
+                                "hu": "Brentford 21 Más eredmény"
+                            },
+                            "code": 52,
+                            "odds": 5.25,
+                            "enabled": true,
+                            "locked": false
+                        },
+                        {
+                            "name": {
+                                "sk": "Remíza 0:0, 1:1",
+                                "en": "Draw 0:0, 1:1",
+                                "hu": "Döntetlen 0:0, 1:1"
+                            },
+                            "code": 53,
+                            "odds": 1,
+                            "enabled": false,
+                            "locked": true
+                        },
+                        {
+                            "name": {
+                                "sk": "Remíza iný výsledok",
+                                "en": "Draw any other Score",
+                                "hu": "Döntetlen Más eredmény"
+                            },
+                            "code": 54,
+                            "odds": 13.5,
+                            "enabled": true,
+                            "locked": false
+                        },
+                        {
+                            "name": {
+                                "sk": "Q. P. Rangers 21 1:0, 2:0, 3:0",
+                                "en": "Q. P. Rangers U21 1:0, 2:0, 3:0",
+                                "hu": "Q. P. Rangers U21 1:0, 2:0, 3:0"
+                            },
+                            "code": 55,
+                            "odds": 1,
+                            "enabled": false,
+                            "locked": true
+                        },
+                        {
+                            "name": {
+                                "sk": "Q. P. Rangers 21 2:1, 3:1, 4:1",
+                                "en": "Q. P. Rangers U21 2:1, 3:1, 4:1",
+                                "hu": "Q. P. Rangers U21 2:1, 3:1, 4:1"
+                            },
+                            "code": 56,
+                            "odds": 1,
+                            "enabled": false,
+                            "locked": true
+                        },
+                        {
+                            "name": {
+                                "sk": "Q. P. Rangers 21 3:2, 4:2, 5:2",
+                                "en": "Q. P. Rangers U21 3:2, 4:2, 5:2",
+                                "hu": "Q. P. Rangers U21 3:2, 4:2, 5:2"
+                            },
+                            "code": 57,
+                            "odds": 1,
+                            "enabled": false,
+                            "locked": true
+                        },
+                        {
+                            "name": {
+                                "sk": "Q. P. Rangers 21 iný výsledok",
+                                "en": "Q. P. Rangers U21 Any other score",
+                                "hu": "Q. P. Rangers U21 Más eredmény"
+                            },
+                            "code": 97,
+                            "odds": 60,
+                            "enabled": true,
+                            "locked": false
+                        }
+                    ],
+                    "betNumber": 1131491,
+                    "header": {
+                        "sk": "Zápas - Multiskóre",
+                        "en": "Match - Multi Score",
+                        "hu": "Mérkőzés - Multieredmény"
+                    },
+                    "participants": [
+                        {
+                            "sk": "Brentford 21",
+                            "en": "Brentford 21",
+                            "hu": "Brentford 21"
+                        },
+                        {
+                            "sk": "Q. P. Rangers 21",
+                            "en": "Q. P. Rangers U21",
+                            "hu": "Q. P. Rangers U21"
+                        }
+                    ],
+                    "overview": {},
+                    "detail": {},
+                    "detailMobile": {},
+                    "betParticipants": []
+                }
+            ]
+        }
+    ]
+]

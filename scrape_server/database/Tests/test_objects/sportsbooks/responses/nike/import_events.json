@@ -1,0 +1,44 @@
+[
+    [
+        "/n1/overview/futbal/tournaments/",
+        {
+            "version": 70797,
+            "sportId": "1",
+            "matches": [
+                {
+                    "id": "45368102",
+                    "tournamentId": "13872",
+                    "countryId": "3",
+                    "sportId": "1",
+                    "startTime": "2024-10-28T20:00:00+01:00",
+                    "statisticsId": 51872819,
+                    "home": {
+                        "sk": "Brentford 21",
+                        "en": "Brentford 21",
+                        "hu": "Brentford 21"
+                    },
+                    "away": {
+                        "sk": "Q. P. Rangers 21",
+                        "en": "Q. P. Rangers U21",
+                        "hu": "Q. P. Rangers U21"
+                    },
+                    "betCount": 29,
+                    "timer": {
+                        "status": "BREAK",
+                        "visible": true,
+                        "currentPeriod": {
+                            "sk": "prestávka",
+                            "en": "break",
+                            "hu": "Szünet"
+                        },
+                        "matchSeconds": 900,
+                        "timestamp": 1730145050000,
+                        "clockStopped": false,
+                        "clockVisible": true,
+                        "countDown": true
+                    }
+                }
+            ]
+        }
+    ]
+]

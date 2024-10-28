@@ -70,7 +70,7 @@ class Scraper(ABC):
             loop = self.get_loop()
             event_response = loop.run_until_complete(self.gather_events(self.sports))
             events = self.map_events(event_response)
-            self.event_helper.update_events(events, self.sportsbook)    
+            self.event_helper.update_events(events)    
             odds_response = loop.run_until_complete(self.gather_odds(events))
             odds_to_create, odds_to_update = self.map_odds(odds_response)
             self.odd_helper.update_odds(odds_to_create, odds_to_update)

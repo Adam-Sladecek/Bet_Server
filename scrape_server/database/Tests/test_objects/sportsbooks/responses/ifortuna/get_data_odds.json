@@ -73,24 +73,7 @@
                                 "value": 2,
                                 "readOnly": false,
                                 "relatedContingency": false,
-                                "displayType": "OPEN"
-                            },
-                            {
-                                "id": "LSK1306923072",
-                                "displayOrder": 3,
-                                "names": {
-                                    "sk_SK": "2"
-                                },
-                                "longNames": {
-                                    "sk_SK": "Hoffenheim"
-                                },
-                                "info": 4497947,
-                                "tipId": 1306923072,
-                                "marketId": "LSK555131474",
-                                "value": 13,
-                                "readOnly": false,
-                                "relatedContingency": false,
-                                "displayType": "OPEN"
+                                "displayType": "LOCKED"
                             }
                         ]
                     },

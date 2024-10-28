@@ -65,7 +65,7 @@ class NikeScraper(Scraper):
         odds_to_update: list[Odd] = []
         
         allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        existing_odds = self.odd_helper.get_existing_odds(self.sportsbook, True)
+        existing_odds = self.odd_helper.get_existing_odds(True)
         for dataset in data:
             if dataset is None: continue
             for bet in dataset[0][1]['bets']:
@@ -163,7 +163,7 @@ class NikeScraper(Scraper):
                         odd.locked = True
                         odds_to_update.append(odd)
                         continue
-                    for data_odd in data_bet['selections']:
+                    for index, data_odd in enumerate(data_bet['selections']):
                         code = data_odd["code"]
                         if odd.code == code: 
                             odd.movement = self.get_movement(odd.odd, data_odd["odds"])      
@@ -171,6 +171,9 @@ class NikeScraper(Scraper):
                             odd.locked = data_odd["locked"] or not data_odd["enabled"]
                             odds_to_update.append(odd)
                             break
+                        if index == len(data_bet['selections']) - 1:
+                            odd.locked = True
+                            odds_to_update.append(odd)
             except Exception as ex:
                 print(f"Exception in map_odds_selected Nike: {str(ex)}.")
                 continue                   
