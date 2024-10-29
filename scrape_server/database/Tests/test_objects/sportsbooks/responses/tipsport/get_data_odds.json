@@ -1,0 +1,145 @@
+{
+    "matchPatches": {
+        "patches": [
+            {
+                "version": 2490,
+                "value": {
+                    "id": 6545058,
+                    "nameFull": "Adanaspor - Corluspor 1947",
+                    "nameAbbr": "Adanaspor-Corluspor 1947",
+                    "participantHome": "Adanaspor",
+                    "participantVisiting": "Corluspor 1947",
+                    "participantHomeAbbr": "Adanaspor",
+                    "participantVisitingAbbr": "Corluspor 1947",
+                    "dateStart": 1730223000000,
+                    "status": "2. polčas",
+                    "competitionId": 3190,
+                    "competitionAnnualId": 223494,
+                    "superSportId": 16,
+                    "competition": "Turecký pohár",
+                    "sport": "Futbal - muži",
+                    "superSport": "Futbal",
+                    "eventTables": [
+                        {
+                            "id": "t-1gp1-1",
+                            "name": "Výsledok zápasu",
+                            "extraEventTableDisplayStyle": "DIFFERENT_SIZE_COLUMNS",
+                            "mySelectionId": "16-WINNER_3W-1",
+                            "columnDisplay": false,
+                            "boxes": [
+                                {
+                                    "id": "b2049570745",
+                                    "namePosition": "TOP",
+                                    "nameVisible": false,
+                                    "cells": [
+                                        {
+                                            "id": 2145041459,
+                                            "name": "Adanaspor",
+                                            "active": true,
+                                            "winning": false,
+                                            "odd": 16,
+                                            "eventId": 2049570745,
+                                            "afterDateClosed": true
+                                        },
+                                        {
+                                            "id": 2145041460,
+                                            "prevId": 2145041459,
+                                            "name": "Remíza",
+                                            "active": false,
+                                            "winning": false,
+                                            "odd": 1.14,
+                                            "eventId": 2049570745,
+                                            "afterDateClosed": true
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "b2049570746",
+                                    "prevId": "b2049570745",
+                                    "namePosition": "TOP",
+                                    "nameVisible": false,
+                                    "cells": [
+                                        {
+                                            "id": 2145041462,
+                                            "name": "Neprehra Adanaspor",
+                                            "active": true,
+                                            "winning": false,
+                                            "odd": 1.03,
+                                            "eventId": 2049570746,
+                                            "afterDateClosed": true
+                                        },
+                                        {
+                                            "id": 2145041464,
+                                            "prevId": 2145041462,
+                                            "name": "Nebude remíza",
+                                            "active": true,
+                                            "winning": false,
+                                            "odd": 5.15,
+                                            "eventId": 2049570746,
+                                            "afterDateClosed": true
+                                        },
+                                        {
+                                            "id": 2145041463,
+                                            "prevId": 2145041464,
+                                            "name": "Neprehra Corluspor 1947",
+                                            "active": true,
+                                            "winning": false,
+                                            "odd": 1.04,
+                                            "eventId": 2049570746,
+                                            "afterDateClosed": true
+                                        }
+                                    ]
+                                }
+                            ],
+                            "countActiveOpp": 6,
+                            "maxColumns": [
+                                3
+                            ],
+                            "personalizable": true
+                        },
+                        {
+                            "id": "tid2049570747",
+                            "prevId": "t-1gp1-1",
+                            "name": "Víťaz zápasu do rozhodnutia",
+                            "mySelectionId": "16-WINNER_2W-0",
+                            "columnDisplay": false,
+                            "boxes": [
+                                {
+                                    "id": "b2049570747",
+                                    "namePosition": "TOP",
+                                    "nameVisible": false,
+                                    "cells": [
+                                        {
+                                            "id": 2145041465,
+                                            "name": "Adanaspor",
+                                            "active": true,
+                                            "winning": false,
+                                            "odd": 1.77,
+                                            "eventId": 2049570747,
+                                            "afterDateClosed": true
+                                        },
+                                        {
+                                            "id": 2145041466,
+                                            "prevId": 2145041465,
+                                            "name": "Corluspor 1947",
+                                            "active": true,
+                                            "winning": false,
+                                            "odd": 1.93,
+                                            "eventId": 2049570747,
+                                            "afterDateClosed": true
+                                        }
+                                    ]
+                                }
+                            ],
+                            "countActiveOpp": 2,
+                            "maxColumns": [
+                                2
+                            ],
+                            "personalizable": true
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}

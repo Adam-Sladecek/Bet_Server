@@ -1,0 +1,36 @@
+{
+    "patches": [
+        {
+            "version": 718388,
+            "value": {
+                "matches": [
+                    {
+                        "id": 6545058,
+                        "competitionId": 3190,
+                        "sportId": -1,
+                        "superSportId": 16,
+                        "nameFull": "Adanaspor - Corluspor 1947",
+                        "nameAbbr": "Adanaspor-Corluspor 1947",
+                        "dateStart": "2024-10-29T18:30:00.000+01:00",
+                        "tracker": true,
+                        "score": {
+                            "scoreOffer": "1:0",
+                            "statusOffer": "2.pol. - 84.min (0:0, 1:0)",
+                            "redCardCounts": {
+                                "homeStatistic": 0,
+                                "awayStatistic": 0
+                            }
+                        },
+                        "url": "/live/zapas/futbal-adanaspor-corluspor-1947/6545058",
+                        "ended": false,
+                        "notStarted": false,
+                        "countEventTables": 14,
+                        "streamType": "VIDEO",
+                        "tipbank": false,
+                        "voiceChannel": false
+                    }
+                ]
+            }
+        }
+    ]
+}
