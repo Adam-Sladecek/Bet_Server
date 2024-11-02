@@ -89,15 +89,15 @@ class TestOpportunities(TestCase):
         self.assertEqual(mock_response, json_data)
 
     def test_add_child_to_parent_opportunity(self): 
-        response = self.client.post(reverse('add_opportunity_children', kwargs={'pk': self.opportunity1.pk, 'childid': self.opportunity1.pk}), data={}, content_type='application/json')
+        response = self.client.patch(reverse('add_opportunity_children', kwargs={'pk': self.opportunity1.pk, 'childid': self.opportunity1.pk}), data={}, content_type='application/json')
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.opportunity1.children.count(), 0)
 
-        response = self.client.post(reverse('add_opportunity_children', kwargs={'pk': self.opportunity1.pk, 'childid': self.opportunity3.pk}), data={}, content_type='application/json')
+        response = self.client.patch(reverse('add_opportunity_children', kwargs={'pk': self.opportunity1.pk, 'childid': self.opportunity3.pk}), data={}, content_type='application/json')
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.opportunity1.children.count(), 0)
         
-        response = self.client.post(reverse('add_opportunity_children', kwargs={'pk': self.opportunity1.pk, 'childid': self.opportunity2.pk}), data={}, content_type='application/json')
+        response = self.client.patch(reverse('add_opportunity_children', kwargs={'pk': self.opportunity1.pk, 'childid': self.opportunity2.pk}), data={}, content_type='application/json')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.opportunity1.children.count(), 1)
 
@@ -116,7 +116,7 @@ class TestOpportunities(TestCase):
     def test_remove_child_from_parent_opportunity(self):
         self.opportunity2.add_parent(self.opportunity1)
         self.opportunity2.save()
-        response = self.client.delete(reverse('delete_opportunity_children', kwargs={'pk': self.opportunity2.pk}), data={}, content_type='application/json')
+        response = self.client.patch(reverse('remove_opportunity_child', kwargs={'pk': self.opportunity2.pk}), data={}, content_type='application/json')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.opportunity1.children.count(), 0)
 

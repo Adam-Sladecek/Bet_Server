@@ -103,9 +103,9 @@ class OpportunityChildrenView(View):
         return response
      
 @method_decorator(csrf_exempt, name='dispatch')
-class DeleteOpportunityChildrenView(View):          
-    http_method_names = ['delete']
-    def delete(self, request, pk: int):
+class RemoveOpportunityChildView(View):          
+    http_method_names = ['patch']
+    def patch(self, request, pk: int):
         try:
             with transaction.atomic():
                 opportunity = Opportunity.objects.get(id=pk)
@@ -115,9 +115,9 @@ class DeleteOpportunityChildrenView(View):
             return JsonResponse({'message': str(e)}, status=400)
 
 @method_decorator(csrf_exempt, name='dispatch')
-class AddOpportunityChildrenView(View):          
-    http_method_names = ['post']
-    def post(self, request, pk: int, childid: int):
+class AddOpportunityChildView(View):          
+    http_method_names = ['patch']
+    def patch(self, request, pk: int, childid: int):
         try:
             parent = Opportunity.objects.get(id=pk)
             opportunity = Opportunity.objects.get(id=childid)
