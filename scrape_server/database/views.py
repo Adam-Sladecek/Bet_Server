@@ -11,9 +11,6 @@ from django.utils.decorators import method_decorator
 @method_decorator(csrf_exempt, name='dispatch')
 class ConfigView(View):
     http_method_names = ['get', 'post']
-    def setup(self, request, *args, **kwargs):
-        super().setup(request, *args, **kwargs)
-
     def dispatch(self, request, *args, **kwargs):
         # if not request.user.is_authenticated:
         #    return JsonResponse({'message': "Unauthorized"}, status=401)
@@ -24,30 +21,39 @@ class ConfigView(View):
             response = self.get_config_response()
             return JsonResponse(response.dict, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
+            return self.error_response(str(e))
 
     def post(self, request):
         try:
-            data = ConfigResponse.dict_to_config_response(json.loads(request.body))
-            sports_ids = {sport.id for sport in data.sports}
-            sb_ids = {sb.id for sb in data.sportsbooks + data.default_sportsbooks}
-            with transaction.atomic():
-                Sport.objects.update(selected=False)
-                Sportsbook.objects.update(selected=False)
-                Sport.objects.filter(id__in=sports_ids).update(selected=True)
-                Sportsbook.objects.filter(id__in=sb_ids).update(selected=True)
+            data = self.parse_config_data(request)
+            self.update_selected_items(data)
             return JsonResponse(self.get_config_response().dict, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
+            return self.error_response(str(e))
 
-    def get_all_sportsbooks(self, is_default):
-        return Sportsbook.objects.order_by('id').filter(is_default=is_default).all()
-    
-    def get_config_response(self):
+    def parse_config_data(self, request) -> ConfigResponse:
+        return ConfigResponse.dict_to_config_response(json.loads(request.body))
+
+    def update_selected_items(self, data):
+        sports_ids = {sport.id for sport in data.sports}
+        sb_ids = {sb.id for sb in data.sportsbooks + data.default_sportsbooks}
+        with transaction.atomic():
+            Sport.objects.update(selected=False)
+            Sportsbook.objects.update(selected=False)
+            Sport.objects.filter(id__in=sports_ids).update(selected=True)
+            Sportsbook.objects.filter(id__in=sb_ids).update(selected=True)
+
+    def get_config_response(self) -> ConfigResponse:
         sports = Sport.objects.order_by('id').all()
-        sportsbooks = self.get_all_sportsbooks(False)
-        default_sportsbooks = self.get_all_sportsbooks(True)
+        sportsbooks = self.get_sportsbooks(is_default=False)
+        default_sportsbooks = self.get_sportsbooks(is_default=True)
         return ConfigResponse.dataclass_from_models(sports, sportsbooks, default_sportsbooks)
+
+    def get_sportsbooks(self, is_default) -> list[Sportsbook]:
+        return Sportsbook.objects.filter(is_default=is_default).order_by('id').all()
+
+    def error_response(self, message, status=400) -> JsonResponse:
+        return JsonResponse({'message': message}, status=status)
 
 @method_decorator(csrf_exempt, name='dispatch')
 class OpportunityView(View):
@@ -60,26 +66,33 @@ class OpportunityView(View):
             return JsonResponse({'message': str(e)}, status=400)
         
     def get_opportunities_for_factory(self) -> OpportunityFactoryResponse: 
-        parents = Opportunity.objects.select_related('sport', 'sportsbook').filter(is_default=True).order_by('sport__pk').all()
-        opportunities = Opportunity.objects.select_related('sport', 'sportsbook', 'parent').filter(is_default=False, parent__isnull=True).order_by('sport__pk').all()
-        response = OpportunityFactoryResponse.data_class_from_models(parents, opportunities)
-        return response  
+        parents = Opportunity.objects.select_related('sport', 'sportsbook')\
+            .filter(is_default=True).order_by('sport__pk').all()
+        opportunities = Opportunity.objects.select_related('sport', 'sportsbook', 'parent')\
+            .filter(is_default=False, parent__isnull=True).order_by('sport__pk').all()
+        return OpportunityFactoryResponse.data_class_from_models(parents, opportunities)
     
 @method_decorator(csrf_exempt, name='dispatch')
-class PreferedOpportunityView(View):  
+class PreferredOpportunityView(View):  
     http_method_names = ['patch']
     def patch(self, request, pk: int):
         try:
-            data = json.loads(request.body)
-            value = bool(data.get('value'))
-            with transaction.atomic():
-                opportunity = Opportunity.objects.get(id=pk)
-                opportunity.prefered = value
-                opportunity.save()
+            value = self.parse_value_from_request(request)
+            self.update_preferred_opportunity(pk, value)
             return JsonResponse({}, status=200)
         except Exception as e:
             return JsonResponse({'message': str(e)}, status=400)
-        
+
+    def parse_value_from_request(self, request) -> bool:
+        data = json.loads(request.body)
+        return bool(data.get('value'))
+
+    def update_preferred_opportunity(self, pk, value):
+        with transaction.atomic():
+            opportunity = Opportunity.objects.get(id=pk)
+            opportunity.prefered = value
+            opportunity.save() 
+
 class OpportunityChildrenView(View):          
     http_method_names = ['get']
     def get(self, request):
@@ -90,16 +103,14 @@ class OpportunityChildrenView(View):
             return JsonResponse({'message': str(e)}, status=400)
 
     def get_opportunities_for_children(self) -> OpportunityChildrenResponse:
-        touples = []
         parents = Opportunity.objects.select_related('sport', 'sportsbook').prefetch_related(
             'children',
             'children__sport',
             'children__sportsbook',
         ).filter(is_default=True).all()
-        for parent in parents: 
-            touples.append((parent, [child for child in parent.children.all()]))
 
-        response = OpportunityChildrenResponse.data_class_from_models(touples)
+        opportunity_tuples = [(parent, list(parent.children.all())) for parent in parents]
+        response = OpportunityChildrenResponse.data_class_from_models(opportunity_tuples)
         return response
      
 @method_decorator(csrf_exempt, name='dispatch')
@@ -107,25 +118,31 @@ class RemoveOpportunityChildView(View):
     http_method_names = ['patch']
     def patch(self, request, pk: int):
         try:
-            with transaction.atomic():
-                opportunity = Opportunity.objects.get(id=pk)
-                opportunity.remove_parent()
+            self.remove_parent(pk)
             return JsonResponse({}, status=200)
         except Exception as e:
             return JsonResponse({'message': str(e)}, status=400)
+
+    def remove_parent(self, pk: int): 
+        with transaction.atomic():
+            opportunity = Opportunity.objects.get(id=pk)
+            opportunity.remove_parent()
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AddOpportunityChildView(View):          
     http_method_names = ['patch']
     def patch(self, request, pk: int, childid: int):
         try:
-            parent = Opportunity.objects.get(id=pk)
-            opportunity = Opportunity.objects.get(id=childid)
-            with transaction.atomic():
-                opportunity.add_parent(parent)
+            self.add_parent(pk, childid)
             return JsonResponse({}, status=200)
         except Exception as e:
             return JsonResponse({'message': str(e)}, status=400)
+
+    def add_parent(self, pk: int, childid: int): 
+        with transaction.atomic():
+            parent = Opportunity.objects.get(id=pk)
+            opportunity = Opportunity.objects.get(id=childid)
+            opportunity.add_parent(parent) 
             
 @method_decorator(csrf_exempt, name='dispatch')
 class EventView(View):
@@ -135,63 +152,75 @@ class EventView(View):
             response = self.get_default_events()
             return JsonResponse(response.dict, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
-
-    def get_default_events(self) -> EventResponse: 
-        events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook').filter(is_default=True, used=False).order_by('-selected').all()
-        response = EventResponse.dataclass_from_models(events)
-        return response
+            return self.error_response(str(e))
 
     def post(self, request):
         try:
             data = json.loads(request.body)
-            ids = data.get('ids')
-            events = Event.objects.prefetch_related('odds').filter(is_default=True)
-            updated_events = []
-            updated_odds = []
-            for event in events: 
-                is_selected = event.pk in ids
-                event.selected = is_selected
-                updated_events.append(event)
-
-                for odd in event.odds.all():
-                    odd.selected = is_selected
-                    updated_odds.append(odd)
-            
-            with transaction.atomic():
-                Event.objects.bulk_update(updated_events, ['selected'])
-                Odd.objects.bulk_update(updated_odds, ['selected'])
-
+            event_ids = data.get('ids', [])
+            self.update_selected_events_and_odds(event_ids)
             return JsonResponse({}, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
+            return self.error_response(str(e))
 
+    def get_default_events(self) -> EventResponse: 
+        events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook')\
+            .filter(is_default=True, used=False).order_by('-selected').all()
+        response = EventResponse.dataclass_from_models(events)
+        return response
+    
+    def update_selected_events_and_odds(self, event_ids):
+        events = Event.objects.prefetch_related('odds').filter(is_default=True)
+        updated_events = []
+        updated_odds = []
+
+        for event in events:
+            is_selected = event.pk in event_ids
+            event.selected = is_selected
+            updated_events.append(event)
+            for odd in event.odds.all():
+                odd.selected = is_selected
+                updated_odds.append(odd)
+
+        with transaction.atomic():
+            Event.objects.bulk_update(updated_events, ['selected'])
+            Odd.objects.bulk_update(updated_odds, ['selected'])
+
+    def error_response(self, message, status=400) -> JsonResponse:
+        return JsonResponse({'message': message}, status=status)
+    
 @method_decorator(csrf_exempt, name='dispatch')
 class UsedEventView(View):
     http_method_names = ['post']
     def post(self, request, pk: int, sbpk: int):
         try:
-            event = Event.objects.prefetch_related('odds','children').get(pk=pk)
-            sportsbook = Sportsbook.objects.get(pk=sbpk)
-            updated_events = []
-            are_all_used = True
-            for child in event.children.all(): 
-                if child.sportsbook == sportsbook: 
-                    child.used=True
-                    updated_events.append(child)
-                    continue
-                if not child.used: 
-                    are_all_used=False
-
-            with transaction.atomic():
-                if are_all_used:
-                    event.used = True
-                    event.selected = False
-                    event.save()
-                Event.objects.bulk_update(updated_events, ['used'])
+            event, sportsbook = self.get_event_and_sportsbook(pk, sbpk)
+            updated_children = self.mark_children_as_used(event, sportsbook)
+            self.finalize_event_status(event, updated_children)
             return JsonResponse({}, status=200)  
         except Exception as e:
             return JsonResponse({'message': str(e)}, status=400)      
+
+    def get_event_and_sportsbook(self, event_id: int, sportsbook_id: int) -> tuple[Event, Sportsbook]:
+        event = Event.objects.prefetch_related('odds', 'children').get(pk=event_id)
+        sportsbook = Sportsbook.objects.get(pk=sportsbook_id)
+        return event, sportsbook
+    
+    def mark_children_as_used(self, event: Event, sportsbook: Sportsbook) -> list[Event]:
+        updated_children = []
+        for child in event.children.all():
+            if child.sportsbook == sportsbook:
+                child.used = True
+                updated_children.append(child)
+        return updated_children
+    
+    def finalize_event_status(self, event: Event, updated_children: list[Event]):
+        with transaction.atomic():
+            if all(child.used for child in event.children.all()):
+                event.used = True
+                event.selected = False
+                event.save()
+            Event.objects.bulk_update(updated_children, ['used'])
 
 @method_decorator(csrf_exempt, name='dispatch')
 class EventOddsView(View):
@@ -201,32 +230,45 @@ class EventOddsView(View):
             response = self.get_event_oppotunities(pk)
             return JsonResponse(response.dict, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
-
-    def get_event_oppotunities(self, pk: int) -> OddResponse:
-        event = Event.objects.prefetch_related(
-                'odds',
-                'odds__sportsbook',
-                'odds__opportunity',
-            ).get(pk=pk)
-        return OddResponse.dataclass_from_models(event.odds.order_by('-opportunity__prefered', '-selected').all(), event)    
+            return self.error_response(str(e))
 
     def post(self, request, pk: int):
         try:
             data = json.loads(request.body)
             ids = data.get('ids')
-            event = Event.objects.prefetch_related('odds').get(pk=pk)
-            odds_to_update = []
-            for odd in event.odds.all(): 
-                odd.selected = odd.pk in ids
-                odds_to_update.append(odd)
-            with transaction.atomic():
-                Odd.objects.bulk_update(odds_to_update, ['selected'])
-
+            if not isinstance(ids, list):
+                return self.error_response("Invalid data format.")
+            event = self.get_event_with_odds(pk)
+            self.update_selected_odds(event, ids)
             return JsonResponse({}, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
+            return self.error_response(str(e))
         
+    def get_event_oppotunities(self, pk: int) -> OddResponse:
+        event = Event.objects.prefetch_related(
+            'odds',
+            'odds__sportsbook',
+            'odds__opportunity',
+        ).get(pk=pk)
+        odds = event.odds.order_by('-opportunity__prefered', '-selected').all()
+        return OddResponse.dataclass_from_models(odds, event)  
+
+    def get_event_with_odds(self, pk: int) -> list[Event]:
+        return Event.objects.prefetch_related('odds').get(pk=pk)
+
+    def update_selected_odds(self, event: Event, selected_ids: list[int]):
+        odds_to_update = [
+            odd for odd in event.odds.all() if odd.selected != (odd.pk in selected_ids)
+        ]
+        for odd in odds_to_update:
+            odd.selected = odd.pk in selected_ids
+
+        with transaction.atomic():
+            Odd.objects.bulk_update(odds_to_update, ['selected'])
+
+    def error_response(self, message, status=400):
+        return JsonResponse({'message': message}, status=status)  
+    
 @method_decorator(csrf_exempt, name='dispatch')
 class MarketView(View): 
     http_method_names = ['get', 'put']
@@ -235,13 +277,15 @@ class MarketView(View):
             response = self.get_markets()
             return JsonResponse(response.dict, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)    
+            return self.error_response(str(e))  
 
     def put(self, request):
         try:
             data = json.loads(request.body)
             name = data.get('name').strip()
             sbid = data.get('sbid')
+            if not name or not sbid:
+                return self.error_response("Both 'name' and 'sbid' are required fields.")
             sportsbook = Sportsbook.objects.get(pk=sbid)
             with transaction.atomic():
                 SportsbookMarket.objects.create(value=name, sportsbook=sportsbook)
@@ -249,11 +293,14 @@ class MarketView(View):
             response = self.get_markets()
             return JsonResponse(response.dict, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400) 
+            return self.error_response(str(e))
 
     def get_markets(self) -> MarketResponse:
         sportsbooks = Sportsbook.objects.prefetch_related('markets').all()
         return MarketResponse.data_class_from_models(sportsbooks)
+    
+    def error_response(self, message, status=400):
+        return JsonResponse({'message': message}, status=status)  
     
 @method_decorator(csrf_exempt, name='dispatch')
 class DeleteMarketView(View): 

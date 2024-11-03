@@ -121,7 +121,7 @@ class TestOpportunities(TestCase):
         self.assertEqual(self.opportunity1.children.count(), 0)
 
     def test_set_prefered_opportunity(self):
-        response = self.client.patch(reverse('prefered_opportunity', kwargs={'pk': self.opportunity1.pk}), data=json.dumps({'value': True}), content_type='application/json')
+        response = self.client.patch(reverse('preferred_opportunity', kwargs={'pk': self.opportunity1.pk}), data=json.dumps({'value': True}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         opp= Opportunity.objects.get(id=self.opportunity1.pk)
         self.assertTrue(opp.prefered)

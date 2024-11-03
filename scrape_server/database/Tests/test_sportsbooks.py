@@ -197,7 +197,7 @@ class TestTipsport(TestCase):
     async def mock_gather_events_none(self, events):
         return {"patches": [{"value": {"matches": []}}]}
     
-    async def mock_get_driver(self):
+    def mock_get_driver(self):
         return 
     
     def test_flow(self): 
