@@ -135,6 +135,7 @@ class Scraper(ABC):
     def replace_by_tokens(self, text: str, replace_pairs: list[tuple[str, str]]) -> str:
         for str_to_replace, replace_tkn in replace_pairs:
             text = text.replace(str_to_replace, replace_tkn)
+            # Remove spaces from the string to replace
             new_str_to_replace = str_to_replace.replace(' ', '')
             text = text.replace(new_str_to_replace, replace_tkn)
         return text    
