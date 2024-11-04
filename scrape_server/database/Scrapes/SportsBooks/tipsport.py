@@ -90,6 +90,7 @@ class TipsportScraper(Scraper):
         odds_to_create, odds_to_update = [], []
         allowed_selection_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         existing_odds = self.odd_helper.get_existing_odds(self.sportsbook)
+
         def process_cell(cell, box_name, opp_name, home, away, home_abr, away_abr, match_id, existing_match_odds):
             odd_id = cell["id"]
             odds = cell["odd"]
@@ -124,6 +125,7 @@ class TipsportScraper(Scraper):
                     description=description,
                     market_id=""
                 ))
+                
         for dataset in filter(None, data): 
             try:
                 match = dataset["matchPatches"]["patches"][0]["value"]
