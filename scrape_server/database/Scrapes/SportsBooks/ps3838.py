@@ -28,7 +28,7 @@ class PS3838Scraper(Scraper):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        pass
+        self.close_driver()
 
     def get_driver(self):
         return None

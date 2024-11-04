@@ -51,7 +51,8 @@ class Scraper(ABC):
     def get_data(self):
         try:
             events, sport_ids = self.event_helper.get_selected_events()
-            if len(events) == 0: return
+            if len(events) == 0: 
+                return
             sports = [sport for sport in self.sports if sport.pk in sport_ids]
             loop = self.get_loop()
             event_response = loop.run_until_complete(self.gather_events(sports))
@@ -78,18 +79,14 @@ class Scraper(ABC):
         except Exception as ex:
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
-    def get_loop(self): 
+    def get_loop(self):
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-
-        return loop    
-    
+        return loop
+        
     async def gather_data(self, data: dict[int, str], headers: object) -> dict[int, object]:
         async with aiohttp.ClientSession() as session:
             tasks = [asyncio.create_task(self.fetch_data(session, url, sport_id, headers)) for sport_id, url in data.items()]
@@ -101,36 +98,30 @@ class Scraper(ABC):
         async with session.get(url, headers=headers) as resp:
             try:
                 result = await resp.json() 
+                return (sport_id, result)
             except Exception as ex:
                 print(f'Exception in fetch_data {self.sportsbook.name}: {str(ex)}')
                 return (sport_id, None)
-
-            return (sport_id, result)
         
     async def get(self, url: str, headers: object, params: object) -> object:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, params=params) as resp:
                 try:
-                    result = await resp.json() 
-                    return result 
+                    return await resp.json()  
                 except: 
                     return None
                 
-    def convert_timestamp_to_time_string(self, timestamp_ms) -> str:
-        current_time = datetime.now()
-        timestamp_s = timestamp_ms / 1000
-        timestamp_time = datetime.fromtimestamp(timestamp_s)
-        time_difference = current_time - timestamp_time
+    def convert_timestamp_to_time_string(self, timestamp_ms: int) -> str:
+        timestamp_time = datetime.fromtimestamp(timestamp_ms / 1000)
+        time_difference = datetime.now() - timestamp_time
         total_seconds = int(time_difference.total_seconds())
         minutes = total_seconds // 60
         seconds = total_seconds % 60
-
         return f"{minutes}:{seconds:02}'"
     
     def convert_seconds_to_time_string(self, seconds) -> str:
         minutes = seconds // 60
         seconds = seconds % 60
-
         return f"{minutes}:{seconds:02}'"
     
     def get_movement(self, old_odds: float, new_odds: float) -> int: 
@@ -139,16 +130,11 @@ class Scraper(ABC):
             return Movement.UP.value
         elif new_odds < old_odds: 
             return Movement.DOWN.value    
-        
         return Movement.NONE.value
 
     def replace_by_tokens(self, text: str, replace_pairs: list[tuple[str, str]]) -> str:
         for str_to_replace, replace_tkn in replace_pairs:
             text = text.replace(str_to_replace, replace_tkn)
-            space_indexes = [i for i, char in enumerate(str_to_replace) if char == ' ']
-            for index in space_indexes:
-                string_list = list(str_to_replace)
-                string_list[index] = ''
-                new_str_to_replace = ''.join(string_list)
-                text = text.replace(new_str_to_replace, replace_tkn)
+            new_str_to_replace = str_to_replace.replace(' ', '')
+            text = text.replace(new_str_to_replace, replace_tkn)
         return text    

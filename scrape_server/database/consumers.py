@@ -18,27 +18,21 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
         self.group_name = 'scrape_updates'
         global scrape_task_running, send_all_event
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.send_message(DataType.IMPORTRUNNING, TaskState.CLOSED)
-        await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING if scrape_task_running else TaskState.CLOSED)
-        await self.set_send_all_event()
+        await self.send_initial_status()
+        await self.run_send_all()
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        if data.get('action') == 'start':
-            await self.start_scrape()
-        elif data.get('action') == 'end':
-            await self.end_scrape()
-        elif data.get('action') == 'import':
-            await self.run_import()
-        elif data.get('action') == 'send_all':
-            await self.set_send_all_event()
+        action = data.get('action')
+        if action in ['start', 'end', 'import', 'send_all']:
+            await getattr(self, f"run_{action}")()
         else:
             await self.send_message(DataType.ERROR, "Invalid action")
 
-    async def start_scrape(self):
+    async def run_start(self):
         try:
             global scrape_task_running, scrape_event, import_queue, scrape_thread, send_all_event
             if not scrape_task_running:
@@ -49,13 +43,13 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
                 scrape_thread = threading.Thread(target=scrape_fn, args=(scrape_event, import_queue, send_all_event))
                 scrape_thread.start()
                 await broadcast_message(DataType.STATERESPONSE, TaskState.RUNNING)
-                await self.set_send_all_event()
+                await self.run_send_all()
                 return
             await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING)
         except Exception as e:
             await self.send_message(DataType.ERROR, str(e))
 
-    async def end_scrape(self):
+    async def run_end(self):
         try:
             global scrape_task_running, scrape_event, scrape_thread
             if scrape_task_running:
@@ -79,7 +73,7 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send_message(DataType.ERROR, str(e))
 
-    async def set_send_all_event(self):
+    async def run_send_all(self):
         try:
             global scrape_task_running, send_all_event
             if scrape_task_running: 
@@ -87,15 +81,17 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send_message(DataType.ERROR, str(e))        
 
+    async def send_initial_status(self):
+        await self.send_message(DataType.IMPORTRUNNING, TaskState.CLOSED)
+        await self.send_message(DataType.STATERESPONSE, TaskState.RUNNING if scrape_task_running else TaskState.CLOSED)
+
     async def send_message(self, type, data):
         if isinstance(data, Enum):
             data = data.value
         await self.send(json.dumps({'type': type.value, 'data': data}))
 
     async def group_message(self, request):
-        type = request["data_type"]    
-        data = request["data"]  
-        await self.send_message(type, data)
+        await self.send_message(request["data_type"], request["data"])
 
 async def broadcast_message(data_type, data):
     if isinstance(data, Enum):

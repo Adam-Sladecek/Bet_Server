@@ -88,14 +88,15 @@ class Odd(models.Model):
     
     def ev(self, parent_odds: float) -> float: 
         impl_prob = 1/parent_odds
-        ev = (impl_prob * (float(self.odd)-1)) - (1 - impl_prob)
-        return round(100*ev, 2)
+        ev = (impl_prob * (float(self.odd) - 1)) - (1 - impl_prob)
+        return round(100 * ev, 2)
     
     def stake(self, parent_odds: float) -> float: 
         odds_float = float(self.odd)
-        if odds_float==1: return 0
-        impl_prob = 1/parent_odds
-        kelly = impl_prob - (1 - impl_prob)/(odds_float-1)
+        if odds_float == 1: 
+            return 0.0
+        impl_prob = 1 / parent_odds
+        kelly = impl_prob - (1 - impl_prob) / (odds_float - 1)
         return round(kelly, 2)
     
 class Opportunity(models.Model):

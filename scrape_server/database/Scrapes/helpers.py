@@ -1,6 +1,5 @@
 import asyncio
 from enum import Enum
-import logging
 from django.db.models import Q
 from django.db import transaction
 from collections import defaultdict
@@ -25,28 +24,41 @@ class EventHelper:
                 events_to_update.append(existing_event)
                 continue
             
-            new_event = Event(
-                event_id=event_data.event_id,
-                league_id=event_data.league_id,
-                time= event_data.time,
-                home = event_data.home,
-                away = event_data.away,
-                is_default=self.sportsbook.is_default,
-                selected=event_data.selected,
-                sportsbook_id=event_data.sportsbook_id,
-                sport_id=event_data.sport_id
-            )
+            new_event = self.create_new_event(event_data)
             new_events.append(new_event)
 
+        self.bulk_save_events(events_to_update, new_events, delete, events_list)
+
+    def create_new_event(self, event_data: EventModel) -> Event:
+        return Event(
+            event_id=event_data.event_id,
+            league_id=event_data.league_id,
+            time=event_data.time,
+            home=event_data.home,
+            away=event_data.away,
+            is_default=self.sportsbook.is_default,
+            selected=event_data.selected,
+            sportsbook_id=event_data.sportsbook_id,
+            sport_id=event_data.sport_id
+        )
+    
+    def bulk_save_events(self, events_to_update: list[Event], new_events: list[Event], delete: bool, events_list: list[EventModel]) -> None:
         with transaction.atomic():
-            if delete: 
-                used_event_ids = [event_data.event_id for event_data in events_list]
+            if delete:
+                used_event_ids = {event_data.event_id for event_data in events_list}
                 Event.objects.filter(sportsbook=self.sportsbook).exclude(event_id__in=used_event_ids).delete()
             Event.objects.bulk_update(events_to_update, ['time'])
             Event.objects.bulk_create(new_events)
 
     def get_selected_events(self) -> tuple[list[Event], set]:
-        events = Event.objects.select_related('sport', 'parent').prefetch_related(
+        events = self.fetch_selected_events()
+        result = list(events)
+        sport_ids = {event.sport.pk for event in events}
+
+        return result, sport_ids
+
+    def fetch_selected_events(self) -> list[Event]:
+        queryset = Event.objects.select_related('sport', 'parent').prefetch_related(
             'children',
             'odds',
             'odds__parent',
@@ -58,18 +70,9 @@ class EventHelper:
         )
 
         if self.sportsbook.is_default:
-            events = events.filter(sportsbook=self.sportsbook, selected=True, used=False).all()
-        else: 
-            events = events.filter(sportsbook=self.sportsbook, parent__selected=True, used=False).all()   
-
-        result: list[Event] = []
-        sport_ids = set()
-        for event in events: 
-            result.append(event)
-            sport_ids.add(event.sport.pk)
-
-        return result, sport_ids
-
+            return queryset.filter(sportsbook=self.sportsbook, selected=True, used=False).all() 
+        return queryset.filter(sportsbook=self.sportsbook, parent__selected=True, used=False).all() 
+    
     def update_selected_events(self, events_to_update: list[Event], events_to_delete: list[Event]):
         with transaction.atomic():
             for event in events_to_delete: 
@@ -80,64 +83,76 @@ class EventHelper:
         with transaction.atomic():
             Event.objects.filter(sportsbook=self.sportsbook).filter(event_id__in=event_ids).delete()
 
-
 class OddHelper: 
     def __init__(self, sportsbook: Sportsbook) -> None:
         self.sportsbook = sportsbook
 
     def update_odds(self, odds_to_create: list[OddModel], odds_to_update: list[Odd]):
-        # logger = logging.getLogger('django')
-        events = Event.objects.select_related('sport').filter(sportsbook=self.sportsbook, event_id__in=[odd.event_id for odd in odds_to_create]).all()
-        events_dict = {event.event_id: event for event in events}
-
+        events_dict = self.get_events_dict(odds_to_create)
         self.update_selected_odds(odds_to_update)
 
-        new_odds = []
-        new_opportunities: list[Opportunity] = []
-        opportunities_dict_by_sport = self.get_relevant_opportunities(odds_to_create)
-
-        for odd in odds_to_create:
-            event = events_dict.get(odd.event_id, None)
-            if event is None: continue
-            opportunities_dict = opportunities_dict_by_sport[event.sport.pk]
-            if odd.description in opportunities_dict: 
-                opportunity = opportunities_dict[odd.description]
-                new_odd = Odd (
-                    odd_id=odd.odd_id,
-                    code=odd.code,
-                    movement=odd.movement,
-                    odd=odd.odd,
-                    is_default=event.is_default,
-                    selected=odd.selected,
-                    locked=odd.locked,
-                    event=event,
-                    sportsbook=self.sportsbook,
-                    opportunity=opportunity
-                )
-                new_odds.append(new_odd)
-                continue
-            if (odd.description, event.sport.pk) in [(opp.description, opp.sport.pk) for opp in new_opportunities]: continue
-            new_opp = Opportunity(
-                description=odd.description,
-                is_default=event.is_default,
-                sportsbook=self.sportsbook, 
-                sport=event.sport,
-                market_id=odd.market_id
-            )
-            new_opportunities.append(new_opp)
+        new_odds, new_opportunities = self.process_odds(odds_to_create, events_dict)
             
         with transaction.atomic():
             Opportunity.objects.bulk_create(new_opportunities)
             Odd.objects.bulk_create(new_odds)
 
+    def get_events_dict(self, odds_to_create: list[OddModel]) -> dict[int, Event]:
+        event_ids = {odd.event_id for odd in odds_to_create}
+        events = Event.objects.select_related('sport').filter(sportsbook=self.sportsbook, event_id__in=event_ids)
+        return {event.event_id: event for event in events}
+    
+    def process_odds(self, odds_to_create: list[OddModel], events_dict: dict[int, Event]) -> tuple[list[Odd], list[Opportunity]]:
+        new_odds = []
+        new_opportunities = []
+        opportunities_dict_by_sport = self.get_relevant_opportunities(odds_to_create)
+
+        for odd in odds_to_create:
+            event = events_dict.get(odd.event_id)
+            if event is None:
+                continue
+
+            opportunities_dict = opportunities_dict_by_sport[event.sport.pk]
+            if odd.description in opportunities_dict:
+                new_odds.append(self.create_new_odd(odd, event, opportunities_dict[odd.description]))
+            elif (odd.description, event.sport.pk) not in [(opp.description, opp.sport.pk) for opp in new_opportunities]:
+                new_opportunities.append(self.create_new_opportunity(odd, event))
+
+        return new_odds, new_opportunities
+    
+    def create_new_odd(self, odd: OddModel, event: Event, opportunity: Opportunity) -> Odd:
+        return Odd(
+            odd_id=odd.odd_id,
+            code=odd.code,
+            movement=odd.movement,
+            odd=odd.odd,
+            is_default=event.is_default,
+            selected=odd.selected,
+            locked=odd.locked,
+            event=event,
+            sportsbook=self.sportsbook,
+            opportunity=opportunity
+        )
+    
+    def create_new_opportunity(self, odd: OddModel, event: Event) -> Opportunity:
+        return Opportunity(
+            description=odd.description,
+            is_default=event.is_default,
+            sportsbook=self.sportsbook,
+            sport=event.sport,
+            market_id=odd.market_id
+        )
+    
     def get_relevant_opportunities(self, odds: list[OddModel]) -> dict[tuple[int, str], Opportunity]:
-        conditions = Q(sportsbook_id=self.sportsbook.pk)
-        conditions &= Q(description__in=[odd.description for odd in odds])
-        relevant_opportunities = Opportunity.objects.filter(conditions).order_by('sport_id').all()
-        result_dict = { sport.pk: {} for sport in Sport.objects.all()}
+        descriptions = [odd.description for odd in odds]
+        relevant_opportunities = Opportunity.objects.filter(
+            sportsbook=self.sportsbook,
+            description__in=descriptions
+        ).order_by('sport_id').all()
+        opportunities_by_sport = { sport.pk: {} for sport in Sport.objects.all()}
         for opportunity in relevant_opportunities: 
-            result_dict[opportunity.sport.pk][opportunity.description] = opportunity
-        return result_dict
+            opportunities_by_sport[opportunity.sport.pk][opportunity.description] = opportunity
+        return opportunities_by_sport
     
     def update_selected_odds(self, odds_to_update: list[Odd]):
         with transaction.atomic():
@@ -183,41 +198,64 @@ class ScrapeHelper:
 
     @staticmethod
     def link_all_events():
-        parents = Event.objects.filter(is_default=True).select_related(
-            'sport',
-        ).prefetch_related(
+        parents = ScrapeHelper.fetch_parent_events()
+        parents_by_key = {parent.pk: parent for parent in parents}
+        parents_by_sport = ScrapeHelper.group_parents_by_sport(parents)
+        events = ScrapeHelper.fetch_unlinked_events()
+        events_by_parent = ScrapeHelper.link_events_to_parents(events, parents_by_sport)
+        ScrapeHelper.assign_parents_to_events(events_by_parent, parents_by_key)
+
+    @staticmethod
+    def link_odds():
+        parents = ScrapeHelper.fetch_parents_with_odds()
+
+        odds_to_update = []
+        for parent in parents:
+            for child in parent.children.all():
+                odds_to_update.extend(ScrapeHelper.link_child_odds_to_parent(child, parent.odds.all()))
+
+        with transaction.atomic():
+            Odd.objects.bulk_update(odds_to_update, ['parent'])
+
+    @staticmethod
+    def fetch_parent_events() -> list[Event]:
+        return Event.objects.filter(is_default=True).select_related('sport').prefetch_related(
             'children',
-            'children__sportsbook',
-            'children__sport',
+            'children__sportsbook', 
+            'children__sport'
         ).all()
 
-        parents_by_key = {}
-        parents_by_sport = defaultdict(list[Event])
-        for parent in parents: 
-            parents_by_key[parent.pk] = parent
+    @staticmethod
+    def group_parents_by_sport(parents: list[Event]) -> dict[int, list[Event]]:
+        parents_by_sport = defaultdict(list)
+        for parent in parents:
             parents_by_sport[parent.sport.pk].append(parent)
+        return parents_by_sport
+    
+    @staticmethod
+    def fetch_unlinked_events() -> list[Event]:
+        return Event.objects.select_related('sportsbook', 'sport', 'parent').filter(is_default=False, parent__isnull=True).all()
 
-        events = Event.objects.select_related(
-            'sportsbook',
-            'sport',
-            'parent',
-        ).filter(is_default=False, parent__isnull=True).all()
-
-        events_by_parent = defaultdict(list[Event])
-        for event in events: 
-            events_by_parent = ScrapeHelper.find_best_parent(event, parents_by_sport[event.sport.pk], events_by_parent)
-        
+    @staticmethod
+    def link_events_to_parents(events: list[Event], parents_by_sport: dict[int, list[Event]]) -> dict[int, list[Event]]:
+        events_by_parent = defaultdict(list)
+        for event in events:
+            ScrapeHelper.find_best_parent(event, parents_by_sport[event.sport.pk], events_by_parent)
+        return events_by_parent
+    
+    @staticmethod
+    def assign_parents_to_events(events_by_parent: dict[int, list[Event]], parents_by_key: dict[int, Event]) -> None:
         events_to_update = []
-
+        
         if -1 in events_by_parent:
             unassigned_events = events_by_parent.pop(-1)
-            for event in unassigned_events: 
+            for event in unassigned_events:
                 event.parent = None
                 events_to_update.append(event)
 
-        for key, events in events_by_parent.items():
-            parent = parents_by_key[key]
-            for event in events: 
+        for parent_id, events in events_by_parent.items():
+            parent = parents_by_key[parent_id]
+            for event in events:
                 event.add_parent(parent)
                 events_to_update.append(event)
 
@@ -226,25 +264,24 @@ class ScrapeHelper:
 
     @staticmethod
     def find_best_parent(event_to_be_linked: Event, parents: list[Event], events_by_parent: dict[int, list[Event]]) -> Event:
-        sorted_parents = sorted(parents, key=lambda parent: parent.get_score(event_to_be_linked), reverse=True)
-
+        sorted_parents = sorted(parents, key=lambda p: p.get_score(event_to_be_linked), reverse=True)
         best_parent = sorted_parents[0] if sorted_parents else None
         best_score = best_parent.get_score(event_to_be_linked) if best_parent else 0
             
         if best_parent and best_score >= 70:
-            existing_child_index = next((index for index, event in enumerate(events_by_parent[best_parent.pk]) if event.sportsbook == event_to_be_linked.sportsbook), None)
+            existing_child_index = next((i for i, e in enumerate(events_by_parent[best_parent.pk]) if e.sportsbook == event_to_be_linked.sportsbook), None)
             if existing_child_index is not None:
+                # case when there are multiple events that are similar to parent. Highest score wins.
                 if best_parent.get_score(event_to_be_linked) > best_parent.get_score(events_by_parent[best_parent.pk][existing_child_index]): 
                     events_by_parent[best_parent.pk][existing_child_index] = event_to_be_linked
-
                 return events_by_parent
 
             existing_child = best_parent.children.filter(sportsbook=event_to_be_linked.sportsbook).first()
             if existing_child is not None:
+                # case when there is already linked child to parent event. We need to compare their scores and replace old event with new one if new score is higher.
                 if best_parent.get_score(event_to_be_linked) > best_parent.get_score(existing_child): 
                     events_by_parent[-1].append(existing_child)
                     events_by_parent[best_parent.pk].append(event_to_be_linked)
-
                 return events_by_parent
 
             events_by_parent[best_parent.pk].append(event_to_be_linked)
@@ -252,8 +289,8 @@ class ScrapeHelper:
         return events_by_parent
 
     @staticmethod
-    def link_odds():
-        parents = Event.objects.filter(is_default=True).prefetch_related(
+    def fetch_parents_with_odds() -> list[Event]:
+        return Event.objects.filter(is_default=True).prefetch_related(
             'odds',
             'odds__opportunity',
             'children',
@@ -262,22 +299,18 @@ class ScrapeHelper:
             'children__odds__opportunity',
             'children__odds__opportunity__parent',
         ).all()
-
+    
+    @staticmethod
+    def link_child_odds_to_parent(child: Event, parent_odds: list[Odd]) -> list[Odd]:
         odds_to_update = []
-        for parent in parents: 
-            parent_odds= parent.odds.all()
-            children = parent.children.all()
-            for child in children: 
-                for odd in child.odds.filter(parent__isnull=True).all(): 
-                    for parent_odd in parent_odds: 
-                        if odd.can_be_linked(parent_odd): 
-                            odd.add_parent(parent_odd)
-                            odds_to_update.append(odd)
-                            break
-
-        with transaction.atomic():
-            Odd.objects.bulk_update(odds_to_update, ['parent'])
-
+        for odd in child.odds.filter(parent__isnull=True).all():
+            for parent_odd in parent_odds:
+                if odd.can_be_linked(parent_odd):
+                    odd.add_parent(parent_odd)
+                    odds_to_update.append(odd)
+                    break
+        return odds_to_update
+    
     @staticmethod
     async def broadcast_data(data_type, data):
         if isinstance(data, Enum):

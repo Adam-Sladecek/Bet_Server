@@ -26,84 +26,79 @@ class ScrapeService:
         try:
             command_queue = self.all_command_queues[sportsbook.pk]
             scraperClass = self.get_scraper_class(sportsbook)
-            with scraperClass(sportsbook, self.sports) as s:
-                while True:
-                    if self.event.is_set():
-                        break
-                    try:
-                        command: Command = command_queue.get(timeout=1)
-                    except queue.Empty:
-                        continue
-
-                    if command == Command.IMPORT:
-                        s.import_all_data()
-                    else:    
-                        s.get_data()
-
-                    self.result_queue.put(command)
-                s.close_driver()    
+            with scraperClass(sportsbook, self.sports) as scraper:
+                self.process_commands(scraper, command_queue)
             print('Done handling drivers.')  
         except Exception as ex:
-            print('Exception in get_sportsbook_data: ' + str(ex))
+            self.handle_exception(ex)
+
+    def process_commands(self, scraper: Scraper, command_queue: queue.Queue):
+        while not self.event.is_set():
             try:
-                s.close_driver()  
-            except: pass
-            self.event.set()
-            ScrapeHelper.broadcast_data(DataType.ERROR, str(ex))
+                command: Command = command_queue.get(timeout=1)
+                self.execute_command(scraper, command)
+            except queue.Empty:
+                continue
+
+    def execute_command(self, scraper: Scraper, command: Command):
+        if command == Command.IMPORT:
+            scraper.import_all_data()
+        else:    
+            scraper.get_data()
+        self.result_queue.put(command)
 
     def group_results(self): 
         try:
-            result_dictionary = {}
-            result_dictionary[Command.REFRESH.value] = 0
-            result_dictionary[Command.IMPORT.value] = 0
-            while True:
-                if self.event.is_set():
-                    break
+            result_count = self.initialize_result_dictionary()
+            while not self.event.is_set():
                 try:
                     command: Command = self.result_queue.get(timeout=1)
+                    result_count[command.value] +=1
+                    if result_count[command.value] == self.number_of_sbs:
+                        self.handle_group_result(command, result_count)
                 except queue.Empty:
                     continue
-                
-                result_dictionary[command.value] +=1
-                if result_dictionary[command.value] == self.number_of_sbs:
-                    if command == Command.REFRESH: 
-                        is_set = self.send_all_event.is_set()
-                        ScrapeHelper.send_updated_events(is_set)
-                        if is_set: self.send_all_event.clear()
-                        asyncio.run(asyncio.sleep(5))
-                    else:
-                        ScrapeHelper.link_events_and_odds()
-                        asyncio.run(ScrapeHelper.broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
-                        print('Import done.') 
-                    result_dictionary[command.value] = 0
-                    for _, sb_queue in self.all_command_queues.items():
-                        sb_queue.put(Command.REFRESH) 
-                        
             print('Getting results done.')  
         except Exception as ex:
-            print('Exception in group_results: ' + str(ex))
-            self.event.set()
-            ScrapeHelper.broadcast_data(DataType.ERROR, str(ex))
+            self.handle_exception(ex)
 
+    def handle_group_result(self, command: Command, result_count: dict):
+        if command == Command.REFRESH: 
+            is_set = self.send_all_event.is_set()
+            ScrapeHelper.send_updated_events(is_set)
+            if is_set: 
+                self.send_all_event.clear()
+            asyncio.run(asyncio.sleep(5))
+        else:
+            ScrapeHelper.link_events_and_odds()
+            asyncio.run(ScrapeHelper.broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
+            print('Import done.')
+        result_count[command.value] = 0
+        self.refresh_all_command_queues()
+
+    def refresh_all_command_queues(self):
+        for sb_queue in self.all_command_queues.values():
+            sb_queue.put(Command.REFRESH)
+
+    def initialize_result_dictionary(self) -> dict:
+        return {Command.REFRESH.value: 0, Command.IMPORT.value: 0}
+    
     def import_fn(self):
         try:
-            while True:
-                if self.event.is_set():
-                    break
+            while not self.event.is_set():
                 try:
                     command: Command = self.import_queue.get(timeout=1)
+                    self.start_import(command)
                 except queue.Empty:
                     continue
-                
-                print('Starting import.')
-                for _, command_queue in self.all_command_queues.items(): 
-                    command_queue.put(command, block=True, timeout=None)
-
             print(f"Import thread finished.")   
         except Exception as ex:
-            print('Exception in import_fn: ' + str(ex))
-            self.event.set()
-            ScrapeHelper.broadcast_data(DataType.ERROR, str(ex))
+            self.handle_exception(ex)
+
+    def start_import(self, command: Command):
+        print('Starting import.')
+        for command_queue in self.all_command_queues.values(): 
+            command_queue.put(command, block=True, timeout=None)
 
     def get_scraper_class(self, sportsbook: Sportsbook) -> Scraper: 
         scrapers: dict[str, Scraper]  = {
@@ -114,3 +109,8 @@ class ScrapeService:
             'PS3838': PS3838Scraper,
         }
         return scrapers[sportsbook.name]
+
+    def handle_exception(self, ex):
+        print('Exception: ' + str(ex))
+        self.event.set()
+        ScrapeHelper.broadcast_data(DataType.ERROR, str(ex))
