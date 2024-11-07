@@ -123,7 +123,7 @@ class PinnacleScraper(Scraper):
         odds_to_update: list[Odd] = []
         
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        existing_odds = self.odd_helper.get_existing_odds(self.sportsbook)
+        existing_odds = self.odd_helper.get_existing_odds()
         mapped_data = {}
         for tple, dataset in data.items():
             if not isinstance(dataset, list): continue

@@ -44,21 +44,21 @@ class PS3838Scraper(Scraper):
             loop = self.get_loop()
             event_response = loop.run_until_complete(self.gather_events(sb_sport_ids))
             events = self.map_events(event_response)
-            self.event_helper.update_events(events, self.sportsbook, False)
+            self.event_helper.update_events(events, False)
             event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
             settled_event_ids = self.get_settled_event_ids(event_settled_response)
-            self.event_helper.delete_settled_events(settled_event_ids, self.sportsbook)
+            self.event_helper.delete_settled_events(settled_event_ids)
             odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, {}, {}))
             odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
-            self.odd_helper.update_odds(odds_to_create, odds_to_update, self.sportsbook)
+            self.odd_helper.update_odds(odds_to_create, odds_to_update)
         except Exception as ex: 
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
     def get_data(self):
         try:
-            events, sport_ids = self.event_helper.get_selected_events(self.sportsbook)
+            events, sport_ids = self.event_helper.get_selected_events()
             if len(events) == 0: return
-            self.odd_helper.update_movements(self.sportsbook, events)
+            self.odd_helper.update_movements(events)
             event_id_dict = {}
             league_id_dict = {}
             for event in events:
@@ -71,13 +71,13 @@ class PS3838Scraper(Scraper):
             loop = self.get_loop()
             event_response = loop.run_until_complete(self.gather_events(sb_sport_ids))
             events = self.map_events(event_response)
-            self.event_helper.update_events(events, self.sportsbook, False)
+            self.event_helper.update_events(events, False)
             event_settled_response = loop.run_until_complete(self.gather_settled_events(sb_sport_ids))
             settled_event_ids = self.get_settled_event_ids(event_settled_response)
-            self.event_helper.delete_settled_events(settled_event_ids, self.sportsbook)
+            self.event_helper.delete_settled_events(settled_event_ids)
             odds_response_dict = loop.run_until_complete(self.gather_odds(sb_sport_ids, event_id_dict, league_id_dict))
             odds_to_create, odds_to_update = self.map_odds(odds_response_dict)
-            self.odd_helper.update_odds(odds_to_create, odds_to_update, self.sportsbook)
+            self.odd_helper.update_odds(odds_to_create, odds_to_update)
         except Exception as ex:
             print(f"Get data in {self.sportsbook.name} failed. Exception: {str(ex)}.")
 
@@ -202,7 +202,7 @@ class PS3838Scraper(Scraper):
         odds_to_create: list[OddModel] = []
         odds_to_update: list[Odd] = []
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        existing_odds = self.odd_helper.get_existing_odds(self.sportsbook)
+        existing_odds = self.odd_helper.get_existing_odds()
         for sport_id, dataset in data.items():
             try:
                 if dataset is None or 'last' not in dataset: 

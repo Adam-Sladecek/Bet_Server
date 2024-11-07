@@ -95,7 +95,7 @@ class IfortunaScraper(Scraper):
         home, away = self.get_teams(dataset)
         existing_match_odds = existing_odds.get(event_id, {})
 
-        for group in dataset.get('groups', []):
+        for group in dataset.get('groups', []) or []:
             for market in group.get('markets', []):
                 market_id = market['marketTypeId']
                 if market_id not in allowed_market_ids:
