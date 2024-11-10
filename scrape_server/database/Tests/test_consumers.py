@@ -7,7 +7,7 @@ from channels.testing import WebsocketCommunicator
 from unittest.mock import patch, AsyncMock
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
-from database.consumers import ScrapeConsumer, broadcast_message
+from database.consumers import broadcast_message
 from database.enums import DataType, TaskState
 from django.test import TestCase
 from scrape_server.asgi import application
