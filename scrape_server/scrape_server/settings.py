@@ -42,10 +42,30 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "database",
     'silk',
-    'corsheaders'
+    'corsheaders',
+    'rest_framework',
+    'rest_framework_simplejwt',
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
 ASGI_APPLICATION = 'scrape_server.asgi.application'
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+}
 
 CHANNEL_LAYERS = {
     'default': {

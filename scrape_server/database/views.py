@@ -1,25 +1,21 @@
 import json
-from django.http import JsonResponse
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from django.db import transaction
 from database.models import Opportunity, Sportsbook, Sport, Event, Odd, SportsbookMarket
 from database.Scrapes.dataclass_models import (ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, 
                                                EventResponse, OddResponse, MarketResponse)
-from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
 @method_decorator(csrf_exempt, name='dispatch')
-class ConfigView(View):
+class ConfigView(APIView):
     http_method_names = ['get', 'post']
-    def dispatch(self, request, *args, **kwargs):
-        # if not request.user.is_authenticated:
-        #    return JsonResponse({'message': "Unauthorized"}, status=401)
-        return super().dispatch(request, *args, **kwargs)
-    
+
     def get(self, request):
         try:
             response = self.get_config_response()
-            return JsonResponse(response.dict, status=200)
+            return Response(response.dict, status=200)
         except Exception as e:
             return self.error_response(str(e))
 
@@ -27,7 +23,7 @@ class ConfigView(View):
         try:
             data = self.parse_config_data(request)
             self.update_selected_items(data)
-            return JsonResponse(self.get_config_response().dict, status=200)
+            return Response(self.get_config_response().dict, status=200)
         except Exception as e:
             return self.error_response(str(e))
 
@@ -52,18 +48,18 @@ class ConfigView(View):
     def get_sportsbooks(self, is_default) -> list[Sportsbook]:
         return Sportsbook.objects.filter(is_default=is_default).order_by('id').all()
 
-    def error_response(self, message, status=400) -> JsonResponse:
-        return JsonResponse({'message': message}, status=status)
+    def error_response(self, message, status=400) -> Response:
+        return Response({'message': message}, status=status)
 
 @method_decorator(csrf_exempt, name='dispatch')
-class OpportunityView(View):
+class OpportunityView(APIView):
     http_method_names = ['get']
     def get(self, request):
         try:
             response = self.get_opportunities_for_factory()
-            return JsonResponse(response.dict, status=200)
+            return Response(response.dict, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
+            return Response({'message': str(e)}, status=400)
         
     def get_opportunities_for_factory(self) -> OpportunityFactoryResponse: 
         parents = Opportunity.objects.select_related('sport', 'sportsbook')\
@@ -73,15 +69,15 @@ class OpportunityView(View):
         return OpportunityFactoryResponse.data_class_from_models(parents, opportunities)
     
 @method_decorator(csrf_exempt, name='dispatch')
-class PreferredOpportunityView(View):  
+class PreferredOpportunityView(APIView):  
     http_method_names = ['patch']
     def patch(self, request, pk: int):
         try:
             value = self.parse_value_from_request(request)
             self.update_preferred_opportunity(pk, value)
-            return JsonResponse({}, status=200)
+            return Response({}, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
+            return Response({'message': str(e)}, status=400)
 
     def parse_value_from_request(self, request) -> bool:
         data = json.loads(request.body)
@@ -93,14 +89,14 @@ class PreferredOpportunityView(View):
             opportunity.prefered = value
             opportunity.save() 
 
-class OpportunityChildrenView(View):          
+class OpportunityChildrenView(APIView):          
     http_method_names = ['get']
     def get(self, request):
         try:
             response = self.get_opportunities_for_children()
-            return JsonResponse(response.dict, status=200)
+            return Response(response.dict, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
+            return Response({'message': str(e)}, status=400)
 
     def get_opportunities_for_children(self) -> OpportunityChildrenResponse:
         parents = Opportunity.objects.select_related('sport', 'sportsbook').prefetch_related(
@@ -114,14 +110,14 @@ class OpportunityChildrenView(View):
         return response
      
 @method_decorator(csrf_exempt, name='dispatch')
-class RemoveOpportunityChildView(View):          
+class RemoveOpportunityChildView(APIView):          
     http_method_names = ['patch']
     def patch(self, request, pk: int):
         try:
             self.remove_parent(pk)
-            return JsonResponse({}, status=200)
+            return Response({}, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
+            return Response({'message': str(e)}, status=400)
 
     def remove_parent(self, pk: int): 
         with transaction.atomic():
@@ -129,14 +125,14 @@ class RemoveOpportunityChildView(View):
             opportunity.remove_parent()
 
 @method_decorator(csrf_exempt, name='dispatch')
-class AddOpportunityChildView(View):          
+class AddOpportunityChildView(APIView):          
     http_method_names = ['patch']
     def patch(self, request, pk: int, childid: int):
         try:
             self.add_parent(pk, childid)
-            return JsonResponse({}, status=200)
+            return Response({}, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)
+            return Response({'message': str(e)}, status=400)
 
     def add_parent(self, pk: int, childid: int): 
         with transaction.atomic():
@@ -145,12 +141,12 @@ class AddOpportunityChildView(View):
             opportunity.add_parent(parent) 
             
 @method_decorator(csrf_exempt, name='dispatch')
-class EventView(View):
+class EventView(APIView):
     http_method_names = ['get', 'post']
     def get(self, request):
         try:
             response = self.get_default_events()
-            return JsonResponse(response.dict, status=200)
+            return Response(response.dict, status=200)
         except Exception as e:
             return self.error_response(str(e))
 
@@ -159,7 +155,7 @@ class EventView(View):
             data = json.loads(request.body)
             event_ids = data.get('ids', [])
             self.update_selected_events_and_odds(event_ids)
-            return JsonResponse({}, status=200)
+            return Response({}, status=200)
         except Exception as e:
             return self.error_response(str(e))
 
@@ -186,20 +182,20 @@ class EventView(View):
             Event.objects.bulk_update(updated_events, ['selected'])
             Odd.objects.bulk_update(updated_odds, ['selected'])
 
-    def error_response(self, message, status=400) -> JsonResponse:
-        return JsonResponse({'message': message}, status=status)
+    def error_response(self, message, status=400) -> Response:
+        return Response({'message': message}, status=status)
     
 @method_decorator(csrf_exempt, name='dispatch')
-class UsedEventView(View):
+class UsedEventView(APIView):
     http_method_names = ['post']
     def post(self, request, pk: int, sbpk: int):
         try:
             event, sportsbook = self.get_event_and_sportsbook(pk, sbpk)
             updated_children = self.mark_children_as_used(event, sportsbook)
             self.finalize_event_status(event, updated_children)
-            return JsonResponse({}, status=200)  
+            return Response({}, status=200)  
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400)      
+            return Response({'message': str(e)}, status=400)      
 
     def get_event_and_sportsbook(self, event_id: int, sportsbook_id: int) -> tuple[Event, Sportsbook]:
         event = Event.objects.prefetch_related('odds', 'children').get(pk=event_id)
@@ -223,12 +219,12 @@ class UsedEventView(View):
             Event.objects.bulk_update(updated_children, ['used'])
 
 @method_decorator(csrf_exempt, name='dispatch')
-class EventOddsView(View):
+class EventOddsView(APIView):
     http_method_names = ['get', 'post']
     def get(self, request, pk: int):
         try:
             response = self.get_event_oppotunities(pk)
-            return JsonResponse(response.dict, status=200)
+            return Response(response.dict, status=200)
         except Exception as e:
             return self.error_response(str(e))
 
@@ -240,7 +236,7 @@ class EventOddsView(View):
                 return self.error_response("Invalid data format.")
             event = self.get_event_with_odds(pk)
             self.update_selected_odds(event, ids)
-            return JsonResponse({}, status=200)
+            return Response({}, status=200)
         except Exception as e:
             return self.error_response(str(e))
         
@@ -267,15 +263,15 @@ class EventOddsView(View):
             Odd.objects.bulk_update(odds_to_update, ['selected'])
 
     def error_response(self, message, status=400):
-        return JsonResponse({'message': message}, status=status)  
+        return Response({'message': message}, status=status)  
     
 @method_decorator(csrf_exempt, name='dispatch')
-class MarketView(View): 
+class MarketView(APIView): 
     http_method_names = ['get', 'put']
     def get(self, request):
         try:
             response = self.get_markets()
-            return JsonResponse(response.dict, status=200)
+            return Response(response.dict, status=200)
         except Exception as e:
             return self.error_response(str(e))  
 
@@ -291,7 +287,7 @@ class MarketView(View):
                 SportsbookMarket.objects.create(value=name, sportsbook=sportsbook)
 
             response = self.get_markets()
-            return JsonResponse(response.dict, status=200)
+            return Response(response.dict, status=200)
         except Exception as e:
             return self.error_response(str(e))
 
@@ -300,10 +296,10 @@ class MarketView(View):
         return MarketResponse.data_class_from_models(sportsbooks)
     
     def error_response(self, message, status=400):
-        return JsonResponse({'message': message}, status=status)  
+        return Response({'message': message}, status=status)  
     
 @method_decorator(csrf_exempt, name='dispatch')
-class DeleteMarketView(View): 
+class DeleteMarketView(APIView): 
     http_method_names = ['delete']    
     def delete(self, request, pk: int):
         try:
@@ -312,9 +308,9 @@ class DeleteMarketView(View):
                 market.delete()
 
             response = self.get_markets()
-            return JsonResponse(response.dict, status=200)
+            return Response(response.dict, status=200)
         except Exception as e:
-            return JsonResponse({'message': str(e)}, status=400) 
+            return Response({'message': str(e)}, status=400) 
 
     def get_markets(self) -> MarketResponse:
         sportsbooks = Sportsbook.objects.prefetch_related('markets').all()

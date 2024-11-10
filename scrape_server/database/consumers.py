@@ -6,20 +6,64 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
 from database.Scrapes import scrape_fn
 from database.enums import TaskState, DataType, Command
+from rest_framework_simplejwt.tokens import UntypedToken
+from django.contrib.auth.models import AnonymousUser
+from channels.db import database_sync_to_async
+from django.contrib.auth import get_user_model
+from jwt import decode as jwt_decode
+from django.conf import settings
+from jwt import decode as jwt_decode, ExpiredSignatureError, InvalidTokenError
+
+User = get_user_model()
+
+@database_sync_to_async
+def get_user(user_id):
+    try:
+        return User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return AnonymousUser()
+    
+class JWTAuthMiddleware:
+    """ Custom middleware for WebSocket JWT Authentication """
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        query_string = dict((x.split('=') for x in scope['query_string'].decode().split('&') if '=' in x))
+        token = query_string.get('token')
+        scope['user'] = AnonymousUser()
+        
+        if token:
+            try:
+                UntypedToken(token)
+                decoded_data = jwt_decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+                user_id = decoded_data.get('user_id')
+                scope['user'] = await get_user(user_id)
+            except (ExpiredSignatureError, InvalidTokenError, KeyError):
+                pass
+
+        return await self.inner(scope, receive, send)
+    
+def JWTAuthMiddlewareStack(inner):
+    return JWTAuthMiddleware(inner)
 
 scrape_task_running = False
 scrape_thread = None
 scrape_event = None
 send_all_event = None
 import_queue = None
+
 class ScrapeConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        await self.accept()
         self.group_name = 'scrape_updates'
-        global scrape_task_running, send_all_event
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.send_initial_status()
-        await self.run_send_all()
+        if self.scope['user'].is_authenticated:
+            await self.accept()
+            global scrape_task_running, send_all_event
+            await self.channel_layer.group_add(self.group_name, self.channel_name)
+            await self.send_initial_status()
+            await self.run_send_all()
+        else:
+            await self.close()
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)

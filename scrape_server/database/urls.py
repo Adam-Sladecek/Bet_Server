@@ -1,9 +1,12 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from database.views import (ConfigView, OpportunityView, PreferredOpportunityView, OpportunityChildrenView, 
                             RemoveOpportunityChildView, AddOpportunityChildView, EventView, UsedEventView, 
                             EventOddsView, MarketView, DeleteMarketView)
 
 urlpatterns = [
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('configs', ConfigView.as_view(), name='config'),
     path('opportunities', OpportunityView.as_view(), name='opportunity'),
     path('opportunities/<int:pk>', PreferredOpportunityView.as_view(), name='preferred_opportunity'),

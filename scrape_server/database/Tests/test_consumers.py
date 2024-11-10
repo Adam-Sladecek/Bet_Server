@@ -3,14 +3,22 @@ import django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'scrape_server.settings'
 django.setup()
 
-from django.test import TestCase
 from channels.testing import WebsocketCommunicator
-from unittest.mock import patch
-
+from unittest.mock import patch, AsyncMock
+from django.contrib.auth.models import User
+from rest_framework_simplejwt.tokens import RefreshToken
 from database.consumers import ScrapeConsumer, broadcast_message
 from database.enums import DataType, TaskState
+from django.test import TestCase
+from scrape_server.asgi import application
 
 class TestConsumer(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        user = User.objects.first() or User.objects.create_user(username='testuser', password='password')
+        refresh = RefreshToken.for_user(user)
+        cls.token = str(refresh.access_token)
+    
     @patch('threading.Thread')
     @patch('threading.Event')
     async def test_receive_start_end_scrape(self, thread_mock, event_mock):
@@ -54,11 +62,17 @@ class TestConsumer(TestCase):
         await communicator2.disconnect()
 
     async def connect_communicator(self):
-        communicator = WebsocketCommunicator(ScrapeConsumer.as_asgi(), "/ws/scrape/")
-        connected, _ = await communicator.connect()
-        assert connected, 'Should be connected'
-        await self.should_receive(communicator, DataType.IMPORTRUNNING, TaskState.CLOSED)
-        return communicator
+        mock_user = AsyncMock()
+        mock_user.is_authenticated = True
+        with patch('database.consumers.get_user', return_value=mock_user):
+            communicator = WebsocketCommunicator(
+                application, 
+                f"/ws/scrape/?token={self.token}"
+            )
+            connected, _ = await communicator.connect()
+            assert connected, 'Should be connected'
+            await self.should_receive(communicator, DataType.IMPORTRUNNING, TaskState.CLOSED)
+            return communicator
     
     async def should_receive(self, communicator: WebsocketCommunicator, expected_type: DataType, expected_state: TaskState):
         response = await communicator.receive_json_from()
