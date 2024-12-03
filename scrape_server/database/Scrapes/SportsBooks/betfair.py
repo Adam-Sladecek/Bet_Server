@@ -2,18 +2,19 @@ import json
 from datetime import datetime
 from typing import Optional
 import aiohttp
-from ...models import Sport, Sportsbook, Event, Odd
+from ...models import Sport, Sportsbook, Event, Odd, SportsbookMarket
 from ..helpers import OddHelper, EventHelper
 from ..dataclass_models import EventModel, OddModel
 from .scraper import Scraper
 
 class BetfairScraper(Scraper):
-    BASE_URL = "https://api.betfair.com/exchange/betting/rest/v1.0"
+    BASE_URL = "https://api.betfair.com/exchange/betting/rest/v1.0/"
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         super().__init__(sportsbook, sports)
         self.session_token = None
         self.app_key = "YOUR_APP_KEY"  # Get from Betfair Developer Program
+        self.markets = [sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()]
         
     def get_driver(self):
         # Not needed for REST API
@@ -35,26 +36,36 @@ class BetfairScraper(Scraper):
             'content-type': 'application/json'
         }
 
+    def get_sportids(self) -> dict[str, int]: 
+        return {
+            '1': 1, #socker
+            '7524': 2, #hokej
+            '2': 3, #tenis
+            '7522': 4, #basketbal
+            '468328': 5, #handball
+            '998917': 6, #volejbal
+            '': 7, #stolny tenis
+            '6': 8, # box
+        }
+
     async def gather_events(self, sports: list[Sport]):
         if not self.session_token:
             await self.authenticate()
 
-        events_data = {}
-        for sport in sports:
-            params = {
-                "filter": {
-                    "eventTypeIds": [sport.betfair_id],
-                    "marketTypeCodes": ["MATCH_ODDS"],
-                    "inPlayOnly": True
-                }
+        sport_id_map = {v: k for k, v in self.get_sportids().items()}
+        
+        params = {
+            "filter": {
+                "eventTypeIds": [sport_id_map[sport.pk] for sport in sports],
+                "marketTypeCodes": self.markets,
+                "inPlayOnly": True
             }
+        }
             
-            url = f"{self.BASE_URL}/listMarketCatalogue/"
-            response = await self.get(url, self.get_headers(), params)
-            if response:
-                events_data[sport.pk] = response
+        url = f"{self.BASE_URL}/listEvents/"
+        response = await self.get(url, self.get_headers(), params)
 
-        return events_data
+        return response
 
     async def gather_odds(self, events: list[EventModel]):
         if not self.session_token:
