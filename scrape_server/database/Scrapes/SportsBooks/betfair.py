@@ -48,24 +48,60 @@ class BetfairScraper(Scraper):
             '6': 8, # box
         }
 
-    async def gather_events(self, sports: list[Sport]):
+    def get_data(self):
+        try:
+            events, sport_ids = self.event_helper.get_selected_events()
+            if len(events) == 0: 
+                return
+            sports = [sport for sport in self.sports if sport.pk in sport_ids]
+            loop = self.get_loop()
+            event_response = loop.run_until_complete(self.gather_events(sports, [event.event_id for event in events]))
+            mapped_events, events_to_delete = self.map_events_selected(events, event_response)
+            self.event_helper.update_selected_events(mapped_events, events_to_delete)
+            events = [event for event in events if event.pk is not None]
+            odds_response = loop.run_until_complete(self.gather_odds(events))
+            odds_to_update = self.map_odds_selected(events, odds_response)
+            self.odd_helper.update_selected_odds(odds_to_update)
+
+        except Exception as ex:
+            print(f"Get data in {self.sportsbook.name} failed. Exception: {str(ex)}.")
+
+    def import_all_data(self):
+        try:
+            loop = self.get_loop()
+            event_response = loop.run_until_complete(self.gather_events(self.sports))
+            events = self.map_events(event_response)
+            self.event_helper.update_events(events)    
+            odds_response = loop.run_until_complete(self.gather_odds(events))
+            odds_to_create, odds_to_update = self.map_odds(odds_response)
+            self.odd_helper.update_odds(odds_to_create, odds_to_update)
+
+        except Exception as ex:
+            print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
+
+    async def gather_events(self, sports: list[Sport], eventIds: list[int] = None):
         if not self.session_token:
             await self.authenticate()
 
         sport_id_map = {v: k for k, v in self.get_sportids().items()}
-        
-        params = {
-            "filter": {
-                "eventTypeIds": [sport_id_map[sport.pk] for sport in sports],
-                "marketTypeCodes": self.markets,
-                "inPlayOnly": True
-            }
-        }
-            
         url = f"{self.BASE_URL}/listEvents/"
-        response = await self.get(url, self.get_headers(), params)
 
-        return response
+        filter = {
+            # "marketTypeCodes": self.markets,
+            "inPlayOnly": True
+        }
+        
+        if eventIds:
+            filter["eventIds"] = eventIds
+            return await self.get(url, self.get_headers(), {"filter": filter})
+
+        result = {}
+        for sport in sports:
+            filter["eventTypeIds"] = [sport_id_map[sport.pk]]
+            response = await self.get(url, self.get_headers(), {"filter": filter})
+            result[sport.pk] = response
+
+        return result
 
     async def gather_odds(self, events: list[EventModel]):
         if not self.session_token:
@@ -83,20 +119,25 @@ class BetfairScraper(Scraper):
         return await self.get(url, self.get_headers(), params)
 
     def map_events(self, data) -> list[EventModel]:
-        events = []
+        result = []
         for sport_id, sport_data in data.items():
-            for event in sport_data:
-                events.append(EventModel(
-                    event_id=event['marketId'],
-                    league_id=event.get('competition', {}).get('id', ''),
-                    time=self.parse_event_time(event.get('marketStartTime')),
-                    home=event['runners'][0]['runnerName'],
-                    away=event['runners'][1]['runnerName'],
-                    selected=True,
-                    sportsbook_id=self.sportsbook.pk,
-                    sport_id=sport_id
-                ))
-        return events
+            events = sport_data.get('result', [])
+            for event in events:
+                details = event.get('event', {})
+                names = details['name'].split(' v ')
+                if len(names) == 2:
+                    home, away = names
+                    result.append(EventModel(
+                        event_id=details['id'],
+                        league_id= 0,
+                        time=self.parse_event_time(details.get('openDate')),
+                        home=home,
+                        away=away,
+                        selected=False,
+                        sportsbook_id=self.sportsbook.pk,
+                        sport_id=sport_id
+                    ))
+        return result
 
     def map_odds(self, data) -> tuple[list[OddModel], list[Odd]]:
         odds_to_create = []
@@ -143,3 +184,35 @@ class BetfairScraper(Scraper):
             return self.convert_seconds_to_time_string(total_seconds)
         except:
             return "0:00'" 
+    
+    def map_events_selected(self, events: list[Event], event_response: dict[int, object]) -> tuple[list[Event], list[Event]]:
+        events_to_update, events_to_delete = [], []
+        for event in events:
+            try:
+                matches = event_response[0]['result']
+                match = next((match for match in matches if int(match.get('event', {}).get('id', 0)) == event.event_id), None)
+                if not match:
+                    events_to_delete.append(event)
+                    continue
+                event.time = self.parse_event_time(match.get('event', {}).get('openDate')),
+                events_to_update.append(event)
+            except Exception as ex:
+                print(f"Exception in map_events_selected Betfair: {str(ex)}.")
+                continue       
+        
+        return events_to_update, events_to_delete
+    
+    def map_odds_selected(self, events: list[Event], odds_response: list[object]) -> list[Odd]:
+        event_dict = { event.event_id: event for event in events }
+        odds_to_update = []
+        for data in odds_response:
+            try:
+                event_id = int(data[0][1]['matchId'])
+                event = event_dict.get(event_id)
+                if event:
+                    self.update_event_odds(event, data[0][1]['bets'], odds_to_update)
+            except Exception as ex:
+                print(f"Exception in map_odds_selected Betfair: {str(ex)}.")
+                continue                   
+        
+        return odds_to_update
