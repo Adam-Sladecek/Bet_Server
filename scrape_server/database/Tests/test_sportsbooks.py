@@ -12,7 +12,7 @@ from database.models import Sportsbook, Sport, Event, Opportunity, Odd, Sportsbo
 from database.Scrapes.SportsBooks.ifortuna import IfortunaScraper
 from database.Scrapes.SportsBooks.nike import NikeScraper
 from database.Scrapes.SportsBooks.tipsport import TipsportScraper
-
+from database.Scrapes.SportsBooks.betfair import BetfairScraper
 class TestIfortuna(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -239,67 +239,63 @@ class TestBetfair(TestCase):
         reset_database()
         cls.sport = Sport.objects.create(name="Football", selected=True)
         cls.sportsbook = Sportsbook.objects.create(name="Betfair", selected=True, is_default=True)
-        event = Event.objects.create(event_id=1, league_id=0, time='', home='Real M.', away='Atletico M.', is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport=cls.sport)
-        SportsbookMarket.objects.create(value="16-WINNER_3W-1", sportsbook=cls.sportsbook)
-        cls.opp = Opportunity.objects.create(description="Výsledok zápasu *1*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
-        cls.opp2 = Opportunity.objects.create(description="Výsledok zápasu Remíza", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
-        cls.opp3 = Opportunity.objects.create(description="Výsledok zápasu *2*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
+        event = Event.objects.create(event_id=1, league_id=0, time='', home='Real Madrid', away='Atletico Madrid', is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport=cls.sport)
+        SportsbookMarket.objects.create(value="Match Odds", sportsbook=cls.sportsbook)
+        cls.opp = Opportunity.objects.create(description="Match Odds *1*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
+        cls.opp2 = Opportunity.objects.create(description="Match Odds The Draw", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
+        cls.opp3 = Opportunity.objects.create(description="Match Odds *2*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
         Odd.objects.create(odd_id=0, code=0, movement=0, odd=1.1, is_default=event.is_default, event= event, sportsbook=cls.sportsbook, opportunity=cls.opp)
         Odd.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.sportsbook, opportunity=cls.opp2)
         Odd.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.sportsbook, opportunity=cls.opp3)
 
     async def mock_gather_events(self, sports):
-        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/tipsport/import_events.json'
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/import_events.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return mock_response
     
     async def mock_gather_odds_import(self, events):
-        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/tipsport/import_odds.json'
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/import_odds.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
-        return [mock_response]
+        return mock_response
     
     async def mock_gather_odds_data(self, events):
-        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/tipsport/get_data_odds.json'
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/get_data_odds.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
-        return [mock_response]
-
+        return mock_response
+    
+    async def mock_gather_markets(self, events):
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/markets.json'
+        with open(file_path, 'r', encoding='utf-8') as file:
+            mock_response = json.load(file)
+        return mock_response
+    
     async def mock_gather_events_none(self, events):
-        return {"patches": [{"value": {"matches": []}}]}
+        return [ { "jsonrpc": "2.0", "result": []}]
     
     def mock_get_driver(self):
         return 
     
     def test_flow(self): 
-        with patch.object(TipsportScraper, 'gather_events', new=self.mock_gather_events), patch.object(TipsportScraper, 'get_driver', new=self.mock_get_driver):
-            with patch.object(TipsportScraper, 'gather_odds', new=self.mock_gather_odds_import):
+        with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events), patch.object(BetfairScraper, 'get_driver', new=self.mock_get_driver), patch.object(BetfairScraper, 'gather_markets', new=self.mock_gather_markets):
+            with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_import):
                 # import_all_data
-                your_instance = TipsportScraper(self.sportsbook, [self.sport])
+                your_instance = BetfairScraper(self.sportsbook, [self.sport])
                 your_instance.import_all_data()
                 self.assertEqual(Event.objects.count(), 2)
                 self.assertEqual(Odd.objects.count(), 6)
 
             with patch.object(TipsportScraper, 'gather_odds', new=self.mock_gather_odds_data):
                 # get_data
-                event= Event.objects.filter(is_default=False).first()
                 default_event = Event.objects.filter(is_default=True).first()
                 default_event.selected = True
-                event.add_parent(default_event)
-                event.save()
                 default_event.save()
-                default_odds = Odd.objects.filter(is_default=True).all()
-                odds = Odd.objects.filter(is_default=False).all()
-                for odd, odd_default in zip(odds, default_odds):
-                    odd.add_parent(odd_default)
-                    odd_default.selected = True
-                    odd_default.save()
-                    odd.save()
                 your_instance.get_data()
-                self.assertEqual(Odd.objects.filter(is_default=False, opportunity=self.opp).first().odd, 16)
-                self.assertTrue(Odd.objects.filter(is_default=False, opportunity=self.opp2).first().locked)
-                self.assertTrue(Odd.objects.filter(is_default=False, opportunity=self.opp3).first().locked)
+                self.assertEqual(Odd.objects.filter(is_default=True, opportunity=self.opp).first().odd, 16)
+                self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp2).first().locked)
+                self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp3).first().locked)
 
         # Case: Api returns no events -> Match should be deleted with its odds
         with patch.object(TipsportScraper, 'gather_events', new=self.mock_gather_events_none):

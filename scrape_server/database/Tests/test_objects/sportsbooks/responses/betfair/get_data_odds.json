@@ -1,263 +1,129 @@
-{
-    "groups": [
-        {
-            "id": "f07e2750",
-            "displayOrder": 4,
-            "displayWithPriority": false,
-            "names": {
-                "sk_SK": "HLAVNÉ STÁVKY"
-            },
-            "markets": [
-                {
-                    "id": "0f69cac7",
-                    "eventId": "LSK145926889",
-                    "matchId": "LSK5816211",
-                    "displayOrder": 250000000000000,
-                    "names": {
-                        "sk_SK": "Heidenheim - Hoffenheim"
-                    },
-                    "subNames": {
-                        "sk_SK": "Výsledok zápasu"
-                    },
-                    "descriptions": {
-                        "sk_SK": "Stávka na výsledok zápasu v základnej hracej dobe."
-                    },
-                    "marketTypeId": "LSK10110",
-                    "marketGroupIds": [
-                        "f07e2750"
-                    ],
-                    "marketRows": [
-                        "LSK555131474"
-                    ],
-                    "supportGroup": {
-                        "markets": {
-                            "LSK555131474": 1
-                        }
-                    },
-                    "supportGroupEx": {
-                        "markets": {
-                            "LSK555131474": 1
-                        }
-                    },
-                    "odds": {
-                        "LSK555131474": [
-                            {
-                                "id": "LSK1306923070",
-                                "displayOrder": 1,
-                                "names": {
-                                    "sk_SK": "1"
-                                },
-                                "longNames": {
-                                    "sk_SK": "Heidenheim"
-                                },
-                                "info": 4497947,
-                                "tipId": 1306923070,
-                                "marketId": "LSK555131474",
-                                "value": 16.0,
-                                "readOnly": false,
-                                "relatedContingency": false,
-                                "displayType": "OPEN"
-                            },
-                            {
-                                "id": "LSK1306923071",
-                                "displayOrder": 2,
-                                "names": {
-                                    "sk_SK": "0"
-                                },
-                                "longNames": {
-                                    "sk_SK": "Remíza"
-                                },
-                                "info": 4497947,
-                                "tipId": 1306923071,
-                                "marketId": "LSK555131474",
-                                "value": 2,
-                                "readOnly": false,
-                                "relatedContingency": false,
-                                "displayType": "LOCKED"
-                            }
-                        ]
-                    },
-                    "unrelatedContingencyTips": false,
-                    "marketSubject": "GENERAL"
-                },
-                {
-                    "id": "6d644d67",
-                    "eventId": "LSK145926889",
-                    "matchId": "LSK5816211",
-                    "displayOrder": 450000000000000,
-                    "names": {
-                        "sk_SK": "Heidenheim - Hoffenheim"
-                    },
-                    "subNames": {
-                        "sk_SK": "Výsledok zápasu: dvojtip"
-                    },
-                    "descriptions": {
-                        "sk_SK": "Stávka na výsledok zápasu v základnej hracej dobe."
-                    },
-                    "marketTypeId": "LSK10364",
-                    "marketGroupIds": [
-                        "f07e2750"
-                    ],
-                    "marketRows": [
-                        "LSK555131412"
-                    ],
-                    "supportGroup": {
-                        "markets": {
-                            "LSK555131412": 1
-                        }
-                    },
-                    "supportGroupEx": {
-                        "markets": {
-                            "LSK555131412": 1
-                        }
-                    },
-                    "odds": {
-                        "LSK555131412": [
-                            {
-                                "id": "LSK1306922931",
-                                "displayOrder": 1,
-                                "names": {
-                                    "sk_SK": "10"
-                                },
-                                "longNames": {
-                                    "sk_SK": "10"
-                                },
-                                "info": 4497968,
-                                "tipId": 1306922931,
-                                "marketId": "LSK555131412",
-                                "value": 1.01,
-                                "readOnly": false,
-                                "relatedContingency": false,
-                                "displayType": "OPEN"
-                            },
-                            {
-                                "id": "LSK1306922933",
-                                "displayOrder": 2,
-                                "names": {
-                                    "sk_SK": "12"
-                                },
-                                "longNames": {
-                                    "sk_SK": "12"
-                                },
-                                "info": 4497968,
-                                "tipId": 1306922933,
-                                "marketId": "LSK555131412",
-                                "value": 6.0,
-                                "readOnly": false,
-                                "relatedContingency": false,
-                                "displayType": "OPEN"
-                            },
-                            {
-                                "id": "LSK1306922934",
-                                "displayOrder": 3,
-                                "names": {
-                                    "sk_SK": "02"
-                                },
-                                "longNames": {
-                                    "sk_SK": "02"
-                                },
-                                "info": 4497968,
-                                "tipId": 1306922934,
-                                "marketId": "LSK555131412",
-                                "value": -1.0,
-                                "readOnly": false,
-                                "relatedContingency": false,
-                                "displayType": "OPEN"
-                            }
-                        ]
-                    },
-                    "unrelatedContingencyTips": false,
-                    "marketSubject": "GENERAL"
-                },
-                {
-                    "id": "018187b5",
-                    "eventId": "LSK145926889",
-                    "matchId": "LSK5816211",
-                    "displayOrder": 550000000000000,
-                    "names": {
-                        "sk_SK": "Heidenheim - Hoffenheim"
-                    },
-                    "subNames": {
-                        "sk_SK": "Výsledok zápasu bez remízy"
-                    },
-                    "descriptions": {
-                        "sk_SK": "Stávka na víťazstvo jedného z tímov. V prípade remízy bude príležitosť vyhodnotená kurzom 1,0. Predčasná výplata je nedostupná"
-                    },
-                    "marketTypeId": "LSK10114",
-                    "marketGroupIds": [
-                        "f07e2750"
-                    ],
-                    "marketRows": [
-                        "LSK555131434"
-                    ],
-                    "supportGroup": {
-                        "markets": {
-                            "LSK555131434": 1
-                        }
-                    },
-                    "supportGroupEx": {
-                        "markets": {
-                            "LSK555131434": 1
-                        }
-                    },
-                    "odds": {
-                        "LSK555131434": [
-                            {
-                                "id": "LSK1306922972",
-                                "displayOrder": 1,
-                                "names": {
-                                    "sk_SK": "1"
-                                },
-                                "longNames": {
-                                    "sk_SK": "Heidenheim"
-                                },
-                                "info": 4497962,
-                                "tipId": 1306922972,
-                                "marketId": "LSK555131434",
-                                "value": 2.2,
-                                "readOnly": false,
-                                "relatedContingency": false,
-                                "displayType": "OPEN"
-                            },
-                            {
-                                "id": "LSK1306922976",
-                                "displayOrder": 2,
-                                "names": {
-                                    "sk_SK": "2"
-                                },
-                                "longNames": {
-                                    "sk_SK": "Hoffenheim"
-                                },
-                                "info": 4497962,
-                                "tipId": 1306922976,
-                                "marketId": "LSK555131434",
-                                "value": 1.6,
-                                "readOnly": false,
-                                "relatedContingency": false,
-                                "displayType": "OPEN"
-                            }
-                        ]
-                    },
-                    "unrelatedContingencyTips": false,
-                    "marketSubject": "GENERAL"
-                }
-            ]
-        }
-    ],
-    "participants": {
-        "HOME": {
-            "id": 721386,
-            "name": {
-                "en_US": "Heidenheim",
-                "sk_SK": "Heidenheim"
+[{
+    "jsonrpc": "2.0",
+    "result": [{
+        "marketId": "1.113197491",
+        "isMarketDataDelayed": false,
+        "status": "OPEN",
+        "betDelay": 0,
+        "bspReconciled": false,
+        "complete": true,
+        "inplay": false,
+        "numberOfWinners": 1,
+        "numberOfRunners": 3,
+        "numberOfActiveRunners": 3,
+        "lastMatchTime": "2016-10-28T12:25:30.235Z",
+        "totalMatched": 188959.22,
+        "totalAvailable": 172932.96,
+        "crossMatching": true,
+        "runnersVoidable": false,
+        "version": 1469071410,
+        "runners": [{
+            "selectionId": 6830593,
+            "handicap": 0.0,
+            "status": "ACTIVE",
+            "lastPriceTraded": 7.0,
+            "totalMatched": 12835.46,
+            "ex": {
+                "availableToBack": [{
+                    "price": 7.0,
+                    "size": 75.53
+                }, {
+                    "price": 6.8,
+                    "size": 538.6
+                }, {
+                    "price": 6.6,
+                    "size": 612.2
+                }],
+                "availableToLay": [{
+                    "price": 16,
+                    "size": 152.12
+                }, {
+                    "price": 7.4,
+                    "size": 1446.28
+                }, {
+                    "price": 7.6,
+                    "size": 1250.26
+                }],
+                "tradedVolume": [{
+                    "price": 6.4,
+                    "size": 3.0
+                }, {
+                    "price": 6.6,
+                    "size": 3.59
+                }, {
+                    "price": 6.8,
+                    "size": 1.42
+                }, {
+                    "price": 7.0,
+                    "size": 1736.55
+                }, {
+                    "price": 7.2,
+                    "size": 1601.31
+                }, {
+                    "price": 7.4,
+                    "size": 3580.1
+                }, {
+                    "price": 7.6,
+                    "size": 4236.59
+                }, {
+                    "price": 7.8,
+                    "size": 1367.18
+                }, {
+                    "price": 8.0,
+                    "size": 305.29
+                }, {
+                    "price": 8.2,
+                    "size": 0.39
+                }]
             }
-        },
-        "AWAY": {
-            "id": 677875,
-            "name": {
-                "en_US": "Hoffenheim",
-                "sk_SK": "Hoffenheim"
+        },{
+            "selectionId": 58805,
+            "handicap": 0.0,
+            "status": "INACTIVE",
+            "lastPriceTraded": 4.2,
+            "totalMatched": 13102.81,
+            "ex": {
+                "availableToBack": [{
+                    "price": 4.1,
+                    "size": 3243.85
+                }, {
+                    "price": 4.0,
+                    "size": 1158.17
+                }, {
+                    "price": 3.95,
+                    "size": 254.04
+                }],
+                "availableToLay": [{
+                    "price": 4.2,
+                    "size": 1701.15
+                }, {
+                    "price": 4.3,
+                    "size": 3072.55
+                }, {
+                    "price": 4.4,
+                    "size": 2365.76
+                }],
+                "tradedVolume": [{
+                    "price": 4.0,
+                    "size": 457.79
+                }, {
+                    "price": 4.1,
+                    "size": 4434.67
+                }, {
+                    "price": 4.2,
+                    "size": 7845.01
+                }, {
+                    "price": 4.3,
+                    "size": 354.7
+                }, {
+                    "price": 4.4,
+                    "size": 6.6
+                }, {
+                    "price": 4.9,
+                    "size": 4.0
+                }]
             }
-        }
-    }
-}
+        }]
+    }],
+    "id": 1
+}]
