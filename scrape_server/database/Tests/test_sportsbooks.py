@@ -280,25 +280,27 @@ class TestBetfair(TestCase):
     
     def test_flow(self): 
         with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events), patch.object(BetfairScraper, 'get_driver', new=self.mock_get_driver), patch.object(BetfairScraper, 'gather_markets', new=self.mock_gather_markets):
+            # import_all_data
+            your_instance = BetfairScraper(self.sportsbook, [self.sport])
+            your_instance.import_all_data()
+            self.assertEqual(Event.objects.count(), 2)
+            
+            # get_data
+            default_event = Event.objects.filter(is_default=True).first()
+            default_event.selected = True
+            default_event.save()
             with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_import):
-                # import_all_data
-                your_instance = BetfairScraper(self.sportsbook, [self.sport])
-                your_instance.import_all_data()
-                self.assertEqual(Event.objects.count(), 2)
+                your_instance.get_data()
                 self.assertEqual(Odd.objects.count(), 6)
 
-            with patch.object(TipsportScraper, 'gather_odds', new=self.mock_gather_odds_data):
-                # get_data
-                default_event = Event.objects.filter(is_default=True).first()
-                default_event.selected = True
-                default_event.save()
+            with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_data):
                 your_instance.get_data()
                 self.assertEqual(Odd.objects.filter(is_default=True, opportunity=self.opp).first().odd, 16)
                 self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp2).first().locked)
                 self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp3).first().locked)
 
         # Case: Api returns no events -> Match should be deleted with its odds
-        with patch.object(TipsportScraper, 'gather_events', new=self.mock_gather_events_none):
+        with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events_none):
             # get_data
             your_instance.get_data()
             self.assertEqual(Event.objects.count(), 1)
