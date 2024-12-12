@@ -1,59 +1,53 @@
 
 [
     {
-        "jsonrpc": "2.0",
-        "result": [
+        "marketId": "1.113197491",
+        "marketName": "Match Odds",
+        "marketStartTime": "2014-03-13T11:00:00.000Z",
+        "totalMatched": 7707.52,
+        "runners": [
             {
-                "marketId": "1.113197491",
-                "marketName": "Match Odds",
-                "marketStartTime": "2014-03-13T11:00:00.000Z",
-                "totalMatched": 7707.52,
-                "runners": [
-                    {
-                        "selectionId": 6830593,
-                        "runnerName": "FC Samtredia",
-                        "handicap": 0,
-                        "sortPriority": 1,
-                        "metadata": {
-                            "runnerId": "63123483"
-                        }
-                    },
-                    {
-                        "selectionId": 6843866,
-                        "runnerName": "FC Betlemi Keda",
-                        "handicap": 0,
-                        "sortPriority": 2,
-                        "metadata": {
-                            "runnerId": "63123484"
-                        }
-                    },
-                    {
-                        "selectionId": 58805,
-                        "runnerName": "The Draw",
-                        "handicap": 0,
-                        "sortPriority": 3,
-                        "metadata": {
-                            "runnerId": "63123485"
-                        }
-                    }
-                ],
-                "eventType": {
-                    "id": "1",
-                    "name": "Soccer"
-                },
-                "competition": {
-                    "id": "2356065",
-                    "name": "Pirveli Liga"
-                },
-                "event": {
-                    "id": "27165685",
-                    "name": "FC Samtredia v FC Betlemi Keda",
-                    "countryCode": "GE",
-                    "timezone": "GMT",
-                    "openDate": "2014-03-13T11:00:00.000Z"
+                "selectionId": 6830593,
+                "runnerName": "FC Samtredia",
+                "handicap": 0,
+                "sortPriority": 1,
+                "metadata": {
+                    "runnerId": "63123483"
+                }
+            },
+            {
+                "selectionId": 6843866,
+                "runnerName": "FC Betlemi Keda",
+                "handicap": 0,
+                "sortPriority": 2,
+                "metadata": {
+                    "runnerId": "63123484"
+                }
+            },
+            {
+                "selectionId": 58805,
+                "runnerName": "The Draw",
+                "handicap": 0,
+                "sortPriority": 3,
+                "metadata": {
+                    "runnerId": "63123485"
                 }
             }
         ],
-        "id": 1
+        "eventType": {
+            "id": "1",
+            "name": "Soccer"
+        },
+        "competition": {
+            "id": "2356065",
+            "name": "Pirveli Liga"
+        },
+        "event": {
+            "id": "27165685",
+            "name": "FC Samtredia v FC Betlemi Keda",
+            "countryCode": "GE",
+            "timezone": "GMT",
+            "openDate": "2014-03-13T11:00:00.000Z"
+        }
     }
 ]

@@ -248,19 +248,25 @@ class TestBetfair(TestCase):
         Odd.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.sportsbook, opportunity=cls.opp2)
         Odd.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.sportsbook, opportunity=cls.opp3)
 
-    async def mock_gather_events(self, sports):
+    async def mock_gather_events(self, sports, event_ids = None):
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/import_events.json'
+        with open(file_path, 'r', encoding='utf-8') as file:
+            mock_response = json.load(file)
+        return {1: mock_response}
+    
+    async def mock_gather_events_get_data(self, sports, event_ids = None):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/import_events.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return mock_response
-    
-    async def mock_gather_odds_import(self, events):
+
+    async def mock_gather_odds_import(self, events, market_ids):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/import_odds.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return mock_response
     
-    async def mock_gather_odds_data(self, events):
+    async def mock_gather_odds_data(self, events, market_ids):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/get_data_odds.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
@@ -272,36 +278,42 @@ class TestBetfair(TestCase):
             mock_response = json.load(file)
         return mock_response
     
-    async def mock_gather_events_none(self, events):
-        return [ { "jsonrpc": "2.0", "result": []}]
+    async def mock_gather_events_none(self, events, event_ids = None):
+        return []
     
     def mock_get_driver(self):
         return 
     
     def test_flow(self): 
-        with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events), patch.object(BetfairScraper, 'get_driver', new=self.mock_get_driver), patch.object(BetfairScraper, 'gather_markets', new=self.mock_gather_markets):
+        with patch.object(BetfairScraper, 'get_driver', new=self.mock_get_driver), patch.object(BetfairScraper, 'gather_markets', new=self.mock_gather_markets):
             # import_all_data
-            your_instance = BetfairScraper(self.sportsbook, [self.sport])
-            your_instance.import_all_data()
-            self.assertEqual(Event.objects.count(), 2)
+            with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events):
+                your_instance = BetfairScraper(self.sportsbook, [self.sport])
+                your_instance.import_all_data()
+                self.assertEqual(Event.objects.count(), 1)
             
             # get_data
-            default_event = Event.objects.filter(is_default=True).first()
-            default_event.selected = True
-            default_event.save()
-            with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_import):
-                your_instance.get_data()
-                self.assertEqual(Odd.objects.count(), 6)
+            with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events_get_data):
+                default_event = Event.objects.filter(is_default=True).first()
+                default_event.selected = True
+                default_event.save()
+                with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_import):
+                    your_instance.get_data()
+                    self.assertEqual(Opportunity.objects.count(), 3)
 
-            with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_data):
-                your_instance.get_data()
-                self.assertEqual(Odd.objects.filter(is_default=True, opportunity=self.opp).first().odd, 16)
-                self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp2).first().locked)
-                self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp3).first().locked)
+                with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_import):
+                    your_instance.get_data()
+                    self.assertEqual(Odd.objects.count(), 3)
+                    
+                with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_data):
+                    your_instance.get_data()
+                    self.assertEqual(Odd.objects.filter(is_default=True, opportunity=self.opp).first().odd, 16)
+                    self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp2).first().locked)
+                    self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp3).first().locked)
 
-        # Case: Api returns no events -> Match should be deleted with its odds
-        with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events_none):
-            # get_data
-            your_instance.get_data()
-            self.assertEqual(Event.objects.count(), 1)
-            self.assertEqual(Odd.objects.count(), 3)
+            # Case: Api returns no events -> Match should be deleted with its odds
+            with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events_none):
+                # get_data
+                your_instance.get_data()
+                self.assertEqual(Event.objects.count(), 0)
+                self.assertEqual(Odd.objects.count(), 0)

@@ -38,14 +38,14 @@ class BetfairScraper(Scraper):
 
     def get_sportids(self) -> dict[str, int]: 
         return {
-            '1': 1, #socker
-            '7524': 2, #hokej
-            '2': 3, #tenis
-            '7522': 4, #basketbal
+            '1': 1, #soccer
+            '7524': 2, #hockey
+            '2': 3, #tennis
+            '7522': 4, #basketball
             '468328': 5, #handball
-            '998917': 6, #volejbal
-            '': 7, #stolny tenis
-            '6': 8, # box
+            '998917': 6, #volleyball
+            '': 7, #table tennis
+            '6': 8, #boxing
         }
 
     def get_data(self):
@@ -61,7 +61,7 @@ class BetfairScraper(Scraper):
             self.event_helper.update_selected_events(mapped_events, events_to_delete)
             events = [event for event in events if event.pk is not None]
             event_ids = [event.event_id for event in events]
-            markets = loop.run_until_complete(self.get_markets(event_ids))
+            markets = loop.run_until_complete(self.gather_markets(event_ids))
             market_ids = [market['marketId'] for market in markets]
             odds_response = loop.run_until_complete(self.gather_odds(events, market_ids))
             odds_to_create, odds_to_update = self.map_odds(odds_response, markets)
@@ -80,7 +80,7 @@ class BetfairScraper(Scraper):
         except Exception as ex:
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
-    async def get_markets(self, event_ids: list[int]):
+    async def gather_markets(self, event_ids: list[int]):
         url = f"{self.BASE_URL}/listMarketCatalogue/"
         allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         response = await self.get(url, self.get_headers(), {"filter": {"eventIds": event_ids}, "marketProjection": ["EVENT", "RUNNER_DESCRIPTION"]})
@@ -138,14 +138,18 @@ class BetfairScraper(Scraper):
                 if len(names) == 2:
                     home, away = names
                     result.append(EventModel(
-                        event_id=details['id'],
-                        league_id= 0,
+                        id=None,
+                        league_id=0,
+                        event_id=int(details['id']),
                         time=self.parse_event_time(details.get('openDate')),
                         home=home,
                         away=away,
                         selected=False,
+                        odd_count=0,
+                        sport_id=sport_id,
                         sportsbook_id=self.sportsbook.pk,
-                        sport_id=sport_id
+                        is_default=self.sportsbook.is_default,
+                        available_sportsbooks=[],
                     ))
         return result
 
@@ -153,35 +157,42 @@ class BetfairScraper(Scraper):
         odds_to_create = []
         odds_to_update = []
         existing_odds = self.odd_helper.get_existing_odds()
-
         for marketBook in data:
             market_id = marketBook['marketId']
             market = next((market for market in markets if market['marketId'] == market_id), {})
+
             for runner in market.get('runners', []):
-                best_back = runner.get('ex', {}).get('availableToBack', [{}])[0]
-                best_lay = runner.get('ex', {}).get('availableToLay', [{}])[0]
+                opp_name = f"{market.get('marketName', '')} {runner.get('runnerName', '')}"
+                selection_id = runner.get('selectionId')
+                marketbook_runner = next((runner for runner in marketBook.get('runners', []) if runner.get('selectionId') == selection_id), {})
+                bets = marketbook_runner.get('ex', {}).get('availableToLay', [])
+                best_price = next((bet.get('price') for bet in bets if bet.get('size') > 100), None)
+                if not best_price:
+                    continue
+
+                odd_id = runner['selectionId']
+                locked = marketbook_runner.get('status', '') != 'ACTIVE'
                 
-                if best_back and best_lay:
-                    odd_id = f"{market_id}_{runner['selectionId']}"
-                    odd_value = (float(best_back['price']) + float(best_lay['price'])) / 2
-                    
-                    if market_id in existing_odds and odd_id in existing_odds[market_id]:
-                        existing_odd = existing_odds[market_id][odd_id]
-                        existing_odd.odd = odd_value
-                        existing_odd.movement = self.get_movement(existing_odd.odd, odd_value)
-                        odds_to_update.append(existing_odd)
-                    else:
-                        odds_to_create.append(OddModel(
-                            odd_id=odd_id,
-                            event_id=market_id,
-                            code=str(runner['selectionId']),
-                            description=runner['description'],
-                            odd=odd_value,
-                            movement=0,
-                            selected=True,
-                            locked=False,
-                            market_id=market_id
-                        ))
+                if odd_id in existing_odds:
+                    existing_odd = existing_odds[odd_id]
+                    existing_odd.movement = self.get_movement(existing_odd.odd, best_price)
+                    existing_odd.odd = best_price
+                    odds_to_update.append(existing_odd)
+                else:
+                    odds_to_create.append(OddModel(
+                        id=None,
+                        odd_id=odd_id,
+                        movement=1,
+                        is_default=self.sportsbook.is_default,
+                        selected=False,
+                        locked=locked,
+                        sportsbook_id=self.sportsbook.pk,
+                        event_id=int(market.get('event').get('id')),
+                        code=0,
+                        description=opp_name,
+                        odd=best_price,
+                        market_id=market_id
+                    ))
 
         return odds_to_create, odds_to_update
 
@@ -212,3 +223,6 @@ class BetfairScraper(Scraper):
                 continue       
         
         return events_to_update, events_to_delete
+    
+    def map_odds_selected(self, data, markets) -> tuple[list[OddModel], list[Odd]]:
+        pass
