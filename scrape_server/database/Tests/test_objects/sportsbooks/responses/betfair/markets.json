@@ -8,7 +8,7 @@
         "runners": [
             {
                 "selectionId": 6830593,
-                "runnerName": "FC Samtredia",
+                "runnerName": "Al-Wahda (KSA)",
                 "handicap": 0,
                 "sortPriority": 1,
                 "metadata": {
@@ -17,7 +17,7 @@
             },
             {
                 "selectionId": 6843866,
-                "runnerName": "FC Betlemi Keda",
+                "runnerName": "Hajer (KSA)",
                 "handicap": 0,
                 "sortPriority": 2,
                 "metadata": {
@@ -43,11 +43,11 @@
             "name": "Pirveli Liga"
         },
         "event": {
-            "id": "27165685",
-            "name": "FC Samtredia v FC Betlemi Keda",
-            "countryCode": "GE",
+            "id": "27165668",
+            "name": "Al-Wahda (KSA) v Hajer (KSA)",
+            "countryCode": "SA",
             "timezone": "GMT",
-            "openDate": "2014-03-13T11:00:00.000Z"
+            "openDate": "2014-03-13T13:30:00.000Z"
         }
     }
 ]

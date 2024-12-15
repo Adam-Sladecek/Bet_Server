@@ -239,14 +239,8 @@ class TestBetfair(TestCase):
         reset_database()
         cls.sport = Sport.objects.create(name="Football", selected=True)
         cls.sportsbook = Sportsbook.objects.create(name="Betfair", selected=True, is_default=True)
-        event = Event.objects.create(event_id=1, league_id=0, time='', home='Real Madrid', away='Atletico Madrid', is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport=cls.sport)
+        Event.objects.create(event_id=1, league_id=0, time='', home='Real Madrid', away='Atletico Madrid', is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport=cls.sport)
         SportsbookMarket.objects.create(value="Match Odds", sportsbook=cls.sportsbook)
-        cls.opp = Opportunity.objects.create(description="Match Odds *1*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
-        cls.opp2 = Opportunity.objects.create(description="Match Odds The Draw", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
-        cls.opp3 = Opportunity.objects.create(description="Match Odds *2*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=1.1, is_default=event.is_default, event= event, sportsbook=cls.sportsbook, opportunity=cls.opp)
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.sportsbook, opportunity=cls.opp2)
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.sportsbook, opportunity=cls.opp3)
 
     async def mock_gather_events(self, sports, event_ids = None):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/import_events.json'
@@ -307,9 +301,8 @@ class TestBetfair(TestCase):
                     
                 with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_data):
                     your_instance.get_data()
-                    self.assertEqual(Odd.objects.filter(is_default=True, opportunity=self.opp).first().odd, 16)
-                    self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp2).first().locked)
-                    self.assertTrue(Odd.objects.filter(is_default=True, opportunity=self.opp3).first().locked)
+                    self.assertEqual(Odd.objects.filter(is_default=True, locked=False).first().odd, 16)
+                    self.assertEqual(Odd.objects.filter(is_default=True, locked=True).count(), 2)
 
             # Case: Api returns no events -> Match should be deleted with its odds
             with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events_none):

@@ -160,22 +160,24 @@ class BetfairScraper(Scraper):
         for marketBook in data:
             market_id = marketBook['marketId']
             market = next((market for market in markets if market['marketId'] == market_id), {})
+            event_id = int(market.get('event').get('id'))
+            match_odds = existing_odds.get(event_id, {})
 
             for runner in market.get('runners', []):
                 opp_name = f"{market.get('marketName', '')} {runner.get('runnerName', '')}"
+                home, away = market.get('event', {}).get('name', '').split(' v ')
+                opp_name = opp_name.replace(home, "*1*").replace(away, "*2*")
                 selection_id = runner.get('selectionId')
                 marketbook_runner = next((runner for runner in marketBook.get('runners', []) if runner.get('selectionId') == selection_id), {})
                 bets = marketbook_runner.get('ex', {}).get('availableToLay', [])
-                best_price = next((bet.get('price') for bet in bets if bet.get('size') > 100), None)
-                if not best_price:
-                    continue
-
+                best_price = next((bet.get('price') for bet in bets if bet.get('size') > 100), 0)
                 odd_id = runner['selectionId']
-                locked = marketbook_runner.get('status', '') != 'ACTIVE'
+                locked = marketbook_runner.get('status', '') != 'ACTIVE' or best_price == 0
                 
-                if odd_id in existing_odds:
-                    existing_odd = existing_odds[odd_id]
+                if odd_id in match_odds:
+                    existing_odd = match_odds[odd_id]
                     existing_odd.movement = self.get_movement(existing_odd.odd, best_price)
+                    existing_odd.locked = locked
                     existing_odd.odd = best_price
                     odds_to_update.append(existing_odd)
                 else:
@@ -187,7 +189,7 @@ class BetfairScraper(Scraper):
                         selected=False,
                         locked=locked,
                         sportsbook_id=self.sportsbook.pk,
-                        event_id=int(market.get('event').get('id')),
+                        event_id=event_id,
                         code=0,
                         description=opp_name,
                         odd=best_price,
