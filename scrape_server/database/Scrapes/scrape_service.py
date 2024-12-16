@@ -7,6 +7,7 @@ from database.Scrapes.SportsBooks.nike import NikeScraper
 from database.Scrapes.SportsBooks.tipsport import TipsportScraper
 from database.Scrapes.SportsBooks.pinnacle import PinnacleScraper
 from database.Scrapes.SportsBooks.ifortuna import IfortunaScraper
+from database.Scrapes.SportsBooks.betfair import BetfairScraper
 from database.Scrapes.SportsBooks.ps3838 import PS3838Scraper
 from database.Scrapes.SportsBooks.scraper import Scraper
 from database.Scrapes.helpers import ScrapeHelper
@@ -107,6 +108,7 @@ class ScrapeService:
             'Pinnacle': PinnacleScraper,
             'Ifortuna': IfortunaScraper,
             'PS3838': PS3838Scraper,
+            'Betfair': BetfairScraper,
         }
         return scrapers[sportsbook.name]
 

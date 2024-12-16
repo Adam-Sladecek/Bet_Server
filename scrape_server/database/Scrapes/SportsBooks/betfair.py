@@ -12,9 +12,15 @@ class BetfairScraper(Scraper):
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         super().__init__(sportsbook, sports)
-        self.session_token = "J2Lxar1XGKaDLfiiC8QPmYkPv36beBNbCr6B9+iX2ns="
+        self.session_token = "IY4QOUtlEdnXXGjrVh0Wm6ihxuFjYf9N7lDHTy+vWbU="
         self.app_key = "WAVvPmAtlpnmt9Er" # Get from Betfair Developer Program
         self.markets = [sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()]
+        
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close_driver()
         
     def get_driver(self):
         # Not needed for REST API
