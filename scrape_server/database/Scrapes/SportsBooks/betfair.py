@@ -12,8 +12,8 @@ class BetfairScraper(Scraper):
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         super().__init__(sportsbook, sports)
-        self.session_token = None
-        self.app_key = "YOUR_APP_KEY"  # Get from Betfair Developer Program
+        self.session_token = "J2Lxar1XGKaDLfiiC8QPmYkPv36beBNbCr6B9+iX2ns="
+        self.app_key = "WAVvPmAtlpnmt9Er" # Get from Betfair Developer Program
         self.markets = [sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()]
         
     def get_driver(self):
@@ -22,11 +22,6 @@ class BetfairScraper(Scraper):
 
     def close_driver(self):
         # Not needed for REST API
-        pass
-
-    async def authenticate(self):
-        # You'll need to implement authentication using your Betfair credentials
-        # Store session token in self.session_token
         pass
 
     def get_headers(self):
@@ -83,14 +78,11 @@ class BetfairScraper(Scraper):
     async def gather_markets(self, event_ids: list[int]):
         url = f"{self.BASE_URL}/listMarketCatalogue/"
         allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-        response = await self.get(url, self.get_headers(), {"filter": {"eventIds": event_ids}, "marketProjection": ["EVENT", "RUNNER_DESCRIPTION"]})
+        response = await self.post(url, self.get_headers(), {"filter": {"eventIds": event_ids}, "marketProjection": ["EVENT", "RUNNER_DESCRIPTION"]})
         results = response[0].get('result', [])
         return [result for result in results if result['marketName'] in allowed_market_ids]
 
     async def gather_events(self, sports: list[Sport], eventIds: list[int] = None):
-        if not self.session_token:
-            await self.authenticate()
-
         sport_id_map = {v: k for k, v in self.get_sportids().items()}
         url = f"{self.BASE_URL}/listEvents/"
 
@@ -101,21 +93,18 @@ class BetfairScraper(Scraper):
         
         if eventIds:
             filter["eventIds"] = eventIds
-            response = await self.get(url, self.get_headers(), {"filter": filter})
+            response = await self.post(url, self.get_headers(), {"filter": filter})
             return response[0].get('result', [])
         
         result = {}
         for sport in sports:
             filter["eventTypeIds"] = [sport_id_map[sport.pk]]
-            response = await self.get(url, self.get_headers(), {"filter": filter})
+            response = await self.post(url, self.get_headers(), {"filter": filter})
             result[sport.pk] = response[0].get('result', [])
 
         return result
 
     async def gather_odds(self, events: list[EventModel], market_ids: list[str]):
-        if not self.session_token:
-            await self.authenticate()
-
         params = {
             "marketIds": market_ids,
             "priceProjection": {
@@ -125,7 +114,7 @@ class BetfairScraper(Scraper):
         }
         
         url = f"{self.BASE_URL}/listMarketBook/"
-        response = await self.get(url, self.get_headers(), params)
+        response = await self.post(url, self.get_headers(), params)
         return response[0].get('result', [])
 
     def map_events(self, data) -> list[EventModel]:

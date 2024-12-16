@@ -110,6 +110,14 @@ class Scraper(ABC):
                     return await resp.json()  
                 except: 
                     return None
+
+    async def post(self, url: str, headers: object, data: object) -> object:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=data) as resp:
+                try:
+                    return await resp.json()
+                except:
+                    return None
                 
     def convert_timestamp_to_time_string(self, timestamp_ms: int) -> str:
         timestamp_time = datetime.fromtimestamp(timestamp_ms / 1000)
