@@ -113,11 +113,18 @@ class Scraper(ABC):
 
     async def post(self, url: str, headers: object, data: object) -> object:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=data) as resp:
-                try:
+            try:
+                async with session.post(url, headers=headers, json=data) as resp:
+                    if resp.status != 200:
+                        print(f"Request failed with status {resp.status}: {await resp.text()}")
+                        return None
                     return await resp.json()
-                except:
-                    return None
+            except Exception as ex:
+                print(f"POST request failed: {str(ex)}")
+                print(f"URL: {url}")
+                print(f"Headers: {headers}")
+                print(f"Data: {json.dumps(data, indent=2)}")
+                return None
                 
     def convert_timestamp_to_time_string(self, timestamp_ms: int) -> str:
         timestamp_time = datetime.fromtimestamp(timestamp_ms / 1000)

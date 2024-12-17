@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import datetime
 from typing import Optional
@@ -8,11 +9,11 @@ from ..dataclass_models import EventModel, OddModel
 from .scraper import Scraper
 
 class BetfairScraper(Scraper):
-    BASE_URL = "https://api.betfair.com/exchange/betting/rest/v1.0/"
+    BASE_URL = "https://api.betfair.com/exchange/betting/rest/v1.0"
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         super().__init__(sportsbook, sports)
-        self.session_token = "IY4QOUtlEdnXXGjrVh0Wm6ihxuFjYf9N7lDHTy+vWbU="
+        self.session_token = "xaq8zDOvuyzspxv3Y1IOsuH1Xd3Y7B7k8sVdV9wx/9E="
         self.app_key = "WAVvPmAtlpnmt9Er" # Get from Betfair Developer Program
         self.markets = [sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()]
         
@@ -62,7 +63,8 @@ class BetfairScraper(Scraper):
             self.event_helper.update_selected_events(mapped_events, events_to_delete)
             events = [event for event in events if event.pk is not None]
             event_ids = [event.event_id for event in events]
-            markets = loop.run_until_complete(self.gather_markets(event_ids))
+            allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
+            markets = loop.run_until_complete(self.gather_markets(event_ids, allowed_market_ids))
             market_ids = [market['marketId'] for market in markets]
             odds_response = loop.run_until_complete(self.gather_odds(events, market_ids))
             odds_to_create, odds_to_update = self.map_odds(odds_response, markets)
@@ -81,11 +83,10 @@ class BetfairScraper(Scraper):
         except Exception as ex:
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
-    async def gather_markets(self, event_ids: list[int]):
+    async def gather_markets(self, event_ids: list[int], allowed_market_ids: list[str]):
         url = f"{self.BASE_URL}/listMarketCatalogue/"
-        allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         response = await self.post(url, self.get_headers(), {"filter": {"eventIds": event_ids}, "marketProjection": ["EVENT", "RUNNER_DESCRIPTION"]})
-        results = response[0].get('result', [])
+        results = response
         return [result for result in results if result['marketName'] in allowed_market_ids]
 
     async def gather_events(self, sports: list[Sport], eventIds: list[int] = None):
@@ -93,20 +94,31 @@ class BetfairScraper(Scraper):
         url = f"{self.BASE_URL}/listEvents/"
 
         filter = {
-            # "marketTypeCodes": self.markets,
-            "inPlayOnly": True
+            'inPlayOnly': True
         }
         
         if eventIds:
-            filter["eventIds"] = eventIds
-            response = await self.post(url, self.get_headers(), {"filter": filter})
-            return response[0].get('result', [])
+            filter['eventIds'] = eventIds
+            response = await self.post(url, self.get_headers(), {'filter': filter})
+            return response
         
         result = {}
+        # Create all tasks first
+        tasks = []
         for sport in sports:
-            filter["eventTypeIds"] = [sport_id_map[sport.pk]]
-            response = await self.post(url, self.get_headers(), {"filter": filter})
-            result[sport.pk] = response[0].get('result', [])
+            sport_filter = filter.copy()
+            sport_filter['eventTypeIds'] = [sport_id_map[sport.pk]]
+            tasks.append(self.post(url, self.get_headers(), {'filter': sport_filter}))
+        
+        # Wait for all tasks to complete
+        responses = await asyncio.gather(*tasks)
+        
+        # Process responses
+        for sport, response in zip(sports, responses):
+            if response:
+                result[sport.pk] = response
+            else:
+                result[sport.pk] = []
 
         return result
 
@@ -121,7 +133,7 @@ class BetfairScraper(Scraper):
         
         url = f"{self.BASE_URL}/listMarketBook/"
         response = await self.post(url, self.get_headers(), params)
-        return response[0].get('result', [])
+        return response
 
     def map_events(self, data) -> list[EventModel]:
         result = []
@@ -209,6 +221,9 @@ class BetfairScraper(Scraper):
         for event in events:
             try:
                 matches = event_response
+                if not matches:
+                    events_to_delete.append(event)
+                    continue
                 match = next((match for match in matches if int(match.get('event', {}).get('id', 0)) == event.event_id), None)
                 if not match:
                     events_to_delete.append(event)

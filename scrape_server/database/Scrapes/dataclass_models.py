@@ -35,7 +35,8 @@ class EventModel:
             odd_count=event.odds.count()
         )
         for event in events
-        if event.odds.count() > 0 and event.children.exists()
+        # if event.odds.count() > 0 and event.children.exists()
+        if event.children.exists()
     ]
     
 @dataclass(frozen=True)
