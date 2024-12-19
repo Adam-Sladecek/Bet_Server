@@ -114,7 +114,7 @@ class Scraper(ABC):
     async def post(self, url: str, headers: object, data: object) -> object:
         async with aiohttp.ClientSession() as session:
             try:
-                async with session.post(url, headers=headers, json=data) as resp:
+                async with session.post(url, headers=headers, data=json.dumps(data)) as resp:
                     if resp.status != 200:
                         print(f"Request failed with status {resp.status}: {await resp.text()}")
                         return None

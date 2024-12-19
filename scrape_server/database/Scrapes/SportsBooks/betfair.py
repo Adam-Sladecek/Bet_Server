@@ -13,7 +13,7 @@ class BetfairScraper(Scraper):
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         super().__init__(sportsbook, sports)
-        self.session_token = "xaq8zDOvuyzspxv3Y1IOsuH1Xd3Y7B7k8sVdV9wx/9E="
+        self.session_token = "XeLBIkIBzt9awa21qnAe38fxA0HaYfN4DctIMbJHHRo="
         self.app_key = "WAVvPmAtlpnmt9Er" # Get from Betfair Developer Program
         self.markets = [sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()]
         
@@ -84,8 +84,9 @@ class BetfairScraper(Scraper):
             print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
     async def gather_markets(self, event_ids: list[int], allowed_market_ids: list[str]):
+        event_ids = [str(event_id) for event_id in event_ids]
         url = f"{self.BASE_URL}/listMarketCatalogue/"
-        response = await self.post(url, self.get_headers(), {"filter": {"eventIds": event_ids}, "marketProjection": ["EVENT", "RUNNER_DESCRIPTION"]})
+        response = await self.post(url, self.get_headers(), {"filter": {"eventIds": event_ids}, "maxResults": 1000, "marketProjection": ["EVENT", "RUNNER_DESCRIPTION"]})
         results = response
         return [result for result in results if result['marketName'] in allowed_market_ids]
 
@@ -177,7 +178,7 @@ class BetfairScraper(Scraper):
                 selection_id = runner.get('selectionId')
                 marketbook_runner = next((runner for runner in marketBook.get('runners', []) if runner.get('selectionId') == selection_id), {})
                 bets = marketbook_runner.get('ex', {}).get('availableToLay', [])
-                best_price = next((bet.get('price') for bet in bets if bet.get('size') > 100), 0)
+                best_price = next((bet.get('price') for bet in sorted(bets, key=lambda x: x.get('size')) if bet.get('size') > 100), 0)
                 odd_id = runner['selectionId']
                 locked = marketbook_runner.get('status', '') != 'ACTIVE' or best_price == 0
                 
