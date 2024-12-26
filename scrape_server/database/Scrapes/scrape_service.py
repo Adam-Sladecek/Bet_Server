@@ -65,6 +65,7 @@ class ScrapeService:
 
     def handle_group_result(self, command: Command, result_count: dict):
         if command == Command.REFRESH: 
+            ScrapeHelper.link_odds()
             is_set = self.send_all_event.is_set()
             ScrapeHelper.send_updated_events(is_set)
             if is_set: 

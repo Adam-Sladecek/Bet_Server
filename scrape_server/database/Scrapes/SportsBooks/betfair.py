@@ -13,7 +13,7 @@ class BetfairScraper(Scraper):
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         super().__init__(sportsbook, sports)
-        self.session_token = "XeLBIkIBzt9awa21qnAe38fxA0HaYfN4DctIMbJHHRo="
+        self.session_token = "0KbKRHrJeWEi+p7lsItHctVQsh60f5DvwEHlIIH4s3M="
         self.app_key = "WAVvPmAtlpnmt9Er" # Get from Betfair Developer Program
         self.markets = [sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()]
         
@@ -194,7 +194,7 @@ class BetfairScraper(Scraper):
                         odd_id=odd_id,
                         movement=1,
                         is_default=self.sportsbook.is_default,
-                        selected=False,
+                        selected=True,
                         locked=locked,
                         sportsbook_id=self.sportsbook.pk,
                         event_id=event_id,

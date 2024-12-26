@@ -266,7 +266,7 @@ class TestBetfair(TestCase):
             mock_response = json.load(file)
         return mock_response
     
-    async def mock_gather_markets(self, events):
+    async def mock_gather_markets(self, event_ids, allowed_market_ids):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/markets.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
