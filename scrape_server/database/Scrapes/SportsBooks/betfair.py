@@ -3,6 +3,8 @@ import json
 from datetime import datetime
 from typing import Optional
 import aiohttp
+
+from ...enums import Movement
 from ...models import Sport, Sportsbook, Event, Odd, SportsbookMarket
 from ..helpers import OddHelper, EventHelper
 from ..dataclass_models import EventModel, OddModel
@@ -13,7 +15,7 @@ class BetfairScraper(Scraper):
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
         super().__init__(sportsbook, sports)
-        self.session_token = "0KbKRHrJeWEi+p7lsItHctVQsh60f5DvwEHlIIH4s3M="
+        self.session_token = "h0z8dOrm1huD8ORIJk3pHSNf7KT78RG7VbSrKlev8HM="
         self.app_key = "WAVvPmAtlpnmt9Er" # Get from Betfair Developer Program
         self.markets = [sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()]
         
@@ -192,7 +194,7 @@ class BetfairScraper(Scraper):
                     odds_to_create.append(OddModel(
                         id=None,
                         odd_id=odd_id,
-                        movement=1,
+                        movement=Movement.UP,
                         is_default=self.sportsbook.is_default,
                         selected=True,
                         locked=locked,

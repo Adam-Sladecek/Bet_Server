@@ -13,6 +13,7 @@ from database.Scrapes.SportsBooks.ifortuna import IfortunaScraper
 from database.Scrapes.SportsBooks.nike import NikeScraper
 from database.Scrapes.SportsBooks.tipsport import TipsportScraper
 from database.Scrapes.SportsBooks.betfair import BetfairScraper
+
 class TestIfortuna(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -29,36 +30,35 @@ class TestIfortuna(TestCase):
         Odd.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp2)
         Odd.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp3)
 
-    async def mock_fetch_import(self, session, url, sport_id, headers):
-        if 'overview' in url:
-            file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/ifortuna/import_events.json'
-        else:    
-            file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/ifortuna/import_odds.json'
+    async def mock_fetch_events(self, session, url, sport_id, headers):
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/ifortuna/import_events.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return (sport_id, mock_response)
     
-    async def mock_fetch_get_data(self, session, url, sport_id, headers):
-        if 'overview' in url:
-            file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/ifortuna/import_events.json'
-        else:    
-            file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/ifortuna/get_data_odds.json'
+    async def mock_fetch_get_data_first(self, session, url, sport_id, headers):
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/ifortuna/get_data_odds_first.json'
+        with open(file_path, 'r', encoding='utf-8') as file:
+            mock_response = json.load(file)
+        return (sport_id, mock_response)
+    
+    async def mock_fetch_get_data_second(self, session, url, sport_id, headers):
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/ifortuna/get_data_odds_second.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return (sport_id, mock_response)
 
-    async def mock_fetch_get_data2(self, session, url, sport_id, headers):
-        return (sport_id, [{"id": "LSKFOOTBALL", "leagues": [{"matches":[]}]}])
+    async def mock_fetch_get_data_empty(self, session, url, sport_id, headers):
+        return (sport_id, None)
     
     def test_flow(self): 
-        with patch.object(IfortunaScraper, 'fetch_data', new=self.mock_fetch_import):
+        with patch.object(IfortunaScraper, 'fetch_data', new=self.mock_fetch_events):
             # import_all_data
             your_instance = IfortunaScraper(self.sportsbook, [self.sport])
             your_instance.import_all_data()
             self.assertEqual(Event.objects.count(), 2)
-            self.assertEqual(Odd.objects.count(), 6)
 
-        with patch.object(IfortunaScraper, 'fetch_data', new=self.mock_fetch_get_data):
+        with patch.object(IfortunaScraper, 'fetch_data', new=self.mock_fetch_get_data_first):
             # get_data
             event = Event.objects.filter(is_default=False).first()
             default_event = Event.objects.filter(is_default=True).first()
@@ -74,12 +74,16 @@ class TestIfortuna(TestCase):
                 odd_default.save()
                 odd.save()
             your_instance.get_data()
+            self.assertEqual(Odd.objects.count(), 6)
+
+        with patch.object(IfortunaScraper, 'fetch_data', new=self.mock_fetch_get_data_second):
+            your_instance.get_data()
             self.assertEqual(Odd.objects.filter(is_default=False, opportunity=self.opp).first().odd, 16)
             self.assertTrue(Odd.objects.filter(is_default=False, opportunity=self.opp2).first().locked)
             self.assertTrue(Odd.objects.filter(is_default=False, opportunity=self.opp3).first().locked)
 
-        # Case: Api returns no events -> Match should be deleted with its odds
-        with patch.object(IfortunaScraper, 'fetch_data', new=self.mock_fetch_get_data2):
+        # Case: Api returns no odds -> Match should be deleted with its odds
+        with patch.object(IfortunaScraper, 'fetch_data', new=self.mock_fetch_get_data_empty):
             # get_data
             your_instance.get_data()
             self.assertEqual(Event.objects.count(), 1)

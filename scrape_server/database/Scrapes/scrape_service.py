@@ -22,6 +22,8 @@ class ScrapeService:
         self.result_queue = result_queue
         self.import_queue = import_queue
         self.number_of_sbs = number_of_sbs
+        self.scrape_helper = ScrapeHelper()
+        self.scrape_helper.clear_unused_events()
             
     def get_sportsbook_data(self, sportsbook: Sportsbook): 
         try:
@@ -65,15 +67,15 @@ class ScrapeService:
 
     def handle_group_result(self, command: Command, result_count: dict):
         if command == Command.REFRESH: 
-            ScrapeHelper.link_odds()
+            self.scrape_helper.link_odds()
             is_set = self.send_all_event.is_set()
-            ScrapeHelper.send_updated_events(is_set)
+            self.scrape_helper.send_updated_events(is_set)
             if is_set: 
                 self.send_all_event.clear()
             asyncio.run(asyncio.sleep(5))
         else:
-            ScrapeHelper.link_events_and_odds()
-            asyncio.run(ScrapeHelper.broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
+            self.scrape_helper.link_all_events()
+            asyncio.run(self.scrape_helper.broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
             print('Import done.')
         result_count[command.value] = 0
         self.refresh_all_command_queues()
@@ -116,4 +118,4 @@ class ScrapeService:
     def handle_exception(self, ex):
         print('Exception: ' + str(ex))
         self.event.set()
-        ScrapeHelper.broadcast_data(DataType.ERROR, str(ex))
+        self.scrape_helper.broadcast_data(DataType.ERROR, str(ex))

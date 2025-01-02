@@ -21,13 +21,11 @@ from database.Scrapes.helpers import EventHelper, OddHelper, ScrapeHelper
 class TestScrapeProcess(TestCase):
     @patch('database.models.Sport.objects.filter')
     @patch('database.models.Sportsbook.objects.filter')
-    @patch('database.Scrapes.scrape_service.ScrapeHelper.link_events_and_odds')
-    @patch('database.Scrapes.scrape_service.ScrapeHelper.send_updated_events')
+    @patch('database.Scrapes.scrape_service.ScrapeHelper')
     @patch('database.Scrapes.scrape_service.TipsportScraper')
     @patch('database.Scrapes.scrape_service.NikeScraper')
-    def test_scrape_fn_with_sportsbook_data(self, mock_nike_scraper, mock_tipsport_scraper, mock_send_updated_events, 
-                                            mock_link_events_and_odds, mock_sportsbook_filter, mock_sport_filter):
-        # Arange
+    def test_scrape_fn_with_sportsbook_data(self, mock_nike_scraper, mock_tipsport_scraper, mock_scrape_helper_class, mock_sportsbook_filter, mock_sport_filter):
+        # Arrange
         mock_sportsbook_nike = MagicMock()
         mock_sportsbook_nike.pk = 1
         mock_sportsbook_nike.name = 'Nike'
@@ -39,7 +37,15 @@ class TestScrapeProcess(TestCase):
         mock_sport_filter.return_value.all.return_value = [MagicMock(name='Sport 1')]
         mock_sportsbook_filter.return_value.all.return_value = [mock_sportsbook_nike, mock_sportsbook_tipsport]
 
-        # NOTE: this is needed in order for 'with' block to work properly in ScrapeService.get_sportsbook_data test
+        # Mock ScrapeHelper instance and its methods
+        mock_scrape_helper = MagicMock()
+        mock_scrape_helper_class.return_value = mock_scrape_helper
+        mock_scrape_helper.link_all_events = MagicMock()
+        mock_scrape_helper.send_updated_events = MagicMock()
+        mock_scrape_helper.link_odds = MagicMock()
+        mock_scrape_helper.clear_unused_events = MagicMock()
+
+        # Mock Nike and Tipsport scrapers
         mock_nike_scraper.return_value.__enter__.return_value = mock_nike_scraper.return_value
         mock_nike_scraper.return_value.__exit__.return_value = False
         mock_tipsport_scraper.return_value.__enter__.return_value = mock_tipsport_scraper.return_value
@@ -72,8 +78,12 @@ class TestScrapeProcess(TestCase):
         self.assertEqual(mock_nike_scraper.return_value.import_all_data.call_count, 1)
         self.assertEqual(mock_tipsport_scraper.return_value.import_all_data.call_count, 1)
 
-        mock_link_events_and_odds.assert_called() 
-        mock_send_updated_events.assert_called() 
+        # Assert ScrapeHelper methods were called
+        mock_scrape_helper_class.assert_called_once()  # Assert constructor was called
+        mock_scrape_helper.link_all_events.assert_called_once()
+        mock_scrape_helper.send_updated_events.assert_called_once()
+        mock_scrape_helper.link_odds.assert_called_once()
+        mock_scrape_helper.clear_unused_events.assert_called_once()
         self.assertTrue(import_queue.empty())
 
 class TestEventHepler(TestCase):
@@ -254,6 +264,7 @@ class TestScrapeHelper(TestCase):
         cls.sport = Sport.objects.create(name="Tennis", selected=True, url="https://example.com")
         cls.sportsbook1 = Sportsbook.objects.create(name="Nike", selected=True, is_default=True)
         cls.sportsbook2 = Sportsbook.objects.create(name="Tipsport", selected=True)
+        cls.scrape_helper = ScrapeHelper()
         cls.event_helper = EventHelper(cls.sportsbook1)
         cls.event_helper2 = EventHelper(cls.sportsbook2)
         cls.odd_helper = OddHelper(cls.sportsbook1)
@@ -302,7 +313,7 @@ class TestScrapeHelper(TestCase):
         sportsbook.save()
 
         # Act
-        ScrapeHelper.clear_unused_events()
+        self.scrape_helper.clear_unused_events()
 
         # Assert
         self.assertEqual(Event.objects.count(), 3)
@@ -315,7 +326,8 @@ class TestScrapeHelper(TestCase):
         self.run_updates()
 
         # Act
-        ScrapeHelper.link_events_and_odds()
+        self.scrape_helper.link_all_events()
+        self.scrape_helper.link_odds()
 
         # Assert
         event_ids = [event.event_id for event in Event.objects.filter(sportsbook=self.sportsbook2, parent__isnull=False).all()]
@@ -323,13 +335,13 @@ class TestScrapeHelper(TestCase):
         odd_ids = [odd.odd_id for odd in Odd.objects.filter(sportsbook=self.sportsbook2, parent__isnull=False).all()]
         self.assertEqual(odd_ids, [1, 3])
 
-    def test_chage_of_parents(self):
+    def test_change_of_parents(self):
         # this should be better match as first eventModel in event_models2 
         self.event_models2.append(
             EventModel(None, 4, 0, "", 'Roger Federe', 'Rafael Nada', False, False, self.sportsbook2.pk, self.sport.pk, [], 5),
         )
         self.run_updates()
-        ScrapeHelper.link_all_events()
+        self.scrape_helper.link_all_events()
         event1 = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event2 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=1).first()
         event3 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=4).first()
@@ -341,7 +353,7 @@ class TestScrapeHelper(TestCase):
             EventModel(None, 5, 0, "", 'Roger Federer', 'Rafael Nadal', False, False, self.sportsbook2.pk, self.sport.pk, [], 5),
         )
         self.event_helper2.update_events(self.event_models2)
-        ScrapeHelper.link_all_events()
+        self.scrape_helper.link_all_events()
         event1 = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event2 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=1).first()
         event3 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=4).first()
@@ -357,7 +369,8 @@ class TestScrapeHelper(TestCase):
         reset_database()
         self.setUpTestData()
         self.run_updates()
-        ScrapeHelper.link_events_and_odds()
+        self.scrape_helper.link_all_events()
+        self.scrape_helper.link_odds()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
@@ -382,7 +395,7 @@ class TestScrapeHelper(TestCase):
                 mock_response = json.load(file)
 
             # Act 
-            ScrapeHelper.send_updated_events(fetch_all)
+            self.scrape_helper.send_updated_events(fetch_all)
             
             # Assert
             args, _ = mock_broadcast_data.call_args
@@ -400,7 +413,8 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_parent_is_used(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        ScrapeHelper.link_events_and_odds()
+        self.scrape_helper.link_all_events()
+        self.scrape_helper.link_odds()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.used=True
@@ -411,7 +425,7 @@ class TestScrapeHelper(TestCase):
         odd.save()
 
         # Act 
-        ScrapeHelper.send_updated_events(False)
+        self.scrape_helper.send_updated_events(False)
         
         # Assert
         args, _ = mock_broadcast_data.call_args
@@ -423,7 +437,8 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_child_is_used(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        ScrapeHelper.link_events_and_odds()
+        self.scrape_helper.link_all_events()
+        self.scrape_helper.link_odds()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
@@ -436,7 +451,7 @@ class TestScrapeHelper(TestCase):
         odd.save()
 
         # Act 
-        ScrapeHelper.send_updated_events(False)
+        self.scrape_helper.send_updated_events(False)
         
         # Assert
         args, _ = mock_broadcast_data.call_args
@@ -448,7 +463,8 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_parent_odd_is_locked(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        ScrapeHelper.link_events_and_odds()
+        self.scrape_helper.link_all_events()
+        self.scrape_helper.link_odds()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
@@ -459,7 +475,7 @@ class TestScrapeHelper(TestCase):
         odd.save()
 
         # Act 
-        ScrapeHelper.send_updated_events(False)
+        self.scrape_helper.send_updated_events(False)
         
         # Assert
         args, _ = mock_broadcast_data.call_args
@@ -471,7 +487,8 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_child_odd_is_locked(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        ScrapeHelper.link_events_and_odds()
+        self.scrape_helper.link_all_events()
+        self.scrape_helper.link_odds()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
@@ -486,7 +503,7 @@ class TestScrapeHelper(TestCase):
         odd2.save()
 
         # Act 
-        ScrapeHelper.send_updated_events(False)
+        self.scrape_helper.send_updated_events(False)
         
         # Assert
         args, _ = mock_broadcast_data.call_args
@@ -498,7 +515,8 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_odds_have_no_movement(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        ScrapeHelper.link_events_and_odds()
+        self.scrape_helper.link_all_events()
+        self.scrape_helper.link_odds()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
@@ -510,7 +528,7 @@ class TestScrapeHelper(TestCase):
         odd2.movement=0
         odd2.save()
         # Act 
-        ScrapeHelper.send_updated_events(False)
+        self.scrape_helper.send_updated_events(False)
         
         # Assert
         args, _ = mock_broadcast_data.call_args
@@ -522,7 +540,8 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_ev_is_leq0(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        ScrapeHelper.link_events_and_odds()
+        self.scrape_helper.link_all_events()
+        self.scrape_helper.link_odds()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
@@ -535,7 +554,7 @@ class TestScrapeHelper(TestCase):
         odd2.odd=1.2
         odd2.save()
         # Act 
-        ScrapeHelper.send_updated_events(False)
+        self.scrape_helper.send_updated_events(False)
         
         # Assert
         args, _ = mock_broadcast_data.call_args

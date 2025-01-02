@@ -174,77 +174,63 @@ class OddHelper:
         return {event.event_id: {odd.odd_id: odd for odd in event.odds.all()} for event in events}
 
 class ScrapeHelper:
-    @staticmethod
-    def send_updated_events(fetch_all: bool):
-        sportsbook = Sportsbook.objects.get(is_default=True, selected=True)
-        event_helper = EventHelper(sportsbook)
-        events, _ = event_helper.get_selected_events()
+    def __init__(self):
+        self.event_helper = EventHelper(Sportsbook.objects.get(is_default=True, selected=True))
+
+    def send_updated_events(self, fetch_all: bool):
+        events, _ = self.event_helper.get_selected_events()
         response = MatchOpportunityResponse.dataclass_from_models(events, fetch_all)
-        asyncio.run(ScrapeHelper.broadcast_data(DataType.MATCHDATA, response.dict))
+        asyncio.run(self.broadcast_data(DataType.MATCHDATA, response.dict))
 
-    @staticmethod
-    def link_events_and_odds(): 
-        ScrapeHelper.clear_unused_events()
-        ScrapeHelper.link_all_events()
-        ScrapeHelper.link_odds()
-
-    @staticmethod
-    def clear_unused_events():
+    def clear_unused_events(self):
         unused_sportsbooks = Sportsbook.objects.filter(selected=False).all()
         sb_ids = [sb.pk for sb in unused_sportsbooks]
 
         with transaction.atomic():
             Event.objects.filter(sportsbook_id__in=sb_ids).delete()
 
-    @staticmethod
-    def link_all_events():
-        parents = ScrapeHelper.fetch_parent_events()
+    def link_all_events(self):
+        parents = self.fetch_parent_events()
         parents_by_key = {parent.pk: parent for parent in parents}
-        parents_by_sport = ScrapeHelper.group_parents_by_sport(parents)
-        events = ScrapeHelper.fetch_unlinked_events()
-        events_by_parent = ScrapeHelper.link_events_to_parents(events, parents_by_sport)
-        ScrapeHelper.assign_parents_to_events(events_by_parent, parents_by_key)
+        parents_by_sport = self.group_parents_by_sport(parents)
+        events = self.fetch_unlinked_events()
+        events_by_parent = self.link_events_to_parents(events, parents_by_sport)
+        self.assign_parents_to_events(events_by_parent, parents_by_key)
 
-    @staticmethod
-    def link_odds():
-        parents = ScrapeHelper.fetch_parents_with_odds()
+    def link_odds(self):
+        parents = self.fetch_parents_with_odds()
 
         odds_to_update = []
         for parent in parents:
             for child in parent.children.all():
-                odds_to_update.extend(ScrapeHelper.link_child_odds_to_parent(child, parent.odds.all()))
+                odds_to_update.extend(self.link_child_odds_to_parent(child, parent.odds.all()))
 
         with transaction.atomic():
             Odd.objects.bulk_update(odds_to_update, ['parent'])
 
-    @staticmethod
-    def fetch_parent_events() -> list[Event]:
+    def fetch_parent_events(self) -> list[Event]:
         return Event.objects.filter(is_default=True).select_related('sport').prefetch_related(
             'children',
             'children__sportsbook', 
             'children__sport'
         ).all()
 
-    @staticmethod
-    def group_parents_by_sport(parents: list[Event]) -> dict[int, list[Event]]:
+    def group_parents_by_sport(self, parents: list[Event]) -> dict[int, list[Event]]:
         parents_by_sport = defaultdict(list)
         for parent in parents:
             parents_by_sport[parent.sport.pk].append(parent)
         return parents_by_sport
     
-    @staticmethod
-    def fetch_unlinked_events() -> list[Event]:
+    def fetch_unlinked_events(self) -> list[Event]:
         return Event.objects.select_related('sportsbook', 'sport', 'parent').filter(is_default=False, parent__isnull=True).all()
 
-    @staticmethod
-    def link_events_to_parents(events: list[Event], parents_by_sport: dict[int, list[Event]]) -> dict[int, list[Event]]:
+    def link_events_to_parents(self, events: list[Event], parents_by_sport: dict[int, list[Event]]) -> dict[int, list[Event]]:
         events_by_parent = defaultdict(list)
         for event in events:
-            ScrapeHelper.find_best_parent(event, parents_by_sport[event.sport.pk], events_by_parent)
+            self.find_best_parent(event, parents_by_sport[event.sport.pk], events_by_parent)
         return events_by_parent
     
-    @staticmethod
-    def assign_parents_to_events(events_by_parent: dict[int, list[Event]], parents_by_key: dict[int, Event]) -> None:
+    def assign_parents_to_events(self, events_by_parent: dict[int, list[Event]], parents_by_key: dict[int, Event]) -> None:
         events_to_update = []
         
         if -1 in events_by_parent:
@@ -262,8 +248,7 @@ class ScrapeHelper:
         with transaction.atomic():
             Event.objects.bulk_update(events_to_update, ['parent'])
 
-    @staticmethod
-    def find_best_parent(event_to_be_linked: Event, parents: list[Event], events_by_parent: dict[int, list[Event]]) -> Event:
+    def find_best_parent(self, event_to_be_linked: Event, parents: list[Event], events_by_parent: dict[int, list[Event]]) -> Event:
         sorted_parents = sorted(parents, key=lambda p: p.get_score(event_to_be_linked), reverse=True)
         best_parent = sorted_parents[0] if sorted_parents else None
         best_score = best_parent.get_score(event_to_be_linked) if best_parent else 0
@@ -288,8 +273,7 @@ class ScrapeHelper:
         
         return events_by_parent
 
-    @staticmethod
-    def fetch_parents_with_odds() -> list[Event]:
+    def fetch_parents_with_odds(self) -> list[Event]:
         return Event.objects.filter(is_default=True).prefetch_related(
             'odds',
             'odds__opportunity',
@@ -300,8 +284,7 @@ class ScrapeHelper:
             'children__odds__opportunity__parent',
         ).all()
     
-    @staticmethod
-    def link_child_odds_to_parent(child: Event, parent_odds: list[Odd]) -> list[Odd]:
+    def link_child_odds_to_parent(self, child: Event, parent_odds: list[Odd]) -> list[Odd]:
         odds_to_update = []
         for odd in child.odds.filter(parent__isnull=True).all():
             for parent_odd in parent_odds:
@@ -311,8 +294,7 @@ class ScrapeHelper:
                     break
         return odds_to_update
     
-    @staticmethod
-    async def broadcast_data(data_type, data):
+    async def broadcast_data(self, data_type, data):
         if isinstance(data, Enum):
             data = data.value
 
