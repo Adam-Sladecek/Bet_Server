@@ -5,16 +5,16 @@ from database.models import Sportsbook, Sport
 from database.enums import DataType, TaskState, Command
 from database.Scrapes.SportsBooks.nike import NikeScraper
 from database.Scrapes.SportsBooks.tipsport import TipsportScraper
-from database.Scrapes.SportsBooks.pinnacle import PinnacleScraper
+from scrape_server.database.Scrapes.SportsBooks.NotUsed.pinnacle import PinnacleScraper
 from database.Scrapes.SportsBooks.ifortuna import IfortunaScraper
 from database.Scrapes.SportsBooks.betfair import BetfairScraper
-from database.Scrapes.SportsBooks.ps3838 import PS3838Scraper
+from scrape_server.database.Scrapes.SportsBooks.NotUsed.ps3838 import PS3838Scraper
 from database.Scrapes.SportsBooks.scraper import Scraper
 from database.Scrapes.helpers import ScrapeHelper
 
 class ScrapeService: 
     def __init__(self, sports: list[Sport], event: threading.Event, send_all_event: threading.Event, 
-                 command_queues: dict[int, queue.Queue], result_queue: queue.Queue, import_queue: queue.Queue, number_of_sbs: int):
+        command_queues: dict[int, queue.Queue], result_queue: queue.Queue, import_queue: queue.Queue, number_of_sbs: int):
         self.sports = sports
         self.event = event
         self.send_all_event = send_all_event
@@ -45,9 +45,9 @@ class ScrapeService:
 
     def execute_command(self, scraper: Scraper, command: Command):
         if command == Command.IMPORT:
-            scraper.import_all_data()
+            scraper.import_events()
         else:    
-            scraper.get_data()
+            scraper.refresh_odds()
         self.result_queue.put(command)
 
     def group_results(self): 

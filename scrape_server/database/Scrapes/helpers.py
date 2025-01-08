@@ -1,18 +1,17 @@
 import asyncio
 from enum import Enum
-from django.db.models import Q
 from django.db import transaction
 from collections import defaultdict
 from channels.layers import get_channel_layer
 from database.enums import DataType
-from database.models import Sportsbook, Opportunity, Odd, Event, Sport
-from database.Scrapes.dataclass_models import EventModel, OddModel, MatchOpportunityResponse
+from database.models import Sportsbook, Opportunity, Price, Event, SportsbookMarket
+from database.Scrapes.dataclass_models import EventModel, MatchOpportunityResponse, PriceModel
 
 class EventHelper: 
     def __init__(self, sportsbook: Sportsbook) -> None:
         self.sportsbook = sportsbook
 
-    def update_events(self, events_list: list[EventModel], delete=True):
+    def update_events(self, events_list: list[EventModel]):
         existing_events = Event.objects.select_related('sportsbook').filter(sportsbook=self.sportsbook).all()
         existing_events_dict = {event.event_id: event for event in existing_events}
         new_events = []
@@ -27,7 +26,7 @@ class EventHelper:
             new_event = self.create_new_event(event_data)
             new_events.append(new_event)
 
-        self.bulk_save_events(events_to_update, new_events, delete, events_list)
+        self.bulk_save_events(events_to_update, new_events, events_list)
 
     def create_new_event(self, event_data: EventModel) -> Event:
         return Event(
@@ -42,22 +41,14 @@ class EventHelper:
             sport_id=event_data.sport_id
         )
     
-    def bulk_save_events(self, events_to_update: list[Event], new_events: list[Event], delete: bool, events_list: list[EventModel]) -> None:
+    def bulk_save_events(self, events_to_update: list[Event], new_events: list[Event], events_list: list[EventModel]) -> None:
         with transaction.atomic():
-            if delete:
-                used_event_ids = {event_data.event_id for event_data in events_list}
-                Event.objects.filter(sportsbook=self.sportsbook).exclude(event_id__in=used_event_ids).delete()
+            used_event_ids = {event_data.event_id for event_data in events_list}
+            Event.objects.filter(sportsbook=self.sportsbook).exclude(event_id__in=used_event_ids).delete()
             Event.objects.bulk_update(events_to_update, ['time'])
             Event.objects.bulk_create(new_events)
 
-    def get_selected_events(self) -> tuple[list[Event], set]:
-        events = self.fetch_selected_events()
-        result = list(events)
-        sport_ids = {event.sport.pk for event in events}
-
-        return result, sport_ids
-
-    def fetch_selected_events(self) -> list[Event]:
+    def get_selected_events(self) -> list[Event]:
         queryset = Event.objects.select_related('sport', 'parent').prefetch_related(
             'children',
             'odds',
@@ -83,26 +74,32 @@ class EventHelper:
         with transaction.atomic():
             Event.objects.filter(sportsbook=self.sportsbook).filter(event_id__in=event_ids).delete()
 
-class OddHelper: 
+class PriceHelper: 
     def __init__(self, sportsbook: Sportsbook) -> None:
         self.sportsbook = sportsbook
+        
+    def get_allowed_markets(self) -> set[str]:
+        markets = SportsbookMarket.objects.filter(sportsbook=self.sportsbook).values_list('value', flat=True)
+        return set(markets)
 
-    def update_odds(self, odds_to_create: list[OddModel], odds_to_update: list[Odd]):
-        events_dict = self.get_events_dict(odds_to_create)
+    def update_odds(self, odds_to_create: list[PriceModel], odds_to_update: list[Price]):
         self.update_selected_odds(odds_to_update)
+        if len(odds_to_create) == 0:
+            return
 
+        events_dict = self.get_events_dict(odds_to_create)
         new_odds, new_opportunities = self.process_odds(odds_to_create, events_dict)
             
         with transaction.atomic():
             Opportunity.objects.bulk_create(new_opportunities)
-            Odd.objects.bulk_create(new_odds)
+            Price.objects.bulk_create(new_odds)
 
     def get_events_dict(self, odds_to_create: list[OddModel]) -> dict[int, Event]:
         event_ids = {odd.event_id for odd in odds_to_create}
         events = Event.objects.select_related('sport').filter(sportsbook=self.sportsbook, event_id__in=event_ids)
         return {event.event_id: event for event in events}
     
-    def process_odds(self, odds_to_create: list[OddModel], events_dict: dict[int, Event]) -> tuple[list[Odd], list[Opportunity]]:
+    def process_odds(self, odds_to_create: list[OddModel], events_dict: dict[int, Event]) -> tuple[list[Price], list[Opportunity]]:
         new_odds = []
         new_opportunities = []
         opportunities_dict_by_sport = self.get_relevant_opportunities(odds_to_create)
@@ -120,8 +117,8 @@ class OddHelper:
 
         return new_odds, new_opportunities
     
-    def create_new_odd(self, odd: OddModel, event: Event, opportunity: Opportunity) -> Odd:
-        return Odd(
+    def create_new_odd(self, odd: OddModel, event: Event, opportunity: Opportunity) -> Price:
+        return Price(
             odd_id=odd.odd_id,
             code=odd.code,
             movement=odd.movement,
@@ -143,29 +140,26 @@ class OddHelper:
             market_id=odd.market_id
         )
     
-    def get_relevant_opportunities(self, odds: list[OddModel]) -> dict[tuple[int, str], Opportunity]:
-        descriptions = [odd.description for odd in odds]
-        relevant_opportunities = Opportunity.objects.filter(
-            sportsbook=self.sportsbook,
-            description__in=descriptions
-        ).order_by('sport_id').all()
-        opportunities_by_sport = { sport.pk: {} for sport in Sport.objects.all()}
-        for opportunity in relevant_opportunities: 
+    def get_opportunities(self, events: list[Event]) -> dict[int, dict[str, Opportunity]]:
+        sport_ids = {event.sport.pk for event in events}
+        relevant_opportunities = Opportunity.objects.filter(sportsbook=self.sportsbook, sport_id__in=sport_ids).all()
+        opportunities_by_sport = { sport_id: {} for sport_id in sport_ids }
+        for opportunity in relevant_opportunities:
             opportunities_by_sport[opportunity.sport.pk][opportunity.description] = opportunity
         return opportunities_by_sport
     
-    def update_selected_odds(self, odds_to_update: list[Odd]):
+    def update_selected_odds(self, odds_to_update: list[Price]):
         with transaction.atomic():
-            Odd.objects.bulk_update(odds_to_update, ['odd', 'locked', 'movement'])
+            Price.objects.bulk_update(odds_to_update, ['odds', 'locked', 'movement'])
 
     def update_movements(self, events: list[Event]):
         event_ids = [event.pk for event in events]
-        odds = Odd.objects.filter(sportsbook=self.sportsbook, event_id__in=event_ids)
+        odds = Price.objects.filter(sportsbook=self.sportsbook, event_id__in=event_ids)
         for odd in odds: 
             odd.movement = 0
 
         with transaction.atomic():
-            Odd.objects.bulk_update(odds, ['movement'])    
+            Price.objects.bulk_update(odds, ['movement'])    
 
     def get_existing_odds(self, include_code: bool=False):
         events = Event.objects.filter(sportsbook=self.sportsbook).prefetch_related('odds', 'odds__opportunity').all()
@@ -206,7 +200,7 @@ class ScrapeHelper:
                 odds_to_update.extend(self.link_child_odds_to_parent(child, parent.odds.all()))
 
         with transaction.atomic():
-            Odd.objects.bulk_update(odds_to_update, ['parent'])
+            Price.objects.bulk_update(odds_to_update, ['parent'])
 
     def fetch_parent_events(self) -> list[Event]:
         return Event.objects.filter(is_default=True).select_related('sport').prefetch_related(
@@ -284,7 +278,7 @@ class ScrapeHelper:
             'children__odds__opportunity__parent',
         ).all()
     
-    def link_child_odds_to_parent(self, child: Event, parent_odds: list[Odd]) -> list[Odd]:
+    def link_child_odds_to_parent(self, child: Event, parent_odds: list[Price]) -> list[Price]:
         odds_to_update = []
         for odd in child.odds.filter(parent__isnull=True).all():
             for parent_odd in parent_odds:

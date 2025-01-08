@@ -1,6 +1,6 @@
 from .scraper import Scraper
 from ..dataclass_models import EventModel, OddModel
-from ...models import Odd, Sport, Event, SportsbookMarket
+from ...models import Price, Sport, Event, SportsbookMarket
 
 class IfortunaScraper(Scraper):
     def __enter__(self):
@@ -78,7 +78,7 @@ class IfortunaScraper(Scraper):
             odd_count=0,
         )
     
-    def map_odds(self, data: dict[int, object]) -> tuple[list[OddModel], list[Odd]]:
+    def map_odds(self, data: dict[int, object]) -> tuple[list[OddModel], list[Price]]:
         if all(element is None for element in data.values()):
             raise Exception('No details retrieved.')
         
@@ -194,7 +194,7 @@ class IfortunaScraper(Scraper):
                 return match
         return None
     
-    def map_odds_selected(self, events: list[Event], odds_response: dict[int, object]) -> list[Odd]:
+    def map_odds_selected(self, events: list[Event], odds_response: dict[int, object]) -> list[Price]:
         event_dict = {event.event_id: event for event in events}
         odds_to_update = []
         for event_id, dataset in odds_response.items():
@@ -218,7 +218,7 @@ class IfortunaScraper(Scraper):
             for oddArray in market.get('odds', {}).values() for odd in oddArray
         }
     
-    def update_event_odds(self, event: Event, bet_dict: dict[int, dict]) -> list[Odd]:
+    def update_event_odds(self, event: Event, bet_dict: dict[int, dict]) -> list[Price]:
         odds_to_update = []
         for odd in event.odds.filter(parent__selected=True).all():
             data_odd = bet_dict.get(odd.odd_id)

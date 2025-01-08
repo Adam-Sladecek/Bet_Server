@@ -16,10 +16,10 @@ class Driver:
                 '--disable-translate', '--dns-prefetch-disable', '--start-maximized', '--window-size=1920,1080'
             ])
         arguments.extend([
-                '--show-capture=no', 'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', 
-                '--disable-dev-shm-usage', '--disable-software-rasterizer', '--disable-features=VizDisplayCompositor', '--mute-audio', '--remote-debugging-port=0', 
-                '--disable-notifications', '--output=/dev/null', '--disable-in-process-stack-traces', '--disable-logging', '--disable-crash-reporter'
-            ])
+            '--show-capture=no', 'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', 
+            '--disable-dev-shm-usage', '--disable-software-rasterizer', '--disable-features=VizDisplayCompositor', '--mute-audio', '--remote-debugging-port=0', 
+            '--disable-notifications', '--output=/dev/null', '--disable-in-process-stack-traces', '--disable-logging', '--disable-crash-reporter'
+        ])
 
         for argument in arguments: 
             options.add_argument(argument)

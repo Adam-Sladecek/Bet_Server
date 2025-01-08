@@ -1,7 +1,7 @@
 import asyncio
 from ..dataclass_models import EventModel, OddModel
 from ..driver import Driver
-from ...models import Odd, Event, Sport, SportsbookMarket
+from ...models import Price, Event, Sport, SportsbookMarket
 from .scraper import Scraper
 
 class TipsportScraper(Scraper): 
@@ -83,7 +83,7 @@ class TipsportScraper(Scraper):
         
         return sport_ids
     
-    def map_odds(self, data: list[object]) -> tuple[list[OddModel], list[Odd]]:
+    def map_odds(self, data: list[object]) -> tuple[list[OddModel], list[Price]]:
         if not any(data):
             raise Exception('No details retrieved.')
         
@@ -166,9 +166,9 @@ class TipsportScraper(Scraper):
         
         return events_to_update, events_to_delete
 
-    def map_odds_selected(self, events: list[Event], odds_response: list[object])-> list[Odd]:
+    def map_odds_selected(self, events: list[Event], odds_response: list[object])-> list[Price]:
         event_dict = {event.event_id: event for event in events}
-        odds_to_update: list[Odd] = []
+        odds_to_update: list[Price] = []
         for data in filter(None, odds_response):
             try:
                 match = data["matchPatches"]["patches"][0]["value"]

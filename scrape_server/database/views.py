@@ -2,7 +2,7 @@ import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db import transaction
-from database.models import Opportunity, Sportsbook, Sport, Event, Odd, SportsbookMarket
+from database.models import Opportunity, Sportsbook, Sport, Event, Price, SportsbookMarket
 from database.Scrapes.dataclass_models import (ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, 
                                                EventResponse, OddResponse, MarketResponse)
 from django.views.decorators.csrf import csrf_exempt
@@ -180,7 +180,7 @@ class EventView(APIView):
 
         with transaction.atomic():
             Event.objects.bulk_update(updated_events, ['selected'])
-            Odd.objects.bulk_update(updated_odds, ['selected'])
+            Price.objects.bulk_update(updated_odds, ['selected'])
 
     def error_response(self, message, status=400) -> Response:
         return Response({'message': message}, status=status)
@@ -260,7 +260,7 @@ class EventOddsView(APIView):
             odd.selected = odd.pk in selected_ids
 
         with transaction.atomic():
-            Odd.objects.bulk_update(odds_to_update, ['selected'])
+            Price.objects.bulk_update(odds_to_update, ['selected'])
 
     def error_response(self, message, status=400):
         return Response({'message': message}, status=status)  

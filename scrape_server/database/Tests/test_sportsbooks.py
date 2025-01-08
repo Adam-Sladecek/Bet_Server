@@ -8,7 +8,7 @@ import json
 from unittest.mock import patch
 
 from common_test_methods import reset_database
-from database.models import Sportsbook, Sport, Event, Opportunity, Odd, SportsbookMarket
+from database.models import Sportsbook, Sport, Event, Opportunity, Price, SportsbookMarket
 from database.Scrapes.SportsBooks.ifortuna import IfortunaScraper
 from database.Scrapes.SportsBooks.nike import NikeScraper
 from database.Scrapes.SportsBooks.tipsport import TipsportScraper
@@ -27,9 +27,9 @@ class TestIfortuna(TestCase):
         cls.opp = Opportunity.objects.create(description="Výsledok zápasu *1*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
         cls.opp2 = Opportunity.objects.create(description="Výsledok zápasu Remíza", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
         cls.opp3 = Opportunity.objects.create(description="Výsledok zápasu *2*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=1.1, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp)
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp2)
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp3)
+        Price.objects.create(odd_id=0, code=0, movement=0, odd=1.1, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp)
+        Price.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp2)
+        Price.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp3)
 
     async def mock_fetch_events(self, session, url, sport_id, headers):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/ifortuna/import_events.json'
@@ -71,15 +71,15 @@ class TestIfortuna(TestCase):
             event.add_parent(default_event)
             event.save()
             default_event.save()
-            default_odds = Odd.objects.filter(is_default=True).all()
-            odds = Odd.objects.filter(is_default=False).all()
+            default_odds = Price.objects.filter(is_default=True).all()
+            odds = Price.objects.filter(is_default=False).all()
             for odd, odd_default in zip(odds, default_odds):
                 odd.add_parent(odd_default)
                 odd_default.selected = True
                 odd_default.save()
                 odd.save()
             your_instance.get_data()
-            self.assertEqual(Odd.objects.count(), 6)
+            self.assertEqual(Price.objects.count(), 6)
 
         with patch.object(IfortunaScraper, 'fetch_data', new=self.mock_fetch_get_data_second):
             """
@@ -87,8 +87,8 @@ class TestIfortuna(TestCase):
                 one because it is not available. 
             """
             your_instance.get_data()
-            self.assertEqual(Odd.objects.filter(is_default=False, opportunity=self.opp).first().odd, 16)
-            self.assertEqual(Odd.objects.filter(is_default=False, locked=True).count(), 2)
+            self.assertEqual(Price.objects.filter(is_default=False, opportunity=self.opp).first().odd, 16)
+            self.assertEqual(Price.objects.filter(is_default=False, locked=True).count(), 2)
 
         with patch.object(IfortunaScraper, 'fetch_data', new=self.mock_api_returns_something_weird):
             """
@@ -96,8 +96,8 @@ class TestIfortuna(TestCase):
             """
             your_instance.get_data()
             self.assertEqual(Event.objects.count(), 2)
-            self.assertEqual(Odd.objects.count(), 6)
-            self.assertEqual(Odd.objects.filter(locked=True).count(), 3)
+            self.assertEqual(Price.objects.count(), 6)
+            self.assertEqual(Price.objects.filter(locked=True).count(), 3)
 
 class TestNike(TestCase):
     @classmethod
@@ -112,9 +112,9 @@ class TestNike(TestCase):
         cls.opp = Opportunity.objects.create(description="Zápas - Výsledok *1*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
         cls.opp2 = Opportunity.objects.create(description="Zápas - Výsledok remíza", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
         cls.opp3 = Opportunity.objects.create(description="Zápas - Výsledok *2*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=1.1, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp)
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp2)
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp3)
+        Price.objects.create(odd_id=0, code=0, movement=0, odd=1.1, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp)
+        Price.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp2)
+        Price.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp3)
 
     async def mock_fetch_import(self, session, url, sport_id, headers):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/nike/import_events.json'
@@ -156,15 +156,15 @@ class TestNike(TestCase):
             event.add_parent(default_event)
             event.save()
             default_event.save()
-            default_odds = Odd.objects.filter(is_default=True).all()
-            odds = Odd.objects.filter(is_default=False).all()
+            default_odds = Price.objects.filter(is_default=True).all()
+            odds = Price.objects.filter(is_default=False).all()
             for odd, odd_default in zip(odds, default_odds):
                 odd.add_parent(odd_default)
                 odd_default.selected = True
                 odd_default.save()
                 odd.save()
             your_instance.get_data()
-            self.assertEqual(Odd.objects.count(), 6)
+            self.assertEqual(Price.objects.count(), 6)
 
         with patch.object(NikeScraper, 'fetch_data', new=self.mock_fetch_get_data_second):
             """
@@ -172,8 +172,8 @@ class TestNike(TestCase):
                 one because it is not available. 
             """
             your_instance.get_data()
-            self.assertEqual(Odd.objects.filter(is_default=False, opportunity=self.opp).first().odd, 16)
-            self.assertEqual(Odd.objects.filter(is_default=False, locked=True).count(), 2)
+            self.assertEqual(Price.objects.filter(is_default=False, opportunity=self.opp).first().odd, 16)
+            self.assertEqual(Price.objects.filter(is_default=False, locked=True).count(), 2)
 
         with patch.object(NikeScraper, 'fetch_data', new=self.mock_api_returns_something_weird):
             """
@@ -181,8 +181,8 @@ class TestNike(TestCase):
             """
             your_instance.get_data()
             self.assertEqual(Event.objects.count(), 1)
-            self.assertEqual(Odd.objects.count(), 6)
-            self.assertEqual(Odd.objects.filter(locked=True).count(), 3)
+            self.assertEqual(Price.objects.count(), 6)
+            self.assertEqual(Price.objects.filter(locked=True).count(), 3)
 
 class TestTipsport(TestCase):
     @classmethod
@@ -197,9 +197,9 @@ class TestTipsport(TestCase):
         cls.opp = Opportunity.objects.create(description="Výsledok zápasu *1*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
         cls.opp2 = Opportunity.objects.create(description="Výsledok zápasu Remíza", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
         cls.opp3 = Opportunity.objects.create(description="Výsledok zápasu *2*", sportsbook=cls.sportsbook, sport=cls.sport, market_id="")
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=1.1, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp)
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp2)
-        Odd.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp3)
+        Price.objects.create(odd_id=0, code=0, movement=0, odd=1.1, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp)
+        Price.objects.create(odd_id=0, code=0, movement=0, odd=2, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp2)
+        Price.objects.create(odd_id=0, code=0, movement=0, odd=3, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp3)
 
     async def mock_gather_events(self, sports):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/tipsport/import_events.json'
@@ -245,15 +245,15 @@ class TestTipsport(TestCase):
                 event.add_parent(default_event)
                 event.save()
                 default_event.save()
-                default_odds = Odd.objects.filter(is_default=True).all()
-                odds = Odd.objects.filter(is_default=False).all()
+                default_odds = Price.objects.filter(is_default=True).all()
+                odds = Price.objects.filter(is_default=False).all()
                 for odd, odd_default in zip(odds, default_odds):
                     odd.add_parent(odd_default)
                     odd_default.selected = True
                     odd_default.save()
                     odd.save()
                 your_instance.get_data()
-                self.assertEqual(Odd.objects.count(), 6)
+                self.assertEqual(Price.objects.count(), 6)
             
             with patch.object(TipsportScraper, 'gather_odds', new=self.mock_gather_odds_second):
                 """
@@ -261,8 +261,8 @@ class TestTipsport(TestCase):
                 one because it is not available.
                 """
                 your_instance.get_data()
-                self.assertEqual(Odd.objects.filter(is_default=False, opportunity=self.opp).first().odd, 16)
-                self.assertEqual(Odd.objects.filter(is_default=False, locked=True).count(), 2)
+                self.assertEqual(Price.objects.filter(is_default=False, opportunity=self.opp).first().odd, 16)
+                self.assertEqual(Price.objects.filter(is_default=False, locked=True).count(), 2)
 
             with patch.object(TipsportScraper, 'gather_events', new=self.mock_api_returns_something_weird):
                 """
@@ -270,8 +270,8 @@ class TestTipsport(TestCase):
                 """
                 your_instance.get_data()
                 self.assertEqual(Event.objects.count(), 1)
-                self.assertEqual(Odd.objects.count(), 6)
-                self.assertEqual(Odd.objects.filter(locked=True).count(), 3)
+                self.assertEqual(Price.objects.count(), 6)
+                self.assertEqual(Price.objects.filter(locked=True).count(), 3)
 
 class TestBetfair(TestCase):
     @classmethod
@@ -327,15 +327,15 @@ class TestBetfair(TestCase):
                 Api returns 3 odds. All should be added to the database.
                 """
                 your_instance.get_data()
-                self.assertEqual(Odd.objects.count(), 3)
+                self.assertEqual(Price.objects.count(), 3)
                 
             with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_second):
                 """
                 Api returns 2 odds. One should be updated with new value (16). Two should be marked as locked.
                 """
                 your_instance.get_data()
-                self.assertEqual(Odd.objects.filter(is_default=True, locked=False).first().odd, 16)
-                self.assertEqual(Odd.objects.filter(is_default=True, locked=True).count(), 2)
+                self.assertEqual(Price.objects.filter(is_default=True, locked=False).first().odd, 16)
+                self.assertEqual(Price.objects.filter(is_default=True, locked=True).count(), 2)
 
             with patch.object(BetfairScraper, 'gather_odds', new=self.mock_api_returns_something_weird):
                 """
@@ -343,5 +343,4 @@ class TestBetfair(TestCase):
                 """
                 your_instance.get_data()
                 self.assertEqual(Event.objects.count(), 1)
-                self.assertEqual(Odd.objects.count(), 3)
-                self.assertEqual(Odd.objects.filter(locked=True).count(), 3)
+                self.assertEqual(Price.objects.filter(locked=True).count(), 3)

@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.urls import reverse
 import json
-from database.models import Sportsbook, Sport, Event, Opportunity, Odd, SportsbookMarket
+from database.models import Sportsbook, Sport, Event, Opportunity, Price, SportsbookMarket
 from common_test_methods import reset_database
 
 class TestConfig(APITestCase):
@@ -173,7 +173,7 @@ class TestEvents(APITestCase):
             sport=cls.sport1, 
             market_id='', 
         )
-        cls.odd11 = Odd.objects.create(
+        cls.odd11 = Price.objects.create(
             odd_id=0, 
             code=0, 
             movement=0, 
@@ -222,7 +222,7 @@ class TestEvents(APITestCase):
         self.assertEqual(response.status_code, 200)
         event=Event.objects.get(id=self.event1.pk)
         self.assertTrue(event.selected)
-        odd=Odd.objects.get(id=self.odd11.pk)
+        odd=Price.objects.get(id=self.odd11.pk)
         self.assertTrue(odd.selected)
 
     def test_set_used_event(self): 
@@ -256,7 +256,7 @@ class TestEvents(APITestCase):
     def test_change_event_odds(self): 
         response = self.client.post(reverse('event_odds', kwargs={'pk':self.event1.pk}), data=json.dumps({'ids':[self.odd11.pk]}), content_type='application/json', **self.bearer_token)
         self.assertEqual(response.status_code, 200)
-        odd=Odd.objects.get(id=self.odd11.pk)
+        odd=Price.objects.get(id=self.odd11.pk)
         self.assertTrue(odd.selected)
 
 class TestMarkets(APITestCase):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import asdict, dataclass
-from database.models import Odd, Opportunity, Sport, Sportsbook, Event, SportsbookMarket
+from database.models import Price, Opportunity, Sport, Sportsbook, Event, SportsbookMarket
 
 @dataclass(frozen=True)
 class EventModel: 
@@ -53,49 +53,30 @@ class EventResponse:
         return asdict(self)
     
 @dataclass(frozen=True)
-class OddResponse: 
-    odds: list[OddModel]
+class PriceResponse: 
+    prices: list[PriceModel]
     
-    @classmethod # prefetch sportsbook, opportunity
-    def dataclass_from_models(cls, odds: list[Odd], event: Event) -> OddResponse:
-        odd_models = [OddModel.dataclass_from_model(odd, event) for odd in odds]
-        return cls(odds=odd_models)
+    @classmethod 
+    def dataclass_from_models(cls, prices: list[Price], event: Event) -> PriceResponse:
+        return cls(prices=[PriceModel.from_model(price, event) for price in prices])
 
     @property
     def dict(self) -> dict:
         return asdict(self)
 
 @dataclass(frozen=True)
-class OddModel:
-    id: int
-    odd_id: int
-    code: int
-    movement: int
-    odd: float
-    is_default: bool
-    selected: bool
-    locked: bool
-    event_id: int
-    sportsbook_id: int
+class PriceModel:
+    id: int | None
     description: str
-    market_id: str
+    price: Price | None
 
     @classmethod
-    def dataclass_from_model(cls, odd: Odd, event: Event) -> OddModel:
+    def from_model(cls, price: Price, event: Event) -> PriceModel:
         return cls(
-            id = odd.pk, 
-            odd_id = odd.odd_id,
-            code = odd.code,
-            movement = odd.movement,
-            odd = float(odd.odd),
-            is_default = odd.is_default,
-            selected = odd.selected,
-            locked = odd.locked,
-            event_id = event.pk,
-            sportsbook_id = odd.sportsbook.pk,
-            description = odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away),
-            market_id = odd.opportunity.market_id,
-            )
+            id = price.pk, 
+            description = price.opportunity.description.replace('*1*', event.home).replace('*2*', event.away),
+            price = None,
+        )
 
 @dataclass(frozen=True)
 class MatchOpportunityResponse:

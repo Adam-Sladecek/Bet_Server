@@ -11,7 +11,7 @@ from unittest.mock import patch, MagicMock
 
 from common_test_methods import reset_database
 from database.enums import Command, DataType
-from database.models import Sportsbook, Sport, Event, Opportunity, Odd
+from database.models import Sportsbook, Sport, Event, Opportunity, Price
 from database.Scrapes.main import scrape_fn
 from database.Scrapes.dataclass_models import EventModel, OddModel
 from database.Scrapes.helpers import EventHelper, OddHelper, ScrapeHelper
@@ -202,26 +202,26 @@ class TestOddHepler(TestCase):
     def test_update_odds(self): 
             self.run_updates()
             self.assertEqual(Opportunity.objects.count(), 5)
-            self.assertEqual(Odd.objects.count(), 9)
+            self.assertEqual(Price.objects.count(), 9)
             event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
             assert event.odds.count() == 2
-            odd_to_update= Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+            odd_to_update= Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
             odd_to_update.odd = 4
             odd_to_update.locked = True
             odd_to_update.movement = 2
             self.odd_helper.update_odds([], [odd_to_update])
             Event.objects.filter(sportsbook=self.sportsbook1, event_id=3).delete()
-            odd_to_update= Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-            self.assertEqual(Odd.objects.count(), 8)
+            odd_to_update= Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+            self.assertEqual(Price.objects.count(), 8)
             self.assertEqual(odd_to_update.odd, 4)
             self.assertTrue(odd_to_update.locked)
             self.assertEqual(odd_to_update.movement, 2)
-            assert Odd.objects.filter(sportsbook=self.sportsbook1, event_id=3).count() == 0
+            assert Price.objects.filter(sportsbook=self.sportsbook1, event_id=3).count() == 0
 
     def test_update_movements(self): 
         # Arange
         self.run_updates()
-        odds= Odd.objects.filter(sportsbook=self.sportsbook1, odd_id__in=[1,2,3]).all()
+        odds= Price.objects.filter(sportsbook=self.sportsbook1, odd_id__in=[1,2,3]).all()
         for odd in odds: 
             odd.movement=1
             odd.save()
@@ -230,7 +230,7 @@ class TestOddHepler(TestCase):
         self.odd_helper.update_movements(Event.objects.filter(sportsbook=self.sportsbook1, event_id__in=[1,2]).all())
 
         # Assert
-        odds= Odd.objects.filter(sportsbook=self.sportsbook1, odd_id__in=[1,2,3]).all()
+        odds= Price.objects.filter(sportsbook=self.sportsbook1, odd_id__in=[1,2,3]).all()
         for odd in odds: 
             self.assertEqual(odd.movement, 0)
 
@@ -247,7 +247,7 @@ class TestOddHepler(TestCase):
         event_ids = [event.event_id for event in Event.objects.filter(sportsbook=self.sportsbook1).all()]
         self.assertEqual(list(odds_without_code.keys()), event_ids)
         self.assertEqual(list(odds_with_code.keys()), event_ids)
-        odd = Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
         self.assertEqual(odds_without_code[1][1], odd)
         self.assertEqual(odds_with_code[1][(1,0)], odd)
 
@@ -332,7 +332,7 @@ class TestScrapeHelper(TestCase):
         # Assert
         event_ids = [event.event_id for event in Event.objects.filter(sportsbook=self.sportsbook2, parent__isnull=False).all()]
         self.assertEqual(event_ids, [1, 2])        
-        odd_ids = [odd.odd_id for odd in Odd.objects.filter(sportsbook=self.sportsbook2, parent__isnull=False).all()]
+        odd_ids = [odd.odd_id for odd in Price.objects.filter(sportsbook=self.sportsbook2, parent__isnull=False).all()]
         self.assertEqual(odd_ids, [1, 3])
 
     def test_change_of_parents(self):
@@ -374,14 +374,14 @@ class TestScrapeHelper(TestCase):
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
         odd.movement=1
         odd.selected=True
         odd.save()
         event2 = Event.objects.filter(sportsbook=self.sportsbook1, event_id=2).first()
         event2.selected=True
         event2.save()
-        odd2 = Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=3).first()
+        odd2 = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=3).first()
         odd2.selected=True
         odd2.save()
 
@@ -419,7 +419,7 @@ class TestScrapeHelper(TestCase):
         event.selected=True
         event.used=True
         event.save()
-        odd = Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
         odd.movement=1
         odd.selected=True
         odd.save()
@@ -445,7 +445,7 @@ class TestScrapeHelper(TestCase):
         event2 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=1).first()
         event2.used=True
         event2.save()
-        odd = Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
         odd.movement=1
         odd.selected=True
         odd.save()
@@ -468,7 +468,7 @@ class TestScrapeHelper(TestCase):
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
         odd.movement=1
         odd.selected=True
         odd.locked=True
@@ -492,12 +492,12 @@ class TestScrapeHelper(TestCase):
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
         odd.movement=1
         odd.selected=True
         odd.save()
 
-        odd2 = Odd.objects.filter(sportsbook=self.sportsbook2, odd_id=1).first()
+        odd2 = Price.objects.filter(sportsbook=self.sportsbook2, odd_id=1).first()
         odd2.movement=1
         odd2.locked=True
         odd2.save()
@@ -520,11 +520,11 @@ class TestScrapeHelper(TestCase):
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
         odd.movement=0
         odd.selected=True
         odd.save()
-        odd2 = Odd.objects.filter(sportsbook=self.sportsbook2, odd_id=1).first()
+        odd2 = Price.objects.filter(sportsbook=self.sportsbook2, odd_id=1).first()
         odd2.movement=0
         odd2.save()
         # Act 
@@ -545,11 +545,11 @@ class TestScrapeHelper(TestCase):
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Odd.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
+        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
         odd.movement=1
         odd.selected=True
         odd.save()
-        odd2 = Odd.objects.filter(sportsbook=self.sportsbook2, odd_id=1).first()
+        odd2 = Price.objects.filter(sportsbook=self.sportsbook2, odd_id=1).first()
         odd2.movement=0
         odd2.odd=1.2
         odd2.save()

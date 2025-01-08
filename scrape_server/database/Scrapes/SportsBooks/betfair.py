@@ -5,7 +5,7 @@ from typing import Optional
 import aiohttp
 
 from ...enums import Movement
-from ...models import Sport, Sportsbook, Event, Odd, SportsbookMarket
+from ...models import Sport, Sportsbook, Event, Price, SportsbookMarket
 from ..helpers import OddHelper, EventHelper
 from ..dataclass_models import EventModel, OddModel
 from .scraper import Scraper
@@ -163,7 +163,7 @@ class BetfairScraper(Scraper):
                     ))
         return result
 
-    def map_odds(self, data, markets) -> tuple[list[OddModel], list[Odd]]:
+    def map_odds(self, data, markets) -> tuple[list[OddModel], list[Price]]:
         odds_to_create = []
         odds_to_update = []
         existing_odds = self.odd_helper.get_existing_odds()
@@ -239,5 +239,5 @@ class BetfairScraper(Scraper):
         
         return events_to_update, events_to_delete
     
-    def map_odds_selected(self, data, markets) -> tuple[list[OddModel], list[Odd]]:
+    def map_odds_selected(self, data, markets) -> tuple[list[OddModel], list[Price]]:
         pass

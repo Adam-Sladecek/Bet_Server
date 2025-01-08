@@ -1,7 +1,7 @@
 import asyncio
-from ..dataclass_models import EventModel, OddModel
-from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
-from .scraper import Scraper
+from ...dataclass_models import EventModel, OddModel
+from ....models import Price, Event, Sport, Sportsbook, SportsbookMarket
+from ..scraper import Scraper
 
 class PinnacleScraper(Scraper):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
@@ -116,11 +116,11 @@ class PinnacleScraper(Scraper):
 
         return events
     
-    def map_odds(self, data: dict[tuple[int, int], list[object]]) -> tuple[list[OddModel], list[Odd]]:
+    def map_odds(self, data: dict[tuple[int, int], list[object]]) -> tuple[list[OddModel], list[Price]]:
         if all(element is None for element in data):
             raise Exception('No details retrieved.')
         odds_to_create: list[OddModel] = []
-        odds_to_update: list[Odd] = []
+        odds_to_update: list[Price] = []
         
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         existing_odds = self.odd_helper.get_existing_odds()
@@ -275,8 +275,8 @@ class PinnacleScraper(Scraper):
             return str(match['state']['minutes']) + "'"
         return ''    
     
-    def map_odds_selected(self, events: list[Event], odds_response: dict[int, list[object]]) -> list[Odd]:
-        odds_to_update: list[Odd] = []
+    def map_odds_selected(self, events: list[Event], odds_response: dict[int, list[object]]) -> list[Price]:
+        odds_to_update: list[Price] = []
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         for event in events:
             price_dict = {}

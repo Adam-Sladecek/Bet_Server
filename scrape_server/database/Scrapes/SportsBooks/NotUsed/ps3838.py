@@ -1,8 +1,8 @@
 import asyncio
-from ..dataclass_models import EventModel, OddModel
-from ...models import Odd, Event, Sport, Sportsbook, SportsbookMarket
-from .scraper import Scraper
-from ..ps3838_dataclasses import FixturePS3838, PeriodPS3838
+from ...dataclass_models import EventModel, OddModel
+from ....models import Price, Event, Sport, Sportsbook, SportsbookMarket
+from ..scraper import Scraper
+from .ps3838_dataclasses import FixturePS3838, PeriodPS3838
 from datetime import datetime, timezone
 
 class PS3838Scraper(Scraper):
@@ -198,9 +198,9 @@ class PS3838Scraper(Scraper):
                         ))
         return events
 
-    def map_odds(self, data: dict[int, object]) -> tuple[list[OddModel], list[Odd]]:
+    def map_odds(self, data: dict[int, object]) -> tuple[list[OddModel], list[Price]]:
         odds_to_create: list[OddModel] = []
-        odds_to_update: list[Odd] = []
+        odds_to_update: list[Price] = []
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         existing_odds = self.odd_helper.get_existing_odds()
         for sport_id, dataset in data.items():
@@ -273,5 +273,5 @@ class PS3838Scraper(Scraper):
     def map_events_selected(self, events: list[Event], event_response: dict[int, object]) -> tuple[list[Event], list[Event]]:
         pass
 
-    def map_odds_selected(self, events: list[Event], odds_response: dict[int, list[object]]) -> list[Odd]:
+    def map_odds_selected(self, events: list[Event], odds_response: dict[int, list[object]]) -> list[Price]:
         pass

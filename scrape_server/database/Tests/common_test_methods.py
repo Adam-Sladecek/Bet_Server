@@ -1,5 +1,5 @@
 from django.db import connection, transaction
-from database.models import Sportsbook, Sport, Event, Opportunity, Odd, SportsbookMarket
+from database.models import Sportsbook, Sport, Event, Opportunity, Price, SportsbookMarket
 
 def reset_database():
     with transaction.atomic():
@@ -7,7 +7,7 @@ def reset_database():
         Sport.objects.all().delete()
         Event.objects.all().delete()
         Opportunity.objects.all().delete()
-        Odd.objects.all().delete()
+        Price.objects.all().delete()
         SportsbookMarket.objects.all().delete()
     with connection.cursor() as cursor:
         cursor.execute("ALTER SEQUENCE database_sportsbook_id_seq RESTART WITH 1;")
