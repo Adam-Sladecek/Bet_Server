@@ -1,6 +1,6 @@
-from .scraper import Scraper
-from ..dataclass_models import EventModel, OddModel
-from ...models import Price, Sport, Event, SportsbookMarket
+from database.Scrapes.SportsBooks.scraper import Scraper
+from database.Scrapes.dataclass_models import EventModel, PriceModel
+from database.models import Price, Sport, Event, SportsbookMarket
 
 class IfortunaScraper(Scraper):
     def __enter__(self):
@@ -78,7 +78,7 @@ class IfortunaScraper(Scraper):
             odd_count=0,
         )
     
-    def map_odds(self, data: dict[int, object]) -> tuple[list[OddModel], list[Price]]:
+    def map_odds(self, data: dict[int, object]) -> tuple[list[PriceModel], list[Price]]:
         if all(element is None for element in data.values()):
             raise Exception('No details retrieved.')
         
@@ -144,7 +144,7 @@ class IfortunaScraper(Scraper):
         odds_to_update.append(existing_odd)
 
     def create_odd_model(self, odd_id: int, event_id: int, market_id: str, odds, description: str, locked: bool):
-        return OddModel(
+        return PriceModel(
             id=None,
             odd_id=odd_id,
             code=0,

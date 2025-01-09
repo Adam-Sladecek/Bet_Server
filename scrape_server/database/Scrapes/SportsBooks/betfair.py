@@ -1,14 +1,12 @@
 import asyncio
-import json
 from datetime import datetime
 from typing import Optional
-import aiohttp
 
-from ...enums import Movement
-from ...models import Sport, Sportsbook, Event, Price, SportsbookMarket
-from ..helpers import OddHelper, EventHelper
-from ..dataclass_models import EventModel, OddModel
-from .scraper import Scraper
+from database.enums import Movement
+from database.models import Sport, Sportsbook, Event, Price, SportsbookMarket
+from database.Scrapes.helpers import EventHelper, PriceHelper
+from database.Scrapes.dataclass_models import EventModel, PriceModel
+from database.Scrapes.SportsBooks.scraper import Scraper
 
 class BetfairScraper(Scraper):
     BASE_URL = "https://api.betfair.com/exchange/betting/rest/v1.0"
@@ -163,7 +161,7 @@ class BetfairScraper(Scraper):
                     ))
         return result
 
-    def map_odds(self, data, markets) -> tuple[list[OddModel], list[Price]]:
+    def map_odds(self, data, markets) -> tuple[list[PriceModel], list[Price]]:
         odds_to_create = []
         odds_to_update = []
         existing_odds = self.odd_helper.get_existing_odds()
@@ -191,7 +189,7 @@ class BetfairScraper(Scraper):
                     existing_odd.odd = best_price
                     odds_to_update.append(existing_odd)
                 else:
-                    odds_to_create.append(OddModel(
+                    odds_to_create.append(PriceModel(
                         id=None,
                         odd_id=odd_id,
                         movement=Movement.UP,
@@ -239,5 +237,5 @@ class BetfairScraper(Scraper):
         
         return events_to_update, events_to_delete
     
-    def map_odds_selected(self, data, markets) -> tuple[list[OddModel], list[Price]]:
+    def map_odds_selected(self, data, markets) -> tuple[list[PriceModel], list[Price]]:
         pass

@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.urls import reverse
 import json
+
 from database.models import Sportsbook, Sport, Event, Opportunity, Price, SportsbookMarket
 from common_test_methods import reset_database
 

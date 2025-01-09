@@ -5,10 +5,10 @@ from database.models import Sportsbook, Sport
 from database.enums import DataType, TaskState, Command
 from database.Scrapes.SportsBooks.nike import NikeScraper
 from database.Scrapes.SportsBooks.tipsport import TipsportScraper
-from scrape_server.database.Scrapes.SportsBooks.NotUsed.pinnacle import PinnacleScraper
+from database.Scrapes.SportsBooks.NotUsed.pinnacle import PinnacleScraper
 from database.Scrapes.SportsBooks.ifortuna import IfortunaScraper
 from database.Scrapes.SportsBooks.betfair import BetfairScraper
-from scrape_server.database.Scrapes.SportsBooks.NotUsed.ps3838 import PS3838Scraper
+from database.Scrapes.SportsBooks.NotUsed.ps3838 import PS3838Scraper
 from database.Scrapes.SportsBooks.scraper import Scraper
 from database.Scrapes.helpers import ScrapeHelper
 

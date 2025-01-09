@@ -5,167 +5,122 @@ from collections import defaultdict
 from channels.layers import get_channel_layer
 from database.enums import DataType
 from database.models import Sportsbook, Opportunity, Price, Event, SportsbookMarket
-from database.Scrapes.dataclass_models import EventModel, MatchOpportunityResponse, PriceModel
+from database.Scrapes.dataclass_models import MatchOpportunityResponse, PriceModel
 
 class EventHelper: 
     def __init__(self, sportsbook: Sportsbook) -> None:
         self.sportsbook = sportsbook
 
-    def update_events(self, events_list: list[EventModel]):
-        existing_events = Event.objects.select_related('sportsbook').filter(sportsbook=self.sportsbook).all()
+    def update_events(self, events_list: list[Event]) -> None:
+        existing_events = Event.objects.filter(sportsbook=self.sportsbook).all()
         existing_events_dict = {event.event_id: event for event in existing_events}
         new_events = []
         events_to_update = []
-        for event_data in events_list:
-            if event_data.event_id in existing_events_dict:
-                existing_event = existing_events_dict[event_data.event_id]
-                existing_event.time = event_data.time
+        for event in events_list:
+            if existing_event := existing_events_dict.get(event.event_id):
+                existing_event.time = event.time
                 events_to_update.append(existing_event)
                 continue
             
-            new_event = self.create_new_event(event_data)
-            new_events.append(new_event)
+            new_events.append(event)
 
         self.bulk_save_events(events_to_update, new_events, events_list)
 
-    def create_new_event(self, event_data: EventModel) -> Event:
-        return Event(
-            event_id=event_data.event_id,
-            league_id=event_data.league_id,
-            time=event_data.time,
-            home=event_data.home,
-            away=event_data.away,
-            is_default=self.sportsbook.is_default,
-            selected=event_data.selected,
-            sportsbook_id=event_data.sportsbook_id,
-            sport_id=event_data.sport_id
-        )
-    
-    def bulk_save_events(self, events_to_update: list[Event], new_events: list[Event], events_list: list[EventModel]) -> None:
+    def bulk_save_events(self, events_to_update: list[Event], new_events: list[Event], events_list: list[Event]) -> None:
         with transaction.atomic():
-            used_event_ids = {event_data.event_id for event_data in events_list}
+            used_event_ids = {event.event_id for event in events_list}
             Event.objects.filter(sportsbook=self.sportsbook).exclude(event_id__in=used_event_ids).delete()
+
             Event.objects.bulk_update(events_to_update, ['time'])
             Event.objects.bulk_create(new_events)
 
     def get_selected_events(self) -> list[Event]:
-        queryset = Event.objects.select_related('sport', 'parent').prefetch_related(
-            'children',
-            'odds',
-            'odds__parent',
-            'odds__opportunity',
-            'odds__sportsbook',
-            'odds__children',
-            'odds__children__sportsbook',
-            'odds__children__event',
+        queryset = Event.objects.prefetch_related(
+            'prices',
+            # 'children',
+            # 'odds__parent',
+            # 'odds__opportunity',
+            # 'odds__sportsbook',
+            # 'odds__children',
+            # 'odds__children__sportsbook',
+            # 'odds__children__event',
         )
 
         if self.sportsbook.is_default:
             return queryset.filter(sportsbook=self.sportsbook, selected=True, used=False).all() 
+        
         return queryset.filter(sportsbook=self.sportsbook, parent__selected=True, used=False).all() 
     
-    def update_selected_events(self, events_to_update: list[Event], events_to_delete: list[Event]):
-        with transaction.atomic():
-            for event in events_to_delete: 
-                event.delete()
-            Event.objects.bulk_update(events_to_update, ['time'])
-
-    def delete_settled_events(self, event_ids: list[int]): 
-        with transaction.atomic():
-            Event.objects.filter(sportsbook=self.sportsbook).filter(event_id__in=event_ids).delete()
-
+    
 class PriceHelper: 
     def __init__(self, sportsbook: Sportsbook) -> None:
         self.sportsbook = sportsbook
         
     def get_allowed_markets(self) -> set[str]:
         markets = SportsbookMarket.objects.filter(sportsbook=self.sportsbook).values_list('value', flat=True)
+
         return set(markets)
 
-    def update_odds(self, odds_to_create: list[PriceModel], odds_to_update: list[Price]):
-        self.update_selected_odds(odds_to_update)
-        if len(odds_to_create) == 0:
+    def update_prices(self, prices_to_create: list[PriceModel], prices_to_update: list[Price]) -> None:
+        with transaction.atomic():
+            Price.objects.bulk_update(prices_to_update, ['odds', 'locked', 'movement'])
+
+        if not len(prices_to_create):
             return
 
-        events_dict = self.get_events_dict(odds_to_create)
-        new_odds, new_opportunities = self.process_odds(odds_to_create, events_dict)
-            
+        new_prices, new_opportunities = self.create_new_prices(prices_to_create)
+
         with transaction.atomic():
             Opportunity.objects.bulk_create(new_opportunities)
-            Price.objects.bulk_create(new_odds)
-
-    def get_events_dict(self, odds_to_create: list[OddModel]) -> dict[int, Event]:
-        event_ids = {odd.event_id for odd in odds_to_create}
-        events = Event.objects.select_related('sport').filter(sportsbook=self.sportsbook, event_id__in=event_ids)
-        return {event.event_id: event for event in events}
+            Price.objects.bulk_create(new_prices)
     
-    def process_odds(self, odds_to_create: list[OddModel], events_dict: dict[int, Event]) -> tuple[list[Price], list[Opportunity]]:
-        new_odds = []
+    def create_new_prices(self, prices_to_create: list[PriceModel]) -> tuple[list[Price], list[Opportunity]]:
+        new_prices = []
         new_opportunities = []
-        opportunities_dict_by_sport = self.get_relevant_opportunities(odds_to_create)
+        opportunity_dict = self.get_opportunities([price_model.price.event for price_model in prices_to_create])
+        new_opportunities_dict = {}
 
-        for odd in odds_to_create:
-            event = events_dict.get(odd.event_id)
-            if event is None:
+        for price_model in prices_to_create:
+            sport_id = price_model.price.event.sport.pk
+            sport_opportunities = opportunity_dict[sport_id]
+            # case when opportunity already exists
+            if price_model.description in sport_opportunities:
+                price_model.price.opportunity = sport_opportunities[price_model.description]
+                new_prices.append(price_model.price)
                 continue
 
-            opportunities_dict = opportunities_dict_by_sport[event.sport.pk]
-            if odd.description in opportunities_dict:
-                new_odds.append(self.create_new_odd(odd, event, opportunities_dict[odd.description]))
-            elif (odd.description, event.sport.pk) not in [(opp.description, opp.sport.pk) for opp in new_opportunities]:
-                new_opportunities.append(self.create_new_opportunity(odd, event))
+            key = (price_model.description, sport_id)
+            # case when opportunity is already created but not saved to db
+            if key in new_opportunities_dict:
+                new_opportunity = new_opportunities_dict[key]
+                price_model.price.opportunity = new_opportunity
+                new_prices.append(price_model.price)
+                continue
 
-        return new_odds, new_opportunities
+            # case when opportunity is not created yet
+            new_opportunity = self.create_new_opportunity(price_model, sport_id)
+            new_opportunities_dict[key] = new_opportunity
+            new_opportunities.append(new_opportunity)
+
+        return new_prices, new_opportunities
     
-    def create_new_odd(self, odd: OddModel, event: Event, opportunity: Opportunity) -> Price:
-        return Price(
-            odd_id=odd.odd_id,
-            code=odd.code,
-            movement=odd.movement,
-            odd=odd.odd,
-            is_default=event.is_default,
-            selected=odd.selected,
-            locked=odd.locked,
-            event=event,
-            sportsbook=self.sportsbook,
-            opportunity=opportunity
-        )
-    
-    def create_new_opportunity(self, odd: OddModel, event: Event) -> Opportunity:
+    def create_new_opportunity(self, price_model: PriceModel, sport_id: int) -> Opportunity:
         return Opportunity(
-            description=odd.description,
-            is_default=event.is_default,
+            description=price_model.description,
+            is_default=self.sportsbook.is_default,
             sportsbook=self.sportsbook,
-            sport=event.sport,
-            market_id=odd.market_id
+            sport_id=sport_id,
         )
     
     def get_opportunities(self, events: list[Event]) -> dict[int, dict[str, Opportunity]]:
         sport_ids = {event.sport.pk for event in events}
         relevant_opportunities = Opportunity.objects.filter(sportsbook=self.sportsbook, sport_id__in=sport_ids).all()
-        opportunities_by_sport = { sport_id: {} for sport_id in sport_ids }
+        result = { sport_id: {} for sport_id in sport_ids }
         for opportunity in relevant_opportunities:
-            opportunities_by_sport[opportunity.sport.pk][opportunity.description] = opportunity
-        return opportunities_by_sport
-    
-    def update_selected_odds(self, odds_to_update: list[Price]):
-        with transaction.atomic():
-            Price.objects.bulk_update(odds_to_update, ['odds', 'locked', 'movement'])
+            result[opportunity.sport.pk][opportunity.description] = opportunity
+            
+        return result
 
-    def update_movements(self, events: list[Event]):
-        event_ids = [event.pk for event in events]
-        odds = Price.objects.filter(sportsbook=self.sportsbook, event_id__in=event_ids)
-        for odd in odds: 
-            odd.movement = 0
-
-        with transaction.atomic():
-            Price.objects.bulk_update(odds, ['movement'])    
-
-    def get_existing_odds(self, include_code: bool=False):
-        events = Event.objects.filter(sportsbook=self.sportsbook).prefetch_related('odds', 'odds__opportunity').all()
-        if include_code:
-            return {event.event_id: {(odd.odd_id, odd.code): odd for odd in event.odds.all()} for event in events}
-        return {event.event_id: {odd.odd_id: odd for odd in event.odds.all()} for event in events}
 
 class ScrapeHelper:
     def __init__(self):

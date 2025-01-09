@@ -1,8 +1,8 @@
 import asyncio
-from ..dataclass_models import EventModel, OddModel
-from ..driver import Driver
-from ...models import Price, Event, Sport, SportsbookMarket
-from .scraper import Scraper
+from database.Scrapes.dataclass_models import EventModel, PriceModel
+from database.Scrapes.driver import Driver
+from database.models import Price, Event, Sport, SportsbookMarket
+from database.Scrapes.SportsBooks.scraper import Scraper
 
 class TipsportScraper(Scraper): 
     def __enter__(self):
@@ -83,7 +83,7 @@ class TipsportScraper(Scraper):
         
         return sport_ids
     
-    def map_odds(self, data: list[object]) -> tuple[list[OddModel], list[Price]]:
+    def map_odds(self, data: list[object]) -> tuple[list[PriceModel], list[Price]]:
         if not any(data):
             raise Exception('No details retrieved.')
         
@@ -111,7 +111,7 @@ class TipsportScraper(Scraper):
                     (home_abr, " *1* "),
                     (away_abr, " *2* "),
                 ]).replace("  ", " ").replace("  ", " ").strip()
-                odds_to_create.append(OddModel(
+                odds_to_create.append(PriceModel(
                     id=None,
                     odd_id=odd_id,
                     code=0,

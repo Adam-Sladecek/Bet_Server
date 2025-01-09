@@ -1,7 +1,7 @@
 from datetime import datetime
 from database.enums import Movement
 from database.Scrapes.SportsBooks.scraper import Scraper
-from database.Scrapes.dataclass_models import EventModel, PriceModel
+from database.Scrapes.dataclass_models import PriceModel
 from database.models import Price, Sport, Event
 
 class NikeScraper(Scraper):
@@ -20,14 +20,15 @@ class NikeScraper(Scraper):
         
         return await self.gather_data(url_dict, {}, {})
 
-    async def gather_odds(self, events: list[Event]) -> dict[int, object]:
+    async def gather_prices(self, events: list[Event]) -> dict[int, object]:
         url_dict = {
             event.pk: f'https://push.nike.sk/snapshot?format=v2&path=/n1/match/{event.event_id}/bets/portal/'
             for event in events
         }
+
         return await self.gather_data(url_dict, {}, {})
     
-    def map_events(self, data: dict[int, object]) -> list[EventModel]:
+    def map_events(self, data: dict[int, object]) -> list[Event]:
         events = []
         for sport_id, result in data.items():
             try:
@@ -39,24 +40,20 @@ class NikeScraper(Scraper):
 
         return events
     
-    def map_single_event(self, sport_id: int, match: dict) -> EventModel:
+    def map_single_event(self, sport_id: int, match: dict) -> Event:
         event_id = int(match['id'])
         time = self.get_time_from_match(match)
         home = match['home']['sk']
         away = match['away']['sk']
-        return EventModel(
-            id=None,
+
+        return Event(
             event_id=event_id,
-            league_id=0,
             time=time,
             home=home,
             away=away,
             is_default=self.sportsbook.is_default,
-            selected=False,
-            sportsbook_id=self.sportsbook.pk,
+            sportsbook=self.sportsbook,
             sport_id=sport_id,
-            available_sportsbooks=[],
-            odd_count=0,
         )
         
     def get_time_from_match(self, match) -> str:
@@ -67,6 +64,7 @@ class NikeScraper(Scraper):
             timestamp -= seconds * 1000
             converted_time = self.convert_timestamp_to_time_string(timestamp) if not countdown else self.convert_seconds_to_time_string(seconds)
             time += f' {converted_time}'
+
         return time
                     
     def convert_timestamp_to_time_string(self, timestamp_ms: int) -> str:
@@ -75,11 +73,13 @@ class NikeScraper(Scraper):
         total_seconds = int(time_difference.total_seconds())
         minutes = total_seconds // 60
         seconds = total_seconds % 60
+
         return f"{minutes}:{seconds:02}'"
     
-    def map_odds(self, events: list[Event], data: dict[int, object]) -> tuple[list[PriceModel], list[Price]]:
+    def map_prices(self, events: list[Event], data: dict[int, object]) -> tuple[list[PriceModel], list[Price]]:
         prices_to_create, prices_to_update = [], []
-        allowed_markets = self.odd_helper.get_allowed_markets()
+        allowed_markets = self.price_helper.get_allowed_markets()
+
         for event in events:
             dataset = data.get(event.pk)
             if not dataset:
@@ -127,8 +127,8 @@ class NikeScraper(Scraper):
             home = bet["participants"][0]['sk']
             away = bet["participants"][1]['sk']
             locked = selection["locked"] or not selection["enabled"]
-
             description = self.generate_description(bet, selection, home, away)
+
             price = Price(
                 price_id = price_id,
                 movement = Movement.UP.value,
@@ -139,7 +139,7 @@ class NikeScraper(Scraper):
                 event = event,
                 sportsbook = self.sportsbook,
             )
-            
+
             return PriceModel(None, description, price)
         except Exception as ex:
             print(f"Exception in create_new_price Nike: {str(ex)}.")
@@ -151,4 +151,5 @@ class NikeScraper(Scraper):
             (home, "*1*"),
             (away, "*2*"),
         ])
+        
         return description.replace("  ", " ").replace("  ", " ").strip()

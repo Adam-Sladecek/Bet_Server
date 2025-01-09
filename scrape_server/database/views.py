@@ -2,11 +2,12 @@ import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db import transaction
-from database.models import Opportunity, Sportsbook, Sport, Event, Price, SportsbookMarket
-from database.Scrapes.dataclass_models import (ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, 
-                                               EventResponse, OddResponse, MarketResponse)
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+
+from database.models import Opportunity, Sportsbook, Sport, Event, Price, SportsbookMarket
+from database.Scrapes.dataclass_models import (ConfigResponse, OpportunityFactoryResponse, OpportunityChildrenResponse, 
+                                               EventResponse, PriceResponse, MarketResponse)
 
 @method_decorator(csrf_exempt, name='dispatch')
 class ConfigView(APIView):
@@ -240,14 +241,14 @@ class EventOddsView(APIView):
         except Exception as e:
             return self.error_response(str(e))
         
-    def get_event_oppotunities(self, pk: int) -> OddResponse:
+    def get_event_oppotunities(self, pk: int) -> PriceResponse:
         event = Event.objects.prefetch_related(
             'odds',
             'odds__sportsbook',
             'odds__opportunity',
         ).get(pk=pk)
         odds = event.odds.order_by('-opportunity__prefered', '-selected').all()
-        return OddResponse.dataclass_from_models(odds, event)  
+        return PriceResponse.dataclass_from_models(odds, event)  
 
     def get_event_with_odds(self, pk: int) -> list[Event]:
         return Event.objects.prefetch_related('odds').get(pk=pk)

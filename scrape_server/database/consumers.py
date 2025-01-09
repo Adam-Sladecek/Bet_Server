@@ -1,18 +1,18 @@
-from enum import Enum
-import threading
-import json
-from queue import Queue
+from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
-from database.Scrapes import scrape_fn
-from database.enums import TaskState, DataType, Command
-from rest_framework_simplejwt.tokens import UntypedToken
-from django.contrib.auth.models import AnonymousUser
-from channels.db import database_sync_to_async
-from django.contrib.auth import get_user_model
-from jwt import decode as jwt_decode
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
+from enum import Enum
 from jwt import decode as jwt_decode, ExpiredSignatureError, InvalidTokenError
+import json
+from queue import Queue
+from rest_framework_simplejwt.tokens import UntypedToken
+import threading
+
+from database.enums import Command, DataType, TaskState
+from database.Scrapes import scrape_fn
 
 User = get_user_model()
 

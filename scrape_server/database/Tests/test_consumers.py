@@ -3,14 +3,15 @@ import django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'scrape_server.settings'
 django.setup()
 
-from channels.testing import WebsocketCommunicator
-from unittest.mock import patch, AsyncMock
+from django.test import TestCase
 from django.contrib.auth.models import User
+from channels.testing import WebsocketCommunicator
 from rest_framework_simplejwt.tokens import RefreshToken
+from unittest.mock import patch, AsyncMock
+
+from scrape_server.asgi import application
 from database.consumers import broadcast_message
 from database.enums import DataType, TaskState
-from django.test import TestCase
-from scrape_server.asgi import application
 
 class TestConsumer(TestCase):
     @classmethod

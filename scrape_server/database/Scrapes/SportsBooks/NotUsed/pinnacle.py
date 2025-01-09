@@ -1,7 +1,7 @@
 import asyncio
-from ...dataclass_models import EventModel, OddModel
-from ....models import Price, Event, Sport, Sportsbook, SportsbookMarket
-from ..scraper import Scraper
+from database.Scrapes.dataclass_models import EventModel, PriceModel
+from database.models import Price, Event, Sport, Sportsbook, SportsbookMarket
+from database.Scrapes.SportsBooks.scraper import Scraper
 
 class PinnacleScraper(Scraper):
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
@@ -116,10 +116,10 @@ class PinnacleScraper(Scraper):
 
         return events
     
-    def map_odds(self, data: dict[tuple[int, int], list[object]]) -> tuple[list[OddModel], list[Price]]:
+    def map_odds(self, data: dict[tuple[int, int], list[object]]) -> tuple[list[PriceModel], list[Price]]:
         if all(element is None for element in data):
             raise Exception('No details retrieved.')
-        odds_to_create: list[OddModel] = []
+        odds_to_create: list[PriceModel] = []
         odds_to_update: list[Price] = []
         
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
@@ -203,7 +203,7 @@ class PinnacleScraper(Scraper):
                     if description in used_descriptions[parent_id]: continue
                     used_descriptions[parent_id].add(description)
 
-                    odds_to_create.append(OddModel(
+                    odds_to_create.append(PriceModel(
                         id = None,
                         odd_id = odd_id,
                         code = 0,

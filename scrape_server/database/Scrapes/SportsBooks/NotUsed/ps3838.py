@@ -1,8 +1,8 @@
 import asyncio
-from ...dataclass_models import EventModel, OddModel
-from ....models import Price, Event, Sport, Sportsbook, SportsbookMarket
-from ..scraper import Scraper
-from .ps3838_dataclasses import FixturePS3838, PeriodPS3838
+from database.Scrapes.dataclass_models import EventModel, PriceModel
+from database.models import Price, Event, Sport, Sportsbook, SportsbookMarket
+from database.Scrapes.SportsBooks.scraper import Scraper
+from database.Scrapes.SportsBooks.NotUsed.ps3838_dataclasses import FixturePS3838, PeriodPS3838
 from datetime import datetime, timezone
 
 class PS3838Scraper(Scraper):
@@ -198,8 +198,8 @@ class PS3838Scraper(Scraper):
                         ))
         return events
 
-    def map_odds(self, data: dict[int, object]) -> tuple[list[OddModel], list[Price]]:
-        odds_to_create: list[OddModel] = []
+    def map_odds(self, data: dict[int, object]) -> tuple[list[PriceModel], list[Price]]:
+        odds_to_create: list[PriceModel] = []
         odds_to_update: list[Price] = []
         allowed_keys = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
         existing_odds = self.odd_helper.get_existing_odds()
@@ -241,7 +241,7 @@ class PS3838Scraper(Scraper):
                                     description = description.replace('home', "*1*")
                                     description = description.replace('away', "*2*")
                                     description = description.replace("  ", " ").replace("  ", " ").strip()
-                                    odds_to_create.append(OddModel(
+                                    odds_to_create.append(PriceModel(
                                         id = None,
                                         odd_id = odd_id,
                                         code = 0,
