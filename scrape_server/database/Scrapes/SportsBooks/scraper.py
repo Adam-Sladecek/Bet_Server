@@ -34,7 +34,7 @@ class Scraper(ABC):
     async def gather_prices(self, events: list[Event]) -> dict[int, object]: pass
 
     @abstractmethod
-    def map_events(self, data: list[object]) -> list[Event]: pass
+    def map_events(self, data: dict[int, object]) -> list[Event]: pass
 
     @abstractmethod
     def map_prices(self, events: list[Event], data: dict[int, object]) -> tuple[list[PriceModel], list[Price]]: pass
@@ -76,7 +76,7 @@ class Scraper(ABC):
             tasks = [asyncio.create_task(request_method(session, url, headers, data_dict.get(sport_id, {}))) for sport_id, url in url_dict.items()]
             array_data = await asyncio.gather(*tasks)
             
-            return {sport_id: result for sport_id, result in zip(url_dict.keys(), array_data)}
+            return {id: result for id, result in zip(url_dict.keys(), array_data)}
         
     async def get(self, session: aiohttp.ClientSession, url: str, headers: object, params: object) -> object:
         try:

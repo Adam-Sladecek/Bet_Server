@@ -317,5 +317,5 @@ class DeleteMarketView(APIView):
         sportsbooks = Sportsbook.objects.prefetch_related('markets').all()
         return MarketResponse.data_class_from_models(sportsbooks)          
        
-# TODO: add ngrok
-# TODO: users and JWT authorization
+# TODO: use docker
+# TODO: run app trough provider

@@ -41,9 +41,9 @@ class TestScrapeProcess(TestCase):
         # Mock ScrapeHelper instance and its methods
         mock_scrape_helper = MagicMock()
         mock_scrape_helper_class.return_value = mock_scrape_helper
-        mock_scrape_helper.link_all_events = MagicMock()
+        mock_scrape_helper.links_events = MagicMock()
         mock_scrape_helper.send_updated_events = MagicMock()
-        mock_scrape_helper.link_odds = MagicMock()
+        mock_scrape_helper.link_prices = MagicMock()
         mock_scrape_helper.clear_unused_events = MagicMock()
 
         # Mock Nike and Tipsport scrapers
@@ -81,9 +81,9 @@ class TestScrapeProcess(TestCase):
 
         # Assert ScrapeHelper methods were called
         mock_scrape_helper_class.assert_called_once()  # Assert constructor was called
-        mock_scrape_helper.link_all_events.assert_called_once()
+        mock_scrape_helper.link_events.assert_called_once()
         mock_scrape_helper.send_updated_events.assert_called_once()
-        mock_scrape_helper.link_odds.assert_called_once()
+        mock_scrape_helper.link_prices.assert_called_once()
         mock_scrape_helper.clear_unused_events.assert_called_once()
         self.assertTrue(import_queue.empty())
 
@@ -98,14 +98,14 @@ class TestEventHepler(TestCase):
         cls.event_helper = EventHelper(cls.sportsbook)
         cls.event_helper2 = EventHelper(cls.sportsbook2)
         cls.events = [
-            Event(event_id=1, time="", home="Roger Federer", away="Rafael Nadal", is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport_id=cls.sport.pk),
-            Event(event_id=2, time="", home="Novak Djokovic", away="Andy Murray", is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport_id=cls.sport.pk),
-            Event(event_id=3, time="", home="Alexander Zverev", away="Dominic Thiem", is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport_id=cls.sport.pk),
+            Event(event_id=1, time="", home="Roger Federer", away="Rafael Nadal", is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport=cls.sport),
+            Event(event_id=2, time="", home="Novak Djokovic", away="Andy Murray", is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport=cls.sport),
+            Event(event_id=3, time="", home="Alexander Zverev", away="Dominic Thiem", is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport=cls.sport),
         ]
         cls.events2 = [
-            Event(event_id=1, time="", home="Federer R.", away="Nadal R.", is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport_id=cls.sport.pk),
-            Event(event_id=2, time="", home="Djokovic N.", away="Murray A.", is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport_id=cls.sport.pk),
-            Event(event_id=3, time="", home="Lukas Lacko", away="Dominik Hrbaty", is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport_id=cls.sport.pk),
+            Event(event_id=1, time="", home="Federer R.", away="Nadal R.", is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport=cls.sport),
+            Event(event_id=2, time="", home="Djokovic N.", away="Murray A.", is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport=cls.sport),
+            Event(event_id=3, time="", home="Lukas Lacko", away="Dominik Hrbaty", is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport=cls.sport),
         ]
 
     def test_update_and_delete_events(self):
@@ -155,146 +155,111 @@ class TestPriceHelper(TestCase):
         cls.event_helper2 = EventHelper(cls.sportsbook2)
         cls.price_helper = PriceHelper(cls.sportsbook1)
         cls.price_helper2 = PriceHelper(cls.sportsbook2)
-        cls.event_models1 = [
-            EventModel(None, 1, 0, "", 'Roger Federer', 'Rafael Nadal', cls.sportsbook1.is_default, False, cls.sportsbook1.pk, cls.sport.pk, [], 0),
-            EventModel(None, 2, 0, "", 'Novak Djokovic', 'Andy Murray', cls.sportsbook1.is_default, False, cls.sportsbook1.pk, cls.sport.pk, [], 0),
-            EventModel(None, 3, 0, "", 'Alexander Zverev', 'Dominic Thiem', cls.sportsbook1.is_default, False, cls.sportsbook1.pk, cls.sport.pk, [], 0),
+        cls.events1 = [
+            Event(event_id=1, time="", home='Roger Federer', away='Rafael Nadal', is_default=cls.sportsbook1.is_default, sportsbook=cls.sportsbook1, sport=cls.sport),
+            Event(event_id=2, time="", home='Novak Djokovic', away='Andy Murray', is_default=cls.sportsbook1.is_default, sportsbook=cls.sportsbook1, sport=cls.sport),
+            Event(event_id=3, time="", home='Alexander Zverev', away='Dominic Thiem', is_default=cls.sportsbook1.is_default, sportsbook=cls.sportsbook1, sport=cls.sport),
         ]
-        cls.event_models2 = [
-            EventModel(None, 1, 0, "", 'Federer R.', 'Nadal R.', cls.sportsbook2.is_default, False, cls.sportsbook2.pk, cls.sport.pk, [], 0),
-            EventModel(None, 2, 0, "", 'Djokovic N.', 'Murray A.', cls.sportsbook2.is_default, False, cls.sportsbook2.pk, cls.sport.pk, [], 0),
-            EventModel(None, 3, 0, "", 'Lukas Lacko', 'Dominik Hrbaty', cls.sportsbook2.is_default, False, cls.sportsbook2.pk, cls.sport.pk, [], 0)
+        cls.events2 = [
+            Event(event_id=1, time="", home='Federer R.', away='Nadal R.', is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport=cls.sport),
+            Event(event_id=2, time="", home='Djokovic N.', away='Murray A.', is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport=cls.sport), 
+            Event(event_id=3, time="", home='Lukas Lacko', away='Dominik Hrbaty', is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport=cls.sport)
         ]
 
-        cls.opportunity11 = Opportunity.objects.create(sportsbook= cls.sportsbook1, description='Vyhrá *1*', market_id='21', sport=cls.sport, is_default=cls.sportsbook1.is_default, prefered=False)
-        cls.opportunity12 = Opportunity.objects.create(sportsbook= cls.sportsbook1, description='Vyhrá *2*', market_id='12', sport=cls.sport, is_default=cls.sportsbook1.is_default, prefered=False)
-        cls.opportunity21 = Opportunity.objects.create(sportsbook= cls.sportsbook2, description='Vyhrá *1*', market_id='13', sport=cls.sport, is_default=cls.sportsbook2.is_default, prefered=False)
-        cls.opportunity22 = Opportunity.objects.create(sportsbook= cls.sportsbook2, description='Vyhrá *2*', market_id='31', sport=cls.sport, is_default=cls.sportsbook2.is_default, prefered=False)
+        cls.opportunity11 = Opportunity.objects.create(sportsbook= cls.sportsbook1, description='Vyhrá *1*', sport=cls.sport, is_default=cls.sportsbook1.is_default)
+        cls.opportunity12 = Opportunity.objects.create(sportsbook= cls.sportsbook1, description='Vyhrá *2*', sport=cls.sport, is_default=cls.sportsbook1.is_default)
+        cls.opportunity21 = Opportunity.objects.create(sportsbook= cls.sportsbook2, description='Vyhrá *1*', sport=cls.sport, is_default=cls.sportsbook2.is_default)
+        cls.opportunity22 = Opportunity.objects.create(sportsbook= cls.sportsbook2, description='Vyhrá *2*', sport=cls.sport, is_default=cls.sportsbook2.is_default)
 
         cls.opportunity21.add_parent(cls.opportunity11)
         
-        cls.odd_models1 = [
-            PriceModel(id=None, odd_id=1, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=2, event_id=1, market_id='21', sportsbook_id=cls.sportsbook1.pk, description='Vyhrá *1*'),
-            PriceModel(id=None, odd_id=2, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=1.9, event_id=1, market_id='12', sportsbook_id=cls.sportsbook1.pk, description='Vyhrá *2*'),
-            PriceModel(id=None, odd_id=3, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=2.1, event_id=2, market_id='21', sportsbook_id=cls.sportsbook1.pk, description='Vyhrá *1*'),
-            PriceModel(id=None, odd_id=4, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=1.7, event_id=2, market_id='12', sportsbook_id=cls.sportsbook1.pk, description='Vyhrá *2*'),
-            PriceModel(id=None, odd_id=5, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=2.3, event_id=3, market_id='12', sportsbook_id=cls.sportsbook1.pk, description='Vyhrá *2*'),
+        cls.price_models1 = [
+            PriceModel(id=None, description='Vyhrá *1*', price=Price(price_id=1, movement=0, odds=2, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[0], sportsbook=cls.sportsbook1)),
+            PriceModel(id=None, description='Vyhrá *2*', price=Price(price_id=2, movement=0, odds=1.9, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[0], sportsbook=cls.sportsbook1)),
+            PriceModel(id=None, description='Vyhrá *1*', price=Price(price_id=3, movement=0, odds=2.1, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[1], sportsbook=cls.sportsbook1)),
+            PriceModel(id=None, description='Vyhrá *2*', price=Price(price_id=4, movement=0, odds=1.7, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[1], sportsbook=cls.sportsbook1)), 
+            PriceModel(id=None, description='Vyhrá *2*', price=Price(price_id=5, movement=0, odds=2.3, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[2], sportsbook=cls.sportsbook1)),
         ]
-        cls.odd_models2 = [
-            PriceModel(id=None, odd_id=1, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2, event_id=1, market_id='13', sportsbook_id=cls.sportsbook2.pk, description='Vyhrá *1*'),
-            PriceModel(id=None, odd_id=2, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=1.8, event_id=1, market_id='31', sportsbook_id=cls.sportsbook2.pk, description='Vyhrá *2*'),
-            PriceModel(id=None, odd_id=3, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2.1, event_id=2, market_id='13', sportsbook_id=cls.sportsbook2.pk, description='Vyhrá *1*'),
-            PriceModel(id=None, odd_id=4, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2.3, event_id=3, market_id='13', sportsbook_id=cls.sportsbook2.pk, description='Vyhrá *1*'),
-            PriceModel(id=None, odd_id=5, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=1.8, event_id=3, market_id='3441', sportsbook_id=cls.sportsbook2.pk, description='Unnknown opportunity'), # this is here to assert that odd with no matching event opportunity be created
-            PriceModel(id=None, odd_id=6, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2, event_id=3, market_id='3441', sportsbook_id=cls.sportsbook2.pk, description='Unnknown opportunity'), # this is here to assert that second odd with no matching opportunity wont be created and that only one new opportunity will be added
-            PriceModel(id=None, odd_id=7, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2, event_id=8, market_id='3441', sportsbook_id=cls.sportsbook2.pk, description='Vyhrá *1*'), # this is here to assert that odd with no matching event wont be created
+        cls.price_models2 = [
+            PriceModel(id=None, description='Vyhrá *1*', price=Price(price_id=1, movement=0, odds=2, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[0], sportsbook=cls.sportsbook2)),
+            PriceModel(id=None, description='Vyhrá *2*', price=Price(price_id=2, movement=0, odds=1.8, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[0], sportsbook=cls.sportsbook2)),
+            PriceModel(id=None, description='Vyhrá *1*', price=Price(price_id=3, movement=0, odds=2.1, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[1], sportsbook=cls.sportsbook2)),
+            PriceModel(id=None, description='Vyhrá *1*', price=Price(price_id=4, movement=0, odds=2.3, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[2], sportsbook=cls.sportsbook2)),
+            PriceModel(id=None, description='Unknown opportunity', price=Price(price_id=5, movement=0, odds=1.8, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[2], sportsbook=cls.sportsbook2)), # this is here to assert that odd with no matching event opportunity will be created
+            PriceModel(id=None, description='Unknown opportunity', price=Price(price_id=6, movement=0, odds=2, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[1], sportsbook=cls.sportsbook2)), # this is here to assert that second odd with no matching opportunity will be created and that only one new opportunity will be added
         ]   
 
-    def test_update_odds(self): 
-            self.run_updates()
-            self.assertEqual(Opportunity.objects.count(), 5)
-            self.assertEqual(Price.objects.count(), 9)
-            event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
-            assert event.odds.count() == 2
-            odd_to_update= Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-            odd_to_update.odd = 4
-            odd_to_update.locked = True
-            odd_to_update.movement = 2
-            self.odd_helper.update_odds([], [odd_to_update])
-            Event.objects.filter(sportsbook=self.sportsbook1, event_id=3).delete()
-            odd_to_update= Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-            self.assertEqual(Price.objects.count(), 8)
-            self.assertEqual(odd_to_update.odd, 4)
-            self.assertTrue(odd_to_update.locked)
-            self.assertEqual(odd_to_update.movement, 2)
-            assert Price.objects.filter(sportsbook=self.sportsbook1, event_id=3).count() == 0
-
-    def test_update_movements(self): 
-        # Arange
+    def test_update_prices(self): 
         self.run_updates()
-        odds= Price.objects.filter(sportsbook=self.sportsbook1, odd_id__in=[1,2,3]).all()
-        for odd in odds: 
-            odd.movement=1
-            odd.save()
-
-        # Act 
-        self.odd_helper.update_movements(Event.objects.filter(sportsbook=self.sportsbook1, event_id__in=[1,2]).all())
-
-        # Assert
-        odds= Price.objects.filter(sportsbook=self.sportsbook1, odd_id__in=[1,2,3]).all()
-        for odd in odds: 
-            self.assertEqual(odd.movement, 0)
-
-    def test_get_existing_odds(self):
-        # Arange
-        self.event_helper.update_events(self.event_models1)
-        self.odd_helper.update_odds(self.odd_models1, [])
-
-        # Act 
-        odds_without_code = self.odd_helper.get_existing_odds()
-        odds_with_code = self.odd_helper.get_existing_odds(True)
-
-        # Assert
-        event_ids = [event.event_id for event in Event.objects.filter(sportsbook=self.sportsbook1).all()]
-        self.assertEqual(list(odds_without_code.keys()), event_ids)
-        self.assertEqual(list(odds_with_code.keys()), event_ids)
-        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-        self.assertEqual(odds_without_code[1][1], odd)
-        self.assertEqual(odds_with_code[1][(1,0)], odd)
+        self.assertEqual(Opportunity.objects.count(), 5)
+        self.assertEqual(Price.objects.count(), 11)
+        event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
+        assert event.prices.count() == 2
+        price_to_update= Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
+        price_to_update.odds = 4
+        price_to_update.locked = True
+        price_to_update.movement = 2
+        self.price_helper.update_prices([], [price_to_update])
+        Event.objects.filter(sportsbook=self.sportsbook1, event_id=3).delete()
+        price_to_update= Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
+        self.assertEqual(Price.objects.count(), 10)
+        self.assertEqual(price_to_update.odds, 4)
+        self.assertTrue(price_to_update.locked)
+        self.assertEqual(price_to_update.movement, 2)
+        assert Price.objects.filter(sportsbook=self.sportsbook1, event_id=3).count() == 0
 
     def run_updates(self): 
-        self.event_helper.update_events(self.event_models1)
-        self.event_helper2.update_events(self.event_models2)
-        self.odd_helper.update_odds(self.odd_models1, [])
-        self.odd_helper2.update_odds(self.odd_models2, [])        
+        self.event_helper.update_events(self.events1)
+        self.event_helper2.update_events(self.events2)
+        self.price_helper.update_prices(self.price_models1, [])
+        self.price_helper2.update_prices(self.price_models2, [])        
 
 
 class TestScrapeHelper(TestCase):
     @classmethod
     def setUpTestData(cls):
         reset_database()
-        cls.sport = Sport.objects.create(name="Tennis", selected=True, url="https://example.com")
+        cls.sport = Sport.objects.create(name="Tennis", selected=True)
         cls.sportsbook1 = Sportsbook.objects.create(name="Nike", selected=True, is_default=True)
         cls.sportsbook2 = Sportsbook.objects.create(name="Tipsport", selected=True)
         cls.scrape_helper = ScrapeHelper()
         cls.event_helper = EventHelper(cls.sportsbook1)
         cls.event_helper2 = EventHelper(cls.sportsbook2)
-        cls.odd_helper = OddHelper(cls.sportsbook1)
-        cls.odd_helper2 = OddHelper(cls.sportsbook2)
-        cls.event_models1 = [
-            EventModel(None, 1, 0, "", 'Roger Federer', 'Rafael Nadal', cls.sportsbook1.is_default, False, cls.sportsbook1.pk, cls.sport.pk, [], 0),
-            EventModel(None, 2, 0, "", 'Novak Djokovic', 'Andy Murray', cls.sportsbook1.is_default, False, cls.sportsbook1.pk, cls.sport.pk, [], 0),
-            EventModel(None, 3, 0, "", 'Alexander Zverev', 'Dominic Thiem', cls.sportsbook1.is_default, False, cls.sportsbook1.pk, cls.sport.pk, [], 0),
+        cls.price_helper = PriceHelper(cls.sportsbook1)
+        cls.price_helper2 = PriceHelper(cls.sportsbook2)
+        cls.events1 = [
+            Event(event_id=1, time="", home='Roger Federer', away='Rafael Nadal', is_default=cls.sportsbook1.is_default, sportsbook=cls.sportsbook1, sport=cls.sport),
+            Event(event_id=2, time="", home='Novak Djokovic', away='Andy Murray', is_default=cls.sportsbook1.is_default, sportsbook=cls.sportsbook1, sport=cls.sport),
+            Event(event_id=3, time="", home='Alexander Zverev', away='Dominic Thiem', is_default=cls.sportsbook1.is_default, sportsbook=cls.sportsbook1, sport=cls.sport),
         ]
-        cls.event_models2 = [
-            EventModel(None, 1, 0, "", 'Federer R.', 'Nadal R.', cls.sportsbook2.is_default, False, cls.sportsbook2.pk, cls.sport.pk, [], 0),
-            EventModel(None, 2, 0, "", 'Djokovic N.', 'Murray A.', cls.sportsbook2.is_default, False, cls.sportsbook2.pk, cls.sport.pk, [], 0),
-            EventModel(None, 3, 0, "", 'Lukas Lacko', 'Dominik Hrbaty', cls.sportsbook2.is_default, False, cls.sportsbook2.pk, cls.sport.pk, [], 0) # this event should not be linked -> no matching default event
+        cls.events2 = [
+            Event(event_id=1, time="", home='Federer R.', away='Nadal R.', is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport=cls.sport),
+            Event(event_id=2, time="", home='Djokovic N.', away='Murray A.', is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport=cls.sport),
+            Event(event_id=3, time="", home='Lukas Lacko', away='Dominik Hrbaty', is_default=cls.sportsbook2.is_default, sportsbook=cls.sportsbook2, sport=cls.sport),
         ]
 
-        cls.opportunity11 = Opportunity.objects.create(sportsbook= cls.sportsbook1, description='Vyhra *1*', market_id='21', sport=cls.sport, is_default=cls.sportsbook1.is_default, prefered=False)
-        cls.opportunity12 = Opportunity.objects.create(sportsbook= cls.sportsbook1, description='Vyhra *2*', market_id='12', sport=cls.sport, is_default=cls.sportsbook1.is_default, prefered=False)
-        cls.opportunity21 = Opportunity.objects.create(sportsbook= cls.sportsbook2, description='Vyhra *1*', market_id='13', sport=cls.sport, is_default=cls.sportsbook2.is_default, prefered=False)
-        cls.opportunity22 = Opportunity.objects.create(sportsbook= cls.sportsbook2, description='Vyhra *2*', market_id='31', sport=cls.sport, is_default=cls.sportsbook2.is_default, prefered=False)
+        cls.opportunity11 = Opportunity.objects.create(sportsbook= cls.sportsbook1, description='Vyhra *1*', sport=cls.sport, is_default=cls.sportsbook1.is_default)
+        cls.opportunity12 = Opportunity.objects.create(sportsbook= cls.sportsbook1, description='Vyhra *2*', sport=cls.sport, is_default=cls.sportsbook1.is_default)
+        cls.opportunity21 = Opportunity.objects.create(sportsbook= cls.sportsbook2, description='Vyhra *1*', sport=cls.sport, is_default=cls.sportsbook2.is_default)
+        cls.opportunity22 = Opportunity.objects.create(sportsbook= cls.sportsbook2, description='Vyhra *2*', sport=cls.sport, is_default=cls.sportsbook2.is_default)
 
         cls.opportunity21.add_parent(cls.opportunity11)
         
-        cls.odd_models1 = [
-            PriceModel(id=None, odd_id=1, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=2, event_id=1, market_id='21', sportsbook_id=cls.sportsbook1.pk, description='Vyhra *1*'),
-            PriceModel(id=None, odd_id=2, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=1.9, event_id=1, market_id='12', sportsbook_id=cls.sportsbook1.pk, description='Vyhra *2*'),
-            PriceModel(id=None, odd_id=3, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=2.1, event_id=2, market_id='21', sportsbook_id=cls.sportsbook1.pk, description='Vyhra *1*'),
-            PriceModel(id=None, odd_id=4, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=1.7, event_id=2, market_id='12', sportsbook_id=cls.sportsbook1.pk, description='Vyhra *2*'),
-            PriceModel(id=None, odd_id=5, code=0, movement=0, is_default=cls.sportsbook1.is_default, selected=False, locked= False, odd=2.3, event_id=3, market_id='12', sportsbook_id=cls.sportsbook1.pk, description='Vyhra *2*'),
+        cls.price_models1 = [
+            PriceModel(id=None, description='Vyhra *1*', price=Price(price_id=1, movement=0, odds=2, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[0], sportsbook=cls.sportsbook1)),
+            PriceModel(id=None, description='Vyhra *2*', price=Price(price_id=2, movement=0, odds=1.9, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[0], sportsbook=cls.sportsbook1)),
+            PriceModel(id=None, description='Vyhra *1*', price=Price(price_id=3, movement=0, odds=2.1, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[1], sportsbook=cls.sportsbook1)),
+            PriceModel(id=None, description='Vyhra *2*', price=Price(price_id=4, movement=0, odds=1.7, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[1], sportsbook=cls.sportsbook1)),
+            PriceModel(id=None, description='Vyhra *2*', price=Price(price_id=5, movement=0, odds=2.3, is_default=cls.sportsbook1.is_default, selected=False, locked=False, event=cls.events1[2], sportsbook=cls.sportsbook1)),
         ]
-        cls.odd_models2 = [
-            PriceModel(id=None, odd_id=1, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2.1, event_id=1, market_id='13', sportsbook_id=cls.sportsbook2.pk, description='Vyhra *1*'), # this should be linked
-            PriceModel(id=None, odd_id=2, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=1.8, event_id=1, market_id='31', sportsbook_id=cls.sportsbook2.pk, description='Vyhra *2*'), # this should not be linked, because opportunities are not linked
-            PriceModel(id=None, odd_id=3, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2.2, event_id=2, market_id='13', sportsbook_id=cls.sportsbook2.pk, description='Vyhra *1*'), # this should be linked
-            PriceModel(id=None, odd_id=4, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2.3, event_id=3, market_id='13', sportsbook_id=cls.sportsbook2.pk, description='Vyhra *1*'), # this should not be linked, because its event is not linked
-            PriceModel(id=None, odd_id=5, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=1.8, event_id=3, market_id='3441', sportsbook_id=cls.sportsbook2.pk, description='Unnknown opportunity'), # this wont be created
-            PriceModel(id=None, odd_id=6, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2, event_id=3, market_id='3441', sportsbook_id=cls.sportsbook2.pk, description='Unnknown opportunity'), # this wont be created
-            PriceModel(id=None, odd_id=7, code=0, movement=0, is_default=cls.sportsbook2.is_default, selected=False, locked= False, odd=2, event_id=8, market_id='3441', sportsbook_id=cls.sportsbook2.pk, description='Vyhra *1*'), # this wont be created
-        ]   
+        cls.price_models2 = [
+            PriceModel(id=None, description='Vyhra *1*', price=Price(price_id=1, movement=0, odds=2.1, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[0], sportsbook=cls.sportsbook2)), # this should be linked
+            PriceModel(id=None, description='Vyhra *2*', price=Price(price_id=2, movement=0, odds=1.8, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[0], sportsbook=cls.sportsbook2)), # this should not be linked, because opportunities are not linked
+            PriceModel(id=None, description='Vyhra *1*', price=Price(price_id=3, movement=0, odds=2.2, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[1], sportsbook=cls.sportsbook2)), # this should be linked
+            PriceModel(id=None, description='Vyhra *1*', price=Price(price_id=4, movement=0, odds=2.3, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[2], sportsbook=cls.sportsbook2)), # this should not be linked, because its event is not linked
+            PriceModel(id=None, description='Unknown opportunity', price=Price(price_id=5, movement=0, odds=1.8, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[2], sportsbook=cls.sportsbook2)), # this wont be created
+            PriceModel(id=None, description='Unknown opportunity', price=Price(price_id=6, movement=0, odds=2.0, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[2], sportsbook=cls.sportsbook2)), # this wont be created
+        ]
         
     def test_clear_unused_events(self): 
         # Arrange
@@ -309,31 +274,28 @@ class TestScrapeHelper(TestCase):
 
         # Assert
         self.assertEqual(Event.objects.count(), 3)
-        sportsbook = Sportsbook.objects.first()
-        sportsbook.selected = True
-        sportsbook.save()
-
-    def test_link_events_and_odds(self): 
+    
+    def test_link_events_and_prices(self): 
         # Arrange
         self.run_updates()
 
         # Act
-        self.scrape_helper.link_all_events()
-        self.scrape_helper.link_odds()
+        self.scrape_helper.link_events()
+        self.scrape_helper.link_prices()
 
         # Assert
         event_ids = [event.event_id for event in Event.objects.filter(sportsbook=self.sportsbook2, parent__isnull=False).all()]
         self.assertEqual(event_ids, [1, 2])        
-        odd_ids = [odd.odd_id for odd in Price.objects.filter(sportsbook=self.sportsbook2, parent__isnull=False).all()]
-        self.assertEqual(odd_ids, [1, 3])
+        price_ids = [price.price_id for price in Price.objects.filter(sportsbook=self.sportsbook2, parent__isnull=False).all()]
+        self.assertEqual(price_ids, [1, 3])
 
     def test_change_of_parents(self):
         # this should be better match as first eventModel in event_models2 
-        self.event_models2.append(
-            EventModel(None, 4, 0, "", 'Roger Federe', 'Rafael Nada', False, False, self.sportsbook2.pk, self.sport.pk, [], 5),
+        self.events2.append(
+            Event(event_id=4, time="", home='Roger Federe', away='Rafael Nada', is_default=self.sportsbook2.is_default, sportsbook=self.sportsbook2, sport=self.sport),
         )
         self.run_updates()
-        self.scrape_helper.link_all_events()
+        self.scrape_helper.link_events()
         event1 = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event2 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=1).first()
         event3 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=4).first()
@@ -341,11 +303,11 @@ class TestScrapeHelper(TestCase):
         self.assertEqual(event3.parent, event1)
 
         # this is the exact match, so it should change child of parent event
-        self.event_models2.append(
-            EventModel(None, 5, 0, "", 'Roger Federer', 'Rafael Nadal', False, False, self.sportsbook2.pk, self.sport.pk, [], 5),
+        self.events2.append(
+            Event(event_id=5, time="", home='Roger Federer', away='Rafael Nadal', is_default=self.sportsbook2.is_default, sportsbook=self.sportsbook2, sport=self.sport),
         )
-        self.event_helper2.update_events(self.event_models2)
-        self.scrape_helper.link_all_events()
+        self.event_helper2.update_events(self.events2)
+        self.scrape_helper.link_events()
         event1 = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event2 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=1).first()
         event3 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=4).first()
@@ -361,21 +323,21 @@ class TestScrapeHelper(TestCase):
         reset_database()
         self.setUpTestData()
         self.run_updates()
-        self.scrape_helper.link_all_events()
-        self.scrape_helper.link_odds()
+        self.scrape_helper.link_events()
+        self.scrape_helper.link_prices()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-        odd.movement=1
-        odd.selected=True
-        odd.save()
+        price = Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
+        price.movement=1
+        price.selected=True
+        price.save()
         event2 = Event.objects.filter(sportsbook=self.sportsbook1, event_id=2).first()
         event2.selected=True
         event2.save()
-        odd2 = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=3).first()
-        odd2.selected=True
-        odd2.save()
+        price2 = Price.objects.filter(sportsbook=self.sportsbook1, price_id=3).first()
+        price2.selected=True
+        price2.save()
 
         # opportunity should be sent only if event is selected, odd is selected and its odd movement is up or down or fetch_all is True
         for fetch_all in [False, True]:
@@ -405,16 +367,16 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_parent_is_used(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        self.scrape_helper.link_all_events()
-        self.scrape_helper.link_odds()
+        self.scrape_helper.link_events()
+        self.scrape_helper.link_prices()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.used=True
         event.save()
-        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-        odd.movement=1
-        odd.selected=True
-        odd.save()
+        price = Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
+        price.movement=1
+        price.selected=True
+        price.save()
 
         # Act 
         self.scrape_helper.send_updated_events(False)
@@ -429,18 +391,18 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_child_is_used(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        self.scrape_helper.link_all_events()
-        self.scrape_helper.link_odds()
+        self.scrape_helper.link_events()
+        self.scrape_helper.link_prices()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
         event2 = Event.objects.filter(sportsbook=self.sportsbook2, event_id=1).first()
         event2.used=True
         event2.save()
-        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-        odd.movement=1
-        odd.selected=True
-        odd.save()
+        price = Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
+        price.movement=1
+        price.selected=True
+        price.save()
 
         # Act 
         self.scrape_helper.send_updated_events(False)
@@ -455,16 +417,16 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_parent_odd_is_locked(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        self.scrape_helper.link_all_events()
-        self.scrape_helper.link_odds()
+        self.scrape_helper.link_events()
+        self.scrape_helper.link_prices()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-        odd.movement=1
-        odd.selected=True
-        odd.locked=True
-        odd.save()
+        price = Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
+        price.movement=1
+        price.selected=True
+        price.locked=True
+        price.save()
 
         # Act 
         self.scrape_helper.send_updated_events(False)
@@ -479,20 +441,20 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_child_odd_is_locked(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        self.scrape_helper.link_all_events()
-        self.scrape_helper.link_odds()
+        self.scrape_helper.link_events()
+        self.scrape_helper.link_prices()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-        odd.movement=1
-        odd.selected=True
-        odd.save()
+        price = Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
+        price.movement=1
+        price.selected=True
+        price.save()
 
-        odd2 = Price.objects.filter(sportsbook=self.sportsbook2, odd_id=1).first()
-        odd2.movement=1
-        odd2.locked=True
-        odd2.save()
+        price2 = Price.objects.filter(sportsbook=self.sportsbook2, price_id=1).first()
+        price2.movement=1
+        price2.locked=True
+        price2.save()
 
         # Act 
         self.scrape_helper.send_updated_events(False)
@@ -507,18 +469,18 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_odds_have_no_movement(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        self.scrape_helper.link_all_events()
-        self.scrape_helper.link_odds()
+        self.scrape_helper.link_events()
+        self.scrape_helper.link_prices()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-        odd.movement=0
-        odd.selected=True
-        odd.save()
-        odd2 = Price.objects.filter(sportsbook=self.sportsbook2, odd_id=1).first()
-        odd2.movement=0
-        odd2.save()
+        price = Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
+        price.movement=0
+        price.selected=True
+        price.save()
+        price2 = Price.objects.filter(sportsbook=self.sportsbook2, price_id=1).first()
+        price2.movement=0
+        price2.save()
         # Act 
         self.scrape_helper.send_updated_events(False)
         
@@ -532,19 +494,19 @@ class TestScrapeHelper(TestCase):
     def test_send_updated_events_should_return_nothing_if_ev_is_leq0(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
-        self.scrape_helper.link_all_events()
-        self.scrape_helper.link_odds()
+        self.scrape_helper.link_events()
+        self.scrape_helper.link_prices()
         event = Event.objects.filter(sportsbook=self.sportsbook1, event_id=1).first()
         event.selected=True
         event.save()
-        odd = Price.objects.filter(sportsbook=self.sportsbook1, odd_id=1).first()
-        odd.movement=1
-        odd.selected=True
-        odd.save()
-        odd2 = Price.objects.filter(sportsbook=self.sportsbook2, odd_id=1).first()
-        odd2.movement=0
-        odd2.odd=1.2
-        odd2.save()
+        price = Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
+        price.movement=1
+        price.selected=True
+        price.save()
+        price2 = Price.objects.filter(sportsbook=self.sportsbook2, price_id=1).first()
+        price2.movement=0
+        price2.odds=1.2
+        price2.save()
         # Act 
         self.scrape_helper.send_updated_events(False)
         
@@ -555,7 +517,7 @@ class TestScrapeHelper(TestCase):
         self.assertEqual(json_response["opportunities"], [])        
 
     def run_updates(self): 
-        self.event_helper.update_events(self.event_models1)
-        self.event_helper2.update_events(self.event_models2)
-        self.odd_helper.update_odds(self.odd_models1, [])
-        self.odd_helper2.update_odds(self.odd_models2, [])     
+        self.event_helper.update_events(self.events1)
+        self.event_helper2.update_events(self.events2)
+        self.price_helper.update_prices(self.price_models1, [])
+        self.price_helper2.update_prices(self.price_models2, [])     

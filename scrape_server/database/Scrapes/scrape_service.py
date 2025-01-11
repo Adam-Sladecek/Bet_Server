@@ -14,7 +14,7 @@ from database.Scrapes.helpers import ScrapeHelper
 
 class ScrapeService: 
     def __init__(self, sports: list[Sport], event: threading.Event, send_all_event: threading.Event, 
-        command_queues: dict[int, queue.Queue], result_queue: queue.Queue, import_queue: queue.Queue, number_of_sbs: int):
+        command_queues: dict[int, queue.Queue], result_queue: queue.Queue, import_queue: queue.Queue, number_of_sbs: int) -> None:
         self.sports = sports
         self.event = event
         self.send_all_event = send_all_event
@@ -25,7 +25,7 @@ class ScrapeService:
         self.scrape_helper = ScrapeHelper()
         self.scrape_helper.clear_unused_events()
             
-    def get_sportsbook_data(self, sportsbook: Sportsbook): 
+    def get_sportsbook_data(self, sportsbook: Sportsbook) -> None: 
         try:
             command_queue = self.all_command_queues[sportsbook.pk]
             scraperClass = self.get_scraper_class(sportsbook)
@@ -35,7 +35,7 @@ class ScrapeService:
         except Exception as ex:
             self.handle_exception(ex)
 
-    def process_commands(self, scraper: Scraper, command_queue: queue.Queue):
+    def process_commands(self, scraper: Scraper, command_queue: queue.Queue) -> None:
         while not self.event.is_set():
             try:
                 command: Command = command_queue.get(timeout=1)
@@ -43,14 +43,14 @@ class ScrapeService:
             except queue.Empty:
                 continue
 
-    def execute_command(self, scraper: Scraper, command: Command):
+    def execute_command(self, scraper: Scraper, command: Command) -> None:
         if command == Command.IMPORT:
             scraper.import_events()
         else:    
             scraper.refresh_odds()
         self.result_queue.put(command)
 
-    def group_results(self): 
+    def group_results(self) -> None: 
         try:
             result_count = self.initialize_result_dictionary()
             while not self.event.is_set():
@@ -65,16 +65,16 @@ class ScrapeService:
         except Exception as ex:
             self.handle_exception(ex)
 
-    def handle_group_result(self, command: Command, result_count: dict):
+    def handle_group_result(self, command: Command, result_count: dict) -> None:
         if command == Command.REFRESH: 
-            self.scrape_helper.link_odds()
+            self.scrape_helper.link_prices()
             is_set = self.send_all_event.is_set()
             self.scrape_helper.send_updated_events(is_set)
             if is_set: 
                 self.send_all_event.clear()
             asyncio.run(asyncio.sleep(5))
         else:
-            self.scrape_helper.link_all_events()
+            self.scrape_helper.link_events()
             asyncio.run(self.scrape_helper.broadcast_data(DataType.IMPORTRUNNING, TaskState.CLOSED))
             print('Import done.')
         result_count[command.value] = 0
@@ -87,7 +87,7 @@ class ScrapeService:
     def initialize_result_dictionary(self) -> dict:
         return {Command.REFRESH.value: 0, Command.IMPORT.value: 0}
     
-    def import_fn(self):
+    def import_fn(self) -> None:
         try:
             while not self.event.is_set():
                 try:
@@ -99,7 +99,7 @@ class ScrapeService:
         except Exception as ex:
             self.handle_exception(ex)
 
-    def start_import(self, command: Command):
+    def start_import(self, command: Command) -> None:
         print('Starting import.')
         for command_queue in self.all_command_queues.values(): 
             command_queue.put(command, block=True, timeout=None)
@@ -115,7 +115,7 @@ class ScrapeService:
         }
         return scrapers[sportsbook.name]
 
-    def handle_exception(self, ex):
+    def handle_exception(self, ex: Exception) -> None:
         print('Exception: ' + str(ex))
         self.event.set()
         self.scrape_helper.broadcast_data(DataType.ERROR, str(ex))

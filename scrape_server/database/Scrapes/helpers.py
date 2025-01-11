@@ -3,6 +3,7 @@ from enum import Enum
 from django.db import transaction
 from collections import defaultdict
 from channels.layers import get_channel_layer
+from traitlets import Any
 from database.enums import DataType
 from database.models import Sportsbook, Opportunity, Price, Event, SportsbookMarket
 from database.Scrapes.dataclass_models import MatchOpportunityResponse, PriceModel
@@ -35,15 +36,12 @@ class EventHelper:
             Event.objects.bulk_create(new_events)
 
     def get_selected_events(self) -> list[Event]:
-        queryset = Event.objects.prefetch_related(
+        queryset = Event.objects.select_related('sport').prefetch_related( # ask LM if this is enough later
             'prices',
-            # 'children',
-            # 'odds__parent',
-            # 'odds__opportunity',
-            # 'odds__sportsbook',
-            # 'odds__children',
-            # 'odds__children__sportsbook',
-            # 'odds__children__event',
+            'children',
+            'prices__children',
+            'prices__opportunity',
+            'prices__children__sportsbook',
         )
 
         if self.sportsbook.is_default:
@@ -101,6 +99,8 @@ class PriceHelper:
             new_opportunity = self.create_new_opportunity(price_model, sport_id)
             new_opportunities_dict[key] = new_opportunity
             new_opportunities.append(new_opportunity)
+            price_model.price.opportunity = new_opportunity
+            new_prices.append(price_model.price)
 
         return new_prices, new_opportunities
     
@@ -126,42 +126,30 @@ class ScrapeHelper:
     def __init__(self):
         self.event_helper = EventHelper(Sportsbook.objects.get(is_default=True, selected=True))
 
-    def send_updated_events(self, fetch_all: bool):
+    def send_updated_events(self, fetch_all: bool) -> None:
         events, _ = self.event_helper.get_selected_events()
         response = MatchOpportunityResponse.dataclass_from_models(events, fetch_all)
         asyncio.run(self.broadcast_data(DataType.MATCHDATA, response.dict))
 
-    def clear_unused_events(self):
+    def clear_unused_events(self) -> None:
         unused_sportsbooks = Sportsbook.objects.filter(selected=False).all()
         sb_ids = [sb.pk for sb in unused_sportsbooks]
 
         with transaction.atomic():
             Event.objects.filter(sportsbook_id__in=sb_ids).delete()
 
-    def link_all_events(self):
+    def link_events(self) -> None:
         parents = self.fetch_parent_events()
         parents_by_key = {parent.pk: parent for parent in parents}
         parents_by_sport = self.group_parents_by_sport(parents)
         events = self.fetch_unlinked_events()
         events_by_parent = self.link_events_to_parents(events, parents_by_sport)
         self.assign_parents_to_events(events_by_parent, parents_by_key)
-
-    def link_odds(self):
-        parents = self.fetch_parents_with_odds()
-
-        odds_to_update = []
-        for parent in parents:
-            for child in parent.children.all():
-                odds_to_update.extend(self.link_child_odds_to_parent(child, parent.odds.all()))
-
-        with transaction.atomic():
-            Price.objects.bulk_update(odds_to_update, ['parent'])
-
+    
     def fetch_parent_events(self) -> list[Event]:
         return Event.objects.filter(is_default=True).select_related('sport').prefetch_related(
             'children',
             'children__sportsbook', 
-            'children__sport'
         ).all()
 
     def group_parents_by_sport(self, parents: list[Event]) -> dict[int, list[Event]]:
@@ -171,12 +159,13 @@ class ScrapeHelper:
         return parents_by_sport
     
     def fetch_unlinked_events(self) -> list[Event]:
-        return Event.objects.select_related('sportsbook', 'sport', 'parent').filter(is_default=False, parent__isnull=True).all()
+        return Event.objects.select_related('sportsbook').filter(is_default=False, parent__isnull=True).all()
 
     def link_events_to_parents(self, events: list[Event], parents_by_sport: dict[int, list[Event]]) -> dict[int, list[Event]]:
         events_by_parent = defaultdict(list)
         for event in events:
             self.find_best_parent(event, parents_by_sport[event.sport.pk], events_by_parent)
+
         return events_by_parent
     
     def assign_parents_to_events(self, events_by_parent: dict[int, list[Event]], parents_by_key: dict[int, Event]) -> None:
@@ -197,7 +186,7 @@ class ScrapeHelper:
         with transaction.atomic():
             Event.objects.bulk_update(events_to_update, ['parent'])
 
-    def find_best_parent(self, event_to_be_linked: Event, parents: list[Event], events_by_parent: dict[int, list[Event]]) -> Event:
+    def find_best_parent(self, event_to_be_linked: Event, parents: list[Event], events_by_parent: dict[int, list[Event]]) -> None:
         sorted_parents = sorted(parents, key=lambda p: p.get_score(event_to_be_linked), reverse=True)
         best_parent = sorted_parents[0] if sorted_parents else None
         best_score = best_parent.get_score(event_to_be_linked) if best_parent else 0
@@ -208,7 +197,8 @@ class ScrapeHelper:
                 # case when there are multiple events that are similar to parent. Highest score wins.
                 if best_parent.get_score(event_to_be_linked) > best_parent.get_score(events_by_parent[best_parent.pk][existing_child_index]): 
                     events_by_parent[best_parent.pk][existing_child_index] = event_to_be_linked
-                return events_by_parent
+                    
+                return
 
             existing_child = best_parent.children.filter(sportsbook=event_to_be_linked.sportsbook).first()
             if existing_child is not None:
@@ -216,34 +206,43 @@ class ScrapeHelper:
                 if best_parent.get_score(event_to_be_linked) > best_parent.get_score(existing_child): 
                     events_by_parent[-1].append(existing_child)
                     events_by_parent[best_parent.pk].append(event_to_be_linked)
-                return events_by_parent
+
+                return
 
             events_by_parent[best_parent.pk].append(event_to_be_linked)
-        
-        return events_by_parent
 
-    def fetch_parents_with_odds(self) -> list[Event]:
+    def link_prices(self) -> None:
+        parents = self.fetch_parents_with_prices()
+
+        prices_to_update = []
+        for parent in parents:
+            for child in parent.children.all():
+                prices_to_update.extend(self.link_child_prices_to_parent(child, parent.prices.all()))
+
+        with transaction.atomic():
+            Price.objects.bulk_update(prices_to_update, ['parent'])
+
+    def fetch_parents_with_prices(self) -> list[Event]:
         return Event.objects.filter(is_default=True).prefetch_related(
-            'odds',
-            'odds__opportunity',
             'children',
-            'children__odds',
-            'children__odds__parent',
-            'children__odds__opportunity',
-            'children__odds__opportunity__parent',
+            'prices',
+            'prices__opportunity',
+            'children__prices',
+            'children__prices__opportunity',
+            'children__prices__opportunity__parent',
         ).all()
     
-    def link_child_odds_to_parent(self, child: Event, parent_odds: list[Price]) -> list[Price]:
-        odds_to_update = []
-        for odd in child.odds.filter(parent__isnull=True).all():
-            for parent_odd in parent_odds:
-                if odd.can_be_linked(parent_odd):
-                    odd.add_parent(parent_odd)
-                    odds_to_update.append(odd)
+    def link_child_prices_to_parent(self, child: Event, parent_prices: list[Price]) -> list[Price]:
+        prices_to_update = []
+        for price in child.prices.filter(parent__isnull=True).all():
+            for parent_price in parent_prices:
+                if price.can_be_linked(parent_price):
+                    price.add_parent(parent_price)
+                    prices_to_update.append(price)
                     break
-        return odds_to_update
+        return prices_to_update
     
-    async def broadcast_data(self, data_type, data):
+    async def broadcast_data(self, data_type: DataType, data: Any) -> None:
         if isinstance(data, Enum):
             data = data.value
 

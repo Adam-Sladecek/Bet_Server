@@ -4,7 +4,7 @@ from database.models import Sportsbook, Sport
 from database.enums import Command
 from database.Scrapes.scrape_service import ScrapeService
 
-def scrape_fn(event: threading.Event, import_queue: Queue, send_all_event: threading.Event):
+def scrape_fn(event: threading.Event, import_queue: Queue, send_all_event: threading.Event) -> None:
     print('Scraping...')    
     sportsbooks = list(Sportsbook.objects.filter(selected=True).all())
     sports = list(Sport.objects.filter(selected=True).all()) 

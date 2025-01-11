@@ -112,6 +112,6 @@ class Opportunity(models.Model):
         self.parent = parent
         self.save()
 
-    def remove_parent(self): 
+    def remove_parent(self) -> None: 
         self.parent = None
         self.save()
