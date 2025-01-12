@@ -77,7 +77,6 @@ class TipsportScraper(Scraper):
     
     def map_prices(self, events: list[Event], data: list[object]) -> tuple[list[PriceModel], list[Price]]:
         prices_to_create, prices_to_update = [], []
-        allowed_markets = self.price_helper.get_allowed_markets()
 
         for event in events: 
             dataset = next((d for d in data if self.get_match(d).get("id") == event.event_id), None)
@@ -93,7 +92,7 @@ class TipsportScraper(Scraper):
 
             bet_dict = {}
             for table in match.get("eventTables", []):
-                if table["mySelectionId"] not in allowed_markets: 
+                if table["mySelectionId"] not in self.allowed_markets: 
                     continue
                 opp_name = table["name"]
                 for box in table["boxes"]:

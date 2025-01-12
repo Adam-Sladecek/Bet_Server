@@ -1,37 +1,22 @@
-import asyncio
 from datetime import datetime
-from typing import Optional
-
+import aiohttp
 from database.enums import Movement
-from database.models import Sport, Sportsbook, Event, Price, SportsbookMarket
-from database.Scrapes.helpers import EventHelper, PriceHelper
-from database.Scrapes.dataclass_models import EventModel, PriceModel
+from database.models import Sport, Sportsbook, Event, Price
 from database.Scrapes.SportsBooks.scraper import Scraper
+from database.Scrapes.dataclass_models import PriceModel
 
 class BetfairScraper(Scraper):
     BASE_URL = "https://api.betfair.com/exchange/betting/rest/v1.0"
     
-    def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
+    def __init__(self, sportsbook: Sportsbook, sports: list[Sport]) -> None:
         super().__init__(sportsbook, sports)
         self.session_token = "h0z8dOrm1huD8ORIJk3pHSNf7KT78RG7VbSrKlev8HM="
         self.app_key = "WAVvPmAtlpnmt9Er" # Get from Betfair Developer Program
-        self.markets = [sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()]
         
-    def __enter__(self):
-        return self
+    def get_driver(self): pass
+    def close_driver(self): pass
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close_driver()
-        
-    def get_driver(self):
-        # Not needed for REST API
-        pass
-
-    def close_driver(self):
-        # Not needed for REST API
-        pass
-
-    def get_headers(self):
+    def get_headers(self) -> dict[str, str]:
         return {
             'X-Application': self.app_key,
             'X-Authentication': self.session_token,
@@ -50,81 +35,54 @@ class BetfairScraper(Scraper):
             '6': 8, #boxing
         }
 
-    def get_data(self):
+    def refresh_prices(self) -> None:
         try:
-            events, sport_ids = self.event_helper.get_selected_events()
+            events = self.event_helper.get_selected_events()
             if len(events) == 0: 
                 return
-            sports = [sport for sport in self.sports if sport.pk in sport_ids]
+
             loop = self.get_loop()
-            event_ids = [event.event_id for event in events]
-            event_response = loop.run_until_complete(self.gather_events(sports, event_ids))
-            mapped_events, events_to_delete = self.map_events_selected(events, event_response)
-            self.event_helper.update_selected_events(mapped_events, events_to_delete)
-            events = [event for event in events if event.pk is not None]
-            event_ids = [event.event_id for event in events]
-            allowed_market_ids = set([sbmarket.value for sbmarket in SportsbookMarket.objects.filter(sportsbook=self.sportsbook).all()])
-            markets = loop.run_until_complete(self.gather_markets(event_ids, allowed_market_ids))
-            market_ids = [market['marketId'] for market in markets]
-            odds_response = loop.run_until_complete(self.gather_odds(events, market_ids))
-            odds_to_create, odds_to_update = self.map_odds(odds_response, markets)
-            self.odd_helper.update_odds(odds_to_create, odds_to_update)
+            markets = loop.run_until_complete(self.gather_markets(events))
+            prices_response = loop.run_until_complete(self.gather_prices(markets))
+            prices_to_create, prices_to_update = self.map_prices(events, prices_response, markets)
+            self.price_helper.update_prices(prices_to_create, prices_to_update)
 
         except Exception as ex:
-            print(f"Get data in {self.sportsbook.name} failed. Exception: {str(ex)}.")
+            print(f"Refresh prices in {self.sportsbook.name} failed. Exception: {str(ex)}.")
 
-    def import_all_data(self):
-        try:
-            loop = self.get_loop()
-            event_response = loop.run_until_complete(self.gather_events(self.sports))
-            events = self.map_events(event_response)
-            self.event_helper.update_events(events)    
-
-        except Exception as ex:
-            print(f"Import in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
-
-    async def gather_markets(self, event_ids: list[int], allowed_market_ids: list[str]):
-        event_ids = [str(event_id) for event_id in event_ids]
+    async def gather_markets(self, events: list[Event]) -> list[object]:
+        event_ids = [str(event.event_id) for event in events]
         url = f"{self.BASE_URL}/listMarketCatalogue/"
-        response = await self.post(url, self.get_headers(), {"filter": {"eventIds": event_ids}, "maxResults": 1000, "marketProjection": ["EVENT", "RUNNER_DESCRIPTION"]})
-        results = response
-        return [result for result in results if result['marketName'] in allowed_market_ids]
 
-    async def gather_events(self, sports: list[Sport], eventIds: list[int] = None):
+        async with aiohttp.ClientSession() as session:
+            data = {"filter": {"eventIds": event_ids}, "maxResults": 1000, "marketProjection": ["EVENT", "RUNNER_DESCRIPTION"]}
+            results = await self.post(session, url, self.get_headers(), data) 
+
+        return [result for result in results if result['marketName'] in self.allowed_markets]
+
+    async def gather_events(self, sports: list[Sport]) -> dict[int, list[object]]:
         sport_id_map = {v: k for k, v in self.get_sportids().items()}
-        url = f"{self.BASE_URL}/listEvents/"
-
-        filter = {
-            'inPlayOnly': True
-        }
+        base_url = f"{self.BASE_URL}/listEvents/"
         
-        if eventIds:
-            filter['eventIds'] = eventIds
-            response = await self.post(url, self.get_headers(), {'filter': filter})
-            return response
+        url_dict = {}
+        data_dict = {}
         
-        result = {}
-        # Create all tasks first
-        tasks = []
         for sport in sports:
-            sport_filter = filter.copy()
-            sport_filter['eventTypeIds'] = [sport_id_map[sport.pk]]
-            tasks.append(self.post(url, self.get_headers(), {'filter': sport_filter}))
+            url_dict[sport.pk] = base_url
+            data_dict[sport.pk] = {
+                'filter': {
+                    'inPlayOnly': True,
+                    'eventTypeIds': [sport_id_map[sport.pk]]
+                }
+            }
         
-        # Wait for all tasks to complete
-        responses = await asyncio.gather(*tasks)
+        result = await self.gather_data(url_dict, self.get_headers(), data_dict, is_post=True)
         
-        # Process responses
-        for sport, response in zip(sports, responses):
-            if response:
-                result[sport.pk] = response
-            else:
-                result[sport.pk] = []
+        return {sport_id: (data if data else []) for sport_id, data in result.items()}
 
-        return result
-
-    async def gather_odds(self, events: list[EventModel], market_ids: list[str]):
-        params = {
+    async def gather_prices(self, markets: list[object]) -> list[object]:
+        market_ids = [market['marketId'] for market in markets]
+        data = {
             "marketIds": market_ids,
             "priceProjection": {
                 "priceData": ["EX_BEST_OFFERS"],
@@ -133,43 +91,49 @@ class BetfairScraper(Scraper):
         }
         
         url = f"{self.BASE_URL}/listMarketBook/"
-        response = await self.post(url, self.get_headers(), params)
+        
+        async with aiohttp.ClientSession() as session:
+            response = await self.post(session, url, self.get_headers(), data)
+        
         return response
 
-    def map_events(self, data) -> list[EventModel]:
-        result = []
+    def map_events(self, data) -> list[Event]:
+        events = []
         for sport_id, sport_data in data.items():
             events = sport_data
             for event in events:
                 details = event.get('event', {})
-                names = details['name'].split(' v ')
+                names = details.get('name', '').split(' v ')
                 if len(names) == 2:
                     home, away = names
-                    result.append(EventModel(
-                        id=None,
-                        league_id=0,
-                        event_id=int(details['id']),
-                        time=self.parse_event_time(details.get('openDate')),
-                        home=home,
-                        away=away,
-                        selected=False,
-                        odd_count=0,
-                        sport_id=sport_id,
-                        sportsbook_id=self.sportsbook.pk,
-                        is_default=self.sportsbook.is_default,
-                        available_sportsbooks=[],
+                    events.append(Event(
+                        event_id = int(details['id']),
+                        time = self.parse_event_time(details.get('openDate')),
+                        home = home,
+                        away = away,
+                        is_default = self.sportsbook.is_default,
+                        sportsbook = self.sportsbook,
+                        sport_id = sport_id,
                     ))
-        return result
+        
+        return events
 
-    def map_odds(self, data, markets) -> tuple[list[PriceModel], list[Price]]:
-        odds_to_create = []
-        odds_to_update = []
-        existing_odds = self.odd_helper.get_existing_odds()
+    def map_prices(self, events: list[Event], prices_response: list[object], markets: list[object]) -> tuple[list[PriceModel], list[Price]]:
+        prices_to_create = []
+        prices_to_update = []
+        
+        for event in events:
+            market_id = next((market['marketId'] for market in markets if market['event']['id'] == event.event_id), None)
+            if market_id is None:
+                for price in event.prices.all():
+                    price.locked = True
+                    prices_to_update.append(price)
+                continue
+
         for marketBook in data:
             market_id = marketBook['marketId']
             market = next((market for market in markets if market['marketId'] == market_id), {})
             event_id = int(market.get('event').get('id'))
-            match_odds = existing_odds.get(event_id, {})
 
             for runner in market.get('runners', []):
                 opp_name = f"{market.get('marketName', '')} {runner.get('runnerName', '')}"
@@ -204,38 +168,16 @@ class BetfairScraper(Scraper):
                         market_id=market_id
                     ))
 
-        return odds_to_create, odds_to_update
+        return prices_to_create, prices_to_update
 
-    def parse_event_time(self, time_str: Optional[str]) -> str:
+    def parse_event_time(self, time_str: str) -> str:
         if not time_str:
             return "0:00'"
         try:
             event_time = datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S.%fZ")
             time_diff = datetime.now() - event_time
             total_seconds = int(time_diff.total_seconds())
+
             return self.convert_seconds_to_time_string(total_seconds)
         except:
             return "0:00'" 
-    
-    def map_events_selected(self, events: list[Event], event_response: list[object]) -> tuple[list[Event], list[Event]]:
-        events_to_update, events_to_delete = [], []
-        for event in events:
-            try:
-                matches = event_response
-                if not matches:
-                    events_to_delete.append(event)
-                    continue
-                match = next((match for match in matches if int(match.get('event', {}).get('id', 0)) == event.event_id), None)
-                if not match:
-                    events_to_delete.append(event)
-                    continue
-                event.time = self.parse_event_time(match.get('event', {}).get('openDate')),
-                events_to_update.append(event)
-            except Exception as ex:
-                print(f"Exception in map_events_selected Betfair: {str(ex)}.")
-                continue       
-        
-        return events_to_update, events_to_delete
-    
-    def map_odds_selected(self, data, markets) -> tuple[list[PriceModel], list[Price]]:
-        pass

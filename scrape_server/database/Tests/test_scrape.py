@@ -52,8 +52,8 @@ class TestScrapeProcess(TestCase):
         mock_tipsport_scraper.return_value.__enter__.return_value = mock_tipsport_scraper.return_value
         mock_tipsport_scraper.return_value.__exit__.return_value = False
 
-        mock_nike_scraper.return_value.refresh_odds = MagicMock()
-        mock_tipsport_scraper.return_value.refresh_odds = MagicMock()
+        mock_nike_scraper.return_value.refresh_prices = MagicMock()
+        mock_tipsport_scraper.return_value.refresh_prices = MagicMock()
         mock_nike_scraper.return_value.import_events = MagicMock()
         mock_tipsport_scraper.return_value.import_events = MagicMock()
 
@@ -74,8 +74,8 @@ class TestScrapeProcess(TestCase):
         mock_nike_scraper.assert_called_with(mock_sportsbook_nike, [mock_sport_filter.return_value.all.return_value[0]])
         mock_tipsport_scraper.assert_called_with(mock_sportsbook_tipsport, [mock_sport_filter.return_value.all.return_value[0]])
 
-        mock_nike_scraper.return_value.refresh_odds.assert_called()
-        mock_tipsport_scraper.return_value.refresh_odds.assert_called()
+        mock_nike_scraper.return_value.refresh_prices.assert_called()
+        mock_tipsport_scraper.return_value.refresh_prices.assert_called()
         self.assertEqual(mock_nike_scraper.return_value.import_events.call_count, 1)
         self.assertEqual(mock_tipsport_scraper.return_value.import_events.call_count, 1)
 

@@ -47,7 +47,7 @@ class ScrapeService:
         if command == Command.IMPORT:
             scraper.import_events()
         else:    
-            scraper.refresh_odds()
+            scraper.refresh_prices()
         self.result_queue.put(command)
 
     def group_results(self) -> None: 

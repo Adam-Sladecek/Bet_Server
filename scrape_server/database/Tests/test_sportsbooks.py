@@ -79,7 +79,7 @@ class TestIfortuna(TestCase):
                 odd_default.selected = True
                 odd_default.save()
                 odd.save()
-            your_instance.refresh_odds()
+            your_instance.refresh_prices()
             self.assertEqual(Price.objects.count(), 6)
 
         with patch.object(IfortunaScraper, 'get', new=self.mock_get_prices_second):
@@ -87,7 +87,7 @@ class TestIfortuna(TestCase):
                 Api returns 2 prices. One should be updated. Two should be marked as locked. One because it is locked on page,
                 one because it is not available. 
             """
-            your_instance.refresh_odds()
+            your_instance.refresh_prices()
             self.assertEqual(Price.objects.filter(is_default=False, opportunity=self.opp).first().odds, 16)
             self.assertEqual(Price.objects.filter(is_default=False, locked=True).count(), 2)
 
@@ -95,7 +95,7 @@ class TestIfortuna(TestCase):
             """
                 Api returns no prices. All prices should be marked as locked. 
             """
-            your_instance.refresh_odds()
+            your_instance.refresh_prices()
             self.assertEqual(Event.objects.count(), 2)
             self.assertEqual(Price.objects.count(), 6)
             self.assertEqual(Price.objects.filter(is_default=False, locked=True).count(), 3)
@@ -164,7 +164,7 @@ class TestNike(TestCase):
                 odd_default.selected = True
                 odd_default.save()
                 odd.save()
-            your_instance.refresh_odds()
+            your_instance.refresh_prices()
             self.assertEqual(Price.objects.count(), 6)
 
         with patch.object(NikeScraper, 'get', new=self.mock_get_prices_second):
@@ -172,7 +172,7 @@ class TestNike(TestCase):
                 Api returns 2 prices. One should be updated. Two should be marked as locked. One because it is locked on page,
                 one because it is not available. 
             """
-            your_instance.refresh_odds()
+            your_instance.refresh_prices()
             self.assertEqual(Price.objects.filter(is_default=False, opportunity=self.opp).first().odds, 16)
             self.assertEqual(Price.objects.filter(is_default=False, locked=True).count(), 2)
 
@@ -180,7 +180,7 @@ class TestNike(TestCase):
             """
             Api returns no prices. All prices should be marked as locked.
             """
-            your_instance.refresh_odds()
+            your_instance.refresh_prices()
             self.assertEqual(Event.objects.count(), 2)
             self.assertEqual(Price.objects.count(), 6)
             self.assertEqual(Price.objects.filter(is_default=False, locked=True).count(), 3)
@@ -253,7 +253,7 @@ class TestTipsport(TestCase):
                     odd_default.selected = True
                     odd_default.save()
                     odd.save()
-                your_instance.refresh_odds()
+                your_instance.refresh_prices()
                 self.assertEqual(Price.objects.count(), 6)
             
             with patch.object(TipsportScraper, 'gather_prices', new=self.mock_get_prices_second):
@@ -261,7 +261,7 @@ class TestTipsport(TestCase):
                 Api returns 2 prices. One should be updated. Two should be marked as locked. One because it is locked on page,
                 one because it is not available.
                 """
-                your_instance.refresh_odds()
+                your_instance.refresh_prices()
                 self.assertEqual(Price.objects.filter(is_default=False, opportunity=self.opp).first().odds, 16)
                 self.assertEqual(Price.objects.filter(is_default=False, locked=True).count(), 2)
 
@@ -269,7 +269,7 @@ class TestTipsport(TestCase):
                 """
                 Api returns no prices. All prices should be marked as locked.
                 """
-                your_instance.refresh_odds()
+                your_instance.refresh_prices()
                 self.assertEqual(Event.objects.count(), 2)
                 self.assertEqual(Price.objects.count(), 6)
                 self.assertEqual(Price.objects.filter(locked=True).count(), 3)
@@ -280,68 +280,68 @@ class TestBetfair(TestCase):
         reset_database()
         cls.sport = Sport.objects.create(name="Football", selected=True)
         cls.sportsbook = Sportsbook.objects.create(name="Betfair", selected=True, is_default=True)
-        Event.objects.create(event_id=1, league_id=0, time='', home='Real Madrid', away='Atletico Madrid', is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport=cls.sport)
+        Event.objects.create(event_id=1, time='', home='Real Madrid', away='Atletico Madrid', is_default=cls.sportsbook.is_default, sportsbook=cls.sportsbook, sport=cls.sport)
         SportsbookMarket.objects.create(value="Match Odds", sportsbook=cls.sportsbook)
 
-    async def mock_gather_events(self, sports, event_ids = None):
+    async def mock_import_events(self, session: aiohttp.ClientSession, url: str, headers: object, data: object):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/import_events.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
-        return {1: mock_response}
+        return mock_response
     
-    async def mock_gather_odds_first(self, events, market_ids):
+    async def mock_gather_odds_first(self, market_ids: list[str]):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/get_data_odds_first.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return mock_response
     
-    async def mock_gather_odds_second(self, events, market_ids):
+    async def mock_gather_odds_second(self, market_ids: list[str]):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/get_data_odds_second.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return mock_response
     
-    async def mock_api_returns_something_weird(self, events, event_ids = None):
+    async def mock_api_returns_something_weird(self, market_ids: list[str]):
         return None
     
-    async def mock_gather_markets(self, event_ids, allowed_market_ids):
+    async def mock_gather_markets(self, event_ids: list[int]):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/markets.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return mock_response
     
     def test_flow(self): 
-        with patch.object(BetfairScraper, 'gather_events', new=self.mock_gather_events):
+        with patch.object(BetfairScraper, 'post', new=self.mock_import_events):
             """
             Api returns 1 event. Old event should be deleted. New event should be created.
             """
             your_instance = BetfairScraper(self.sportsbook, [self.sport])
-            your_instance.import_all_data()
+            your_instance.import_events()
             self.assertEqual(Event.objects.count(), 1)
             default_event = Event.objects.filter(is_default=True).first()
             default_event.selected = True
             default_event.save()
 
         with patch.object(BetfairScraper, 'gather_markets', new=self.mock_gather_markets):
-            with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_first):
+            with patch.object(BetfairScraper, 'gather_prices', new=self.mock_gather_odds_first):
                 """
                 Api returns 3 odds. All should be added to the database.
                 """
-                your_instance.get_data()
+                your_instance.refresh_prices()
                 self.assertEqual(Price.objects.count(), 3)
                 
-            with patch.object(BetfairScraper, 'gather_odds', new=self.mock_gather_odds_second):
+            with patch.object(BetfairScraper, 'gather_prices', new=self.mock_gather_odds_second):
                 """
                 Api returns 2 odds. One should be updated with new value (16). Two should be marked as locked.
                 """
-                your_instance.get_data()
-                self.assertEqual(Price.objects.filter(is_default=True, locked=False).first().odd, 16)
+                your_instance.refresh_prices()
+                self.assertEqual(Price.objects.filter(is_default=True, locked=False).first().odds, 16)
                 self.assertEqual(Price.objects.filter(is_default=True, locked=True).count(), 2)
 
-            with patch.object(BetfairScraper, 'gather_odds', new=self.mock_api_returns_something_weird):
+            with patch.object(BetfairScraper, 'gather_prices', new=self.mock_api_returns_something_weird):
                 """
                 Api returns no odds. All odds should be marked as locked.
                 """
-                your_instance.get_data()
+                your_instance.refresh_prices()
                 self.assertEqual(Event.objects.count(), 1)
                 self.assertEqual(Price.objects.filter(locked=True).count(), 3)

@@ -73,7 +73,6 @@ class IfortunaScraper(Scraper):
     
     def map_prices(self, events: list[Event], data: dict[int, object]) -> tuple[list[PriceModel], list[Price]]:
         prices_to_create, prices_to_update = [], []
-        allowed_markets = self.price_helper.get_allowed_markets()
         
         for event in events:
             dataset = data.get(event.pk)
@@ -90,7 +89,7 @@ class IfortunaScraper(Scraper):
             for group in dataset.get('groups', []) or []:
                 for market in group.get('markets', []):
                     market_id = market['marketTypeId']
-                    if market_id not in allowed_markets:
+                    if market_id not in self.allowed_markets:
                         continue
 
                     subname = market['subNames']['sk_SK']

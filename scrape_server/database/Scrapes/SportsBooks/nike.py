@@ -47,13 +47,13 @@ class NikeScraper(Scraper):
         away = match['away']['sk']
 
         return Event(
-            event_id=event_id,
-            time=time,
-            home=home,
-            away=away,
-            is_default=self.sportsbook.is_default,
-            sportsbook=self.sportsbook,
-            sport_id=sport_id,
+            event_id = event_id,
+            time = time,
+            home = home,
+            away = away,
+            is_default = self.sportsbook.is_default,
+            sportsbook = self.sportsbook,
+            sport_id = sport_id,
         )
         
     def get_time_from_match(self, match) -> str:
@@ -78,7 +78,6 @@ class NikeScraper(Scraper):
     
     def map_prices(self, events: list[Event], data: dict[int, object]) -> tuple[list[PriceModel], list[Price]]:
         prices_to_create, prices_to_update = [], []
-        allowed_markets = self.price_helper.get_allowed_markets()
 
         for event in events:
             dataset = data.get(event.pk)
@@ -90,7 +89,7 @@ class NikeScraper(Scraper):
             
             bet_dict = {}
             for bet in dataset[0][1]['bets']:
-                if bet['marketId'] not in allowed_markets:
+                if bet['marketId'] not in self.allowed_markets:
                     continue
                 for selection in bet['selections']:
                     key = int(bet['id'] + str(selection['code']))

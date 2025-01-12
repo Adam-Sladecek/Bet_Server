@@ -8,10 +8,11 @@ from database.Scrapes.helpers import PriceHelper, EventHelper
 from database.Scrapes.dataclass_models import PriceModel
 
 class Scraper(ABC):
-    def __init__(self, sportsbook: Sportsbook, sports: list[Sport]):
+    def __init__(self, sportsbook: Sportsbook, sports: list[Sport]) -> None:
         self.sportsbook = sportsbook
         self.sports = [sport for sport in sports]
         self.price_helper = PriceHelper(sportsbook)
+        self.allowed_markets = self.price_helper.get_allowed_markets()
         self.event_helper = EventHelper(sportsbook)
         self.get_driver()
 
@@ -39,7 +40,7 @@ class Scraper(ABC):
     @abstractmethod
     def map_prices(self, events: list[Event], data: dict[int, object]) -> tuple[list[PriceModel], list[Price]]: pass
 
-    def refresh_odds(self):
+    def refresh_prices(self) -> None:
         try:
             events = self.event_helper.get_selected_events()
             if len(events) == 0: 
@@ -50,9 +51,9 @@ class Scraper(ABC):
             prices_to_create, prices_to_update = self.map_prices(events, prices_response)
             self.price_helper.update_prices(prices_to_create, prices_to_update)
         except Exception as ex:
-            print(f"Refresh odds in {self.sportsbook.name} failed. Exception: {str(ex)}.")
+            print(f"Refresh prices in {self.sportsbook.name} failed. Exception: {str(ex)}.")
 
-    def import_events(self):
+    def import_events(self) -> None:
         try:
             loop = self.get_loop()
             event_response = loop.run_until_complete(self.gather_events(self.sports))
@@ -61,7 +62,7 @@ class Scraper(ABC):
         except Exception as ex:
             print(f"Import events in {self.sportsbook.name} failed. Exception: {str(ex)}.")  
 
-    def get_loop(self):
+    def get_loop(self) -> asyncio.AbstractEventLoop:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
