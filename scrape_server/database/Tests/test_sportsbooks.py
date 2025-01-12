@@ -22,8 +22,8 @@ class TestIfortuna(TestCase):
         cls.sport = Sport.objects.create(name="Football", selected=True)
         cls.defaultSb = Sportsbook.objects.create(name="Pinacle", selected=True, is_default=True)
         cls.sportsbook = Sportsbook.objects.create(name="IFortuna", selected=True, is_default=False)
-        event = Event.objects.create(event_id=1, league_id=0, time='', home='Real M.', away='Atletico M.', is_default=cls.defaultSb.is_default, sportsbook=cls.defaultSb, sport=cls.sport)
-        Event.objects.create(event_id=1, league_id=0, time='', home='Real M.', away='Atletico M.', is_default=cls.defaultSb.is_default, sportsbook=cls.sportsbook, sport=cls.sport)
+        event = Event.objects.create(event_id=1, time='', home='Real M.', away='Atletico M.', is_default=cls.defaultSb.is_default, sportsbook=cls.defaultSb, sport=cls.sport)
+        Event.objects.create(event_id=1, time='', home='Real M.', away='Atletico M.', is_default=cls.defaultSb.is_default, sportsbook=cls.sportsbook, sport=cls.sport)
         SportsbookMarket.objects.create(value="LSK10110", sportsbook=cls.sportsbook)
         cls.opp = Opportunity.objects.create(description="Výsledok zápasu *1*", sportsbook=cls.sportsbook, sport=cls.sport)
         cls.opp2 = Opportunity.objects.create(description="Výsledok zápasu Remíza", sportsbook=cls.sportsbook, sport=cls.sport)
@@ -54,7 +54,7 @@ class TestIfortuna(TestCase):
         return None
     
     def test_flow(self): 
-        with patch.object(IfortunaScraper, 'import_events', new=self.mock_import_events):
+        with patch.object(IfortunaScraper, 'get', new=self.mock_import_events):
             """
                 Api returns 1 event. Old event should be deleted. New event should be created. 
             """
@@ -202,33 +202,33 @@ class TestTipsport(TestCase):
         Price.objects.create(price_id=0, movement=0, odds=2, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp2)
         Price.objects.create(price_id=0, movement=0, odds=3, is_default=event.is_default, event= event, sportsbook=cls.defaultSb, opportunity=cls.opp3)
 
-    async def mock_import_events(self, session: aiohttp.ClientSession, url: str, headers: object, params: object):
+    async def mock_import_events(self, sports: list[Sport]):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/tipsport/import_events.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return mock_response
     
-    async def mock_get_prices_first(self, session: aiohttp.ClientSession, url: str, headers: object, params: object):
+    async def mock_get_prices_first(self, events: list[Event]):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/tipsport/get_prices_first.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
-        return mock_response
+        return [mock_response]
     
-    async def mock_get_prices_second(self, session: aiohttp.ClientSession, url: str, headers: object, params: object):
+    async def mock_get_prices_second(self, events: list[Event]):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/tipsport/get_prices_second.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
-        return mock_response
+        return [mock_response]  
 
-    async def mock_api_returns_something_weird(self, session: aiohttp.ClientSession, url: str, headers: object, params: object):
-        return None
+    async def mock_api_returns_something_weird(self, events: list[Event]):
+        return [None]
     
     def mock_get_driver(self):
         return None
     
     def test_flow(self): 
         with patch.object(TipsportScraper, 'get_driver', new=self.mock_get_driver):
-            with patch.object(TipsportScraper, 'get', new=self.mock_import_events):
+            with patch.object(TipsportScraper, 'gather_events', new=self.mock_import_events):
                 """
                 Api returns 1 event. Old event should be deleted. New event should be created.
                 """
@@ -236,7 +236,7 @@ class TestTipsport(TestCase):
                 your_instance.import_events()
                 self.assertEqual(Event.objects.count(), 2)
 
-            with patch.object(TipsportScraper, 'get', new=self.mock_get_prices_first):
+            with patch.object(TipsportScraper, 'gather_prices', new=self.mock_get_prices_first):
                 """
                 Api returns 3 prices. All should be added to the database.
                 """
@@ -256,7 +256,7 @@ class TestTipsport(TestCase):
                 your_instance.refresh_odds()
                 self.assertEqual(Price.objects.count(), 6)
             
-            with patch.object(TipsportScraper, 'get', new=self.mock_get_prices_second):
+            with patch.object(TipsportScraper, 'gather_prices', new=self.mock_get_prices_second):
                 """
                 Api returns 2 prices. One should be updated. Two should be marked as locked. One because it is locked on page,
                 one because it is not available.
@@ -265,7 +265,7 @@ class TestTipsport(TestCase):
                 self.assertEqual(Price.objects.filter(is_default=False, opportunity=self.opp).first().odds, 16)
                 self.assertEqual(Price.objects.filter(is_default=False, locked=True).count(), 2)
 
-            with patch.object(TipsportScraper, 'get', new=self.mock_api_returns_something_weird):
+            with patch.object(TipsportScraper, 'gather_prices', new=self.mock_api_returns_something_weird):
                 """
                 Api returns no prices. All prices should be marked as locked.
                 """

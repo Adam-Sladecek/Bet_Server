@@ -2,6 +2,7 @@ import aiohttp
 from database.Scrapes.SportsBooks.scraper import Scraper
 from database.Scrapes.dataclass_models import PriceModel
 from database.models import Price, Sport, Event
+from database.enums import Movement
 
 class IfortunaScraper(Scraper):
     def get_driver(self): return None
@@ -82,7 +83,6 @@ class IfortunaScraper(Scraper):
                     prices_to_update.append(price)
                 continue
             
-            home, away = self.get_teams(dataset)
 
             # populate bet_dict with fetched prices
             bet_dict = {} 
@@ -95,49 +95,63 @@ class IfortunaScraper(Scraper):
 
                     subname = market['subNames']['sk_SK']
                     for priceArray in market.get('odds', {}).values():
-                        for price in priceArray:
-                            _, price_id, _ = self.extract_price_details(price)
-                            bet_dict[price_id] = price
+                        for price_data in priceArray:
+                            price_id = int(price_data['id'].replace('LSK', ''))
+                            bet_dict[price_id] = (subname, price_data)
 
             # Update existing prices
             for price in event.prices.all():
-                price_data = bet_dict.pop(price.price_id, None)
+                _, price_data = bet_dict.pop(price.price_id, (None, None))
                 self.update_price(price, price_data)
                 prices_to_update.append(price)
-            
+
             # Create new prices
-            for price_id, price_data in bet_dict.items():
-                price = self.create_new_price(event, price_id, price_data)
+            home, away = self.get_teams(dataset)
+            for price_id, (subname, price_data) in bet_dict.items():
+                price = self.create_new_price(event, price_id, price_data, subname, home, away)
                 if price:
                     prices_to_create.append(price)
         
         return prices_to_create, prices_to_update   
 
-    def extract_price_details(self, price: object):
+    def extract_price_details(self, price_data: object) -> tuple[float, bool]:
         return (
-            price["value"],
-            int(price['id'].replace('LSK', '')),
-            price["displayType"] != 'OPEN' or price["value"] < 1
+            price_data["value"],
+            price_data["displayType"] != 'OPEN' or price_data["value"] < 1
         )
         
-    def update_price(self, price: Price, price_data: object):
-        odds, _, locked = self.extract_price_details(price_data)
-        price.movement = self.get_movement(price.odd, odds)
+    def update_price(self, price: Price, price_data: object) -> None:
+        if not price_data:
+            price.locked = True
+            return
+        
+        odds, locked = self.extract_price_details(price_data)
+        price.movement = self.get_movement(price.odds, odds)
         price.odds = odds
         price.locked = locked
         
-    def process_prices(self, dataset: object, event_id: int, allowed_market_ids: set[str]):
-        for group in dataset.get('groups', []) or []:
-            for market in group.get('markets', []):
-                market_id = market['marketTypeId']
-                if market_id not in allowed_market_ids:
-                    continue
-                odds_to_create, odds_to_update = self.map_market_odds(
-                    market, event_id, home, away, odds_to_create, odds_to_update
-                )
-        return odds_to_create, odds_to_update
+    def create_new_price(self, event: Event, price_id: int, price_data: object, subname: str, home: str, away: str) -> PriceModel | None:
+        try:
+            description = self.create_price_description(subname, price_data, home, away)
+            odds, locked = self.extract_price_details(price_data)
 
-    def get_teams(self, dataset: object):
+            price = Price(
+                price_id = price_id,
+                movement = Movement.UP.value,
+                odds = odds,
+                is_default = self.sportsbook.is_default,
+                selected = True,
+                locked = locked,
+                event = event,
+                sportsbook = self.sportsbook,
+            )
+
+            return PriceModel(None, description, price)
+        except Exception as ex:
+            print(f"Exception in create_new_price Ifortuna: {str(ex)}.")
+            return None
+
+    def get_teams(self, dataset: object) -> tuple[str, str]:
         try:
             return (
                 dataset["participants"]['HOME']['name']['sk_SK'],
@@ -145,42 +159,13 @@ class IfortunaScraper(Scraper):
             )
         except Exception:
             return None, None
-
-    def map_market_odds(self, market, event_id: int, home: str, away: str, existing_match_odds: dict, odds_to_create: list, odds_to_update: list):
-        subname = market['subNames']['sk_SK']
-        for oddArray in market.get('odds', {}).values():
-            for odd in oddArray:
-                try:
-                    odds, odd_id, locked = self.extract_odd_details(odd)
-                    description = self.create_odd_description(subname, odd, home, away)
-                    if odd_id in existing_match_odds:
-                        self.update_existing_odd(existing_match_odds, odd_id, odds, locked, odds_to_update)
-                        continue
-                    odds_to_create.append(self.create_odd_model(odd_id, event_id, market['marketTypeId'], odds, description, locked))
-                except Exception as ex:
-                    print(f"Exception in map_market_odds Ifortuna: {str(ex)}.")
-        return odds_to_create, odds_to_update
-
-
-
-    def create_odd_model(self, odd_id: int, event_id: int, market_id: str, odds, description: str, locked: bool):
-        return PriceModel(
-            id=None,
-            odd_id=odd_id,
-            code=0,
-            movement=1,
-            odd=odds,
-            is_default=self.sportsbook.is_default,
-            selected=False,
-            locked=locked,
-            event_id=event_id,
-            sportsbook_id=self.sportsbook.pk,
-            description=description,
-            market_id=market_id,
-        )
     
-    def create_odd_description(self, subname: str, odd, home: str, away: str):
-        longName = odd['longNames']['sk_SK']
-        description = f'{subname} {longName}'.replace(home, "*1*").replace(away, "*2*")
-        description = description.replace("  ", " ").replace("  ", " ").strip()
-        return description
+    def create_price_description(self, subname: str, price_data: object, home: str, away: str) -> str:
+        longName = price_data['longNames']['sk_SK']
+        description = f'{subname} {longName}'
+        description = self.replace_by_tokens(description, [
+            (home, " *1* "),
+            (away, " *2* "),
+        ])
+
+        return description.replace("  ", " ").replace("  ", " ").strip()

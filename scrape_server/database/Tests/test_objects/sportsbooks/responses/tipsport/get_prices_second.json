@@ -52,43 +52,6 @@
                                             "afterDateClosed": true
                                         }
                                     ]
-                                },
-                                {
-                                    "id": "b2049570746",
-                                    "prevId": "b2049570745",
-                                    "namePosition": "TOP",
-                                    "nameVisible": false,
-                                    "cells": [
-                                        {
-                                            "id": 2145041462,
-                                            "name": "Neprehra Adanaspor",
-                                            "active": true,
-                                            "winning": false,
-                                            "odd": 1.03,
-                                            "eventId": 2049570746,
-                                            "afterDateClosed": true
-                                        },
-                                        {
-                                            "id": 2145041464,
-                                            "prevId": 2145041462,
-                                            "name": "Nebude remíza",
-                                            "active": true,
-                                            "winning": false,
-                                            "odd": 5.15,
-                                            "eventId": 2049570746,
-                                            "afterDateClosed": true
-                                        },
-                                        {
-                                            "id": 2145041463,
-                                            "prevId": 2145041464,
-                                            "name": "Neprehra Corluspor 1947",
-                                            "active": true,
-                                            "winning": false,
-                                            "odd": 1.04,
-                                            "eventId": 2049570746,
-                                            "afterDateClosed": true
-                                        }
-                                    ]
                                 }
                             ],
                             "countActiveOpp": 6,

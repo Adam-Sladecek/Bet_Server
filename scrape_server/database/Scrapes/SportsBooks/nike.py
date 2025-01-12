@@ -33,7 +33,7 @@ class NikeScraper(Scraper):
         for sport_id, result in data.items():
             try:
                 matches = result[0][1]['matches']
-                events.extend(self.map_single_event(sport_id, match) for match in matches)
+                events.extend([self.map_single_event(sport_id, match) for match in matches])
             except Exception as ex: 
                 print(f"Exception in map_events Nike: {str(ex)}.")
                 continue  
@@ -148,8 +148,8 @@ class NikeScraper(Scraper):
     def generate_description(self, bet: dict, selection: dict, home: str, away: str) -> str:
         description = f"{bet['header']['sk']} {selection['name']['sk']}"
         description = self.replace_by_tokens(description, [
-            (home, "*1*"),
-            (away, "*2*"),
+            (home, " *1* "),
+            (away, " *2* "),
         ])
         
         return description.replace("  ", " ").replace("  ", " ").strip()
