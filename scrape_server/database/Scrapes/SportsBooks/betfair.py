@@ -123,50 +123,41 @@ class BetfairScraper(Scraper):
         prices_to_update = []
         
         for event in events:
-            market_id = next((market['marketId'] for market in markets if market['event']['id'] == event.event_id), None)
-            if market_id is None:
+            event_markets = [market for market in markets if market['event']['id'] == event.event_id]
+            if len(event_markets) == 0:
                 for price in event.prices.all():
                     price.locked = True
                     prices_to_update.append(price)
                 continue
-
-        for marketBook in data:
-            market_id = marketBook['marketId']
-            market = next((market for market in markets if market['marketId'] == market_id), {})
-            event_id = int(market.get('event').get('id'))
-
-            for runner in market.get('runners', []):
-                opp_name = f"{market.get('marketName', '')} {runner.get('runnerName', '')}"
-                home, away = market.get('event', {}).get('name', '').split(' v ')
-                opp_name = opp_name.replace(home, "*1*").replace(away, "*2*")
-                selection_id = runner.get('selectionId')
-                marketbook_runner = next((runner for runner in marketBook.get('runners', []) if runner.get('selectionId') == selection_id), {})
-                bets = marketbook_runner.get('ex', {}).get('availableToLay', [])
-                best_price = next((bet.get('price') for bet in sorted(bets, key=lambda x: x.get('size')) if bet.get('size') > 100), 0)
-                odd_id = runner['selectionId']
-                locked = marketbook_runner.get('status', '') != 'ACTIVE' or best_price == 0
+            
+            bet_dict = {}
+            for market in event_markets:
+                market_id = market.get('marketId')
+                market_book = next((mb for mb in prices_response if mb.get('marketId') == market_id), None)
+                if not market_book:
+                    continue
                 
-                if odd_id in match_odds:
-                    existing_odd = match_odds[odd_id]
-                    existing_odd.movement = self.get_movement(existing_odd.odd, best_price)
-                    existing_odd.locked = locked
-                    existing_odd.odd = best_price
-                    odds_to_update.append(existing_odd)
-                else:
-                    odds_to_create.append(PriceModel(
-                        id=None,
-                        odd_id=odd_id,
-                        movement=Movement.UP,
-                        is_default=self.sportsbook.is_default,
-                        selected=True,
-                        locked=locked,
-                        sportsbook_id=self.sportsbook.pk,
-                        event_id=event_id,
-                        code=0,
-                        description=opp_name,
-                        odd=best_price,
-                        market_id=market_id
-                    ))
+                for runner in market.get('runners', []):
+                    selection_id = runner.get('selectionId')
+                    marketbook_runner = next((mbr for mbr in market_book.get('runners', []) if mbr.get('selectionId') == selection_id), None)
+                    if not marketbook_runner:
+                        continue
+                    
+                    price_id = runner.get('selectionId')
+                    bet_dict[price_id] = (runner, marketbook_runner, market)
+
+
+            # Update existing prices
+            for price in event.prices.all():
+                runner, marketbook_runner, _ = bet_dict.pop(price.price_id, (None, None))
+                self.update_price(price, runner, marketbook_runner)
+                prices_to_update.append(price)
+            
+            # Create new prices
+            for price_id, (runner, marketbook_runner, market) in bet_dict.items():
+                price = self.create_new_price(event, price_id, runner, marketbook_runner, market)
+                if price:
+                    prices_to_create.append(price)
 
         return prices_to_create, prices_to_update
 
@@ -181,3 +172,54 @@ class BetfairScraper(Scraper):
             return self.convert_seconds_to_time_string(total_seconds)
         except:
             return "0:00'" 
+        
+    def get_runner_details(self, runner: object, marketbook_runner: object) -> tuple[int, float, bool]:
+        price_id = runner['selectionId']
+        prices = marketbook_runner.get('ex', {}).get('availableToLay', [])
+        best_price = next((bet.get('price') for bet in sorted(prices, key=lambda x: x.get('size')) if bet.get('size') > 100), 0)
+        locked = marketbook_runner.get('status', '') != 'ACTIVE' or best_price == 0
+        
+        return price_id, best_price, locked
+    
+    def update_price(self, price: Price, runner: object, marketbook_runner: object) -> None:
+        if not runner or not marketbook_runner:
+            price.locked = True
+            return
+        
+        _, odds, locked = self.get_runner_details(runner, marketbook_runner)
+        price.movement = self.get_movement(price.odds, odds)
+        price.odds = odds
+        price.locked = locked
+        
+    def create_new_price(self, event: Event, price_id: int, runner: object, marketbook_runner: object, market: object) -> PriceModel | None:
+        try:
+            if not runner or not marketbook_runner:
+                return None
+            
+            description = self.generate_description(market, runner)
+            price_id, odds, locked = self.get_runner_details(runner, marketbook_runner)
+
+            price = Price(
+                price_id = price_id,
+                movement = Movement.UP.value,
+                odds = odds,
+                is_default = self.sportsbook.is_default,
+                selected = True,
+                locked = locked,
+                event = event,
+                sportsbook = self.sportsbook,
+            )    
+            return PriceModel(None, description, price)
+        except Exception as ex:
+            print(f"Exception in create_new_price Betfair: {str(ex)}.")
+            return None
+        
+    def generate_description(self, market: object, runner: object) -> str:
+        description = f"{market.get('marketName', '')} {runner.get('runnerName', '')}"
+        home, away = market.get('event', {}).get('name', '').split(' v ')
+        description = self.replace_by_tokens(description, [
+            (home, " *1* "),
+            (away, " *2* "),
+        ])
+
+        return description.replace("  ", " ").replace("  ", " ").strip()
