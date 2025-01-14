@@ -1,0 +1,10 @@
+{
+    "prices": [
+        {
+            "id": 1,
+            "description": "Vyhra Real Madrid",
+            "selected": false,
+            "price": null
+        }
+    ]
+}

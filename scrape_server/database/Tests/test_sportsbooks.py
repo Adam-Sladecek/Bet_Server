@@ -72,13 +72,13 @@ class TestIfortuna(TestCase):
             event.add_parent(default_event)
             event.save()
             default_event.save()
-            default_odds = Price.objects.filter(is_default=True).all()
-            odds = Price.objects.filter(is_default=False).all()
-            for odd, odd_default in zip(odds, default_odds):
-                odd.add_parent(odd_default)
-                odd_default.selected = True
-                odd_default.save()
-                odd.save()
+            default_prices = Price.objects.filter(is_default=True).all()
+            prices = Price.objects.filter(is_default=False).all()
+            for price, price_default in zip(prices, default_prices):
+                price.add_parent(price_default)
+                price_default.selected = True
+                price_default.save()
+                price.save()
             your_instance.refresh_prices()
             self.assertEqual(Price.objects.count(), 6)
 
@@ -157,13 +157,13 @@ class TestNike(TestCase):
             event.add_parent(default_event)
             event.save()
             default_event.save()
-            default_odds = Price.objects.filter(is_default=True).all()
-            odds = Price.objects.filter(is_default=False).all()
-            for odd, odd_default in zip(odds, default_odds):
-                odd.add_parent(odd_default)
-                odd_default.selected = True
-                odd_default.save()
-                odd.save()
+            default_prices = Price.objects.filter(is_default=True).all()
+            prices = Price.objects.filter(is_default=False).all()
+            for price, price_default in zip(prices, default_prices):
+                price.add_parent(price_default)
+                price_default.selected = True
+                price_default.save()
+                price.save()
             your_instance.refresh_prices()
             self.assertEqual(Price.objects.count(), 6)
 
@@ -246,13 +246,13 @@ class TestTipsport(TestCase):
                 event.add_parent(default_event)
                 event.save()
                 default_event.save()
-                default_odds = Price.objects.filter(is_default=True).all()
-                odds = Price.objects.filter(is_default=False).all()
-                for odd, odd_default in zip(odds, default_odds):
-                    odd.add_parent(odd_default)
-                    odd_default.selected = True
-                    odd_default.save()
-                    odd.save()
+                default_prices = Price.objects.filter(is_default=True).all()
+                prices = Price.objects.filter(is_default=False).all()
+                for price, price_default in zip(prices, default_prices):
+                    price.add_parent(price_default)
+                    price_default.selected = True
+                    price_default.save()
+                    price.save()
                 your_instance.refresh_prices()
                 self.assertEqual(Price.objects.count(), 6)
             
@@ -289,20 +289,20 @@ class TestBetfair(TestCase):
             mock_response = json.load(file)
         return mock_response
     
-    async def mock_gather_odds_first(self, market_ids: list[str]):
-        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/get_data_odds_first.json'
+    async def mock_get_prices_first(self, market_ids: list[str]):
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/get_prices_first.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return mock_response
     
-    async def mock_gather_odds_second(self, market_ids: list[str]):
-        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/get_data_odds_second.json'
+    async def mock_get_prices_second(self, market_ids: list[str]):
+        file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/get_prices_second.json'
         with open(file_path, 'r', encoding='utf-8') as file:
             mock_response = json.load(file)
         return mock_response
     
     async def mock_api_returns_something_weird(self, market_ids: list[str]):
-        return None
+        return []
     
     async def mock_gather_markets(self, event_ids: list[int]):
         file_path = 'scrape_server/database/Tests/test_objects/sportsbooks/responses/betfair/markets.json'
@@ -323,14 +323,14 @@ class TestBetfair(TestCase):
             default_event.save()
 
         with patch.object(BetfairScraper, 'gather_markets', new=self.mock_gather_markets):
-            with patch.object(BetfairScraper, 'gather_prices', new=self.mock_gather_odds_first):
+            with patch.object(BetfairScraper, 'gather_prices', new=self.mock_get_prices_first):
                 """
                 Api returns 3 odds. All should be added to the database.
                 """
                 your_instance.refresh_prices()
                 self.assertEqual(Price.objects.count(), 3)
                 
-            with patch.object(BetfairScraper, 'gather_prices', new=self.mock_gather_odds_second):
+            with patch.object(BetfairScraper, 'gather_prices', new=self.mock_get_prices_second):
                 """
                 Api returns 2 odds. One should be updated with new value (16). Two should be marked as locked.
                 """

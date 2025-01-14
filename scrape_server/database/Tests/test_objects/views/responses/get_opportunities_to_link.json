@@ -6,8 +6,7 @@
             "is_default": true,
             "prefered": false,
             "sportsbook_id": 1,
-            "sport_id": 1,
-            "market_id": ""
+            "sport_id": 1
         }
     ],
     "opportunities": [
@@ -17,8 +16,7 @@
             "is_default": false,
             "prefered": false,
             "sportsbook_id": 2,
-            "sport_id": 1,
-            "market_id": ""
+            "sport_id": 1
         },
         {
             "id": 3,
@@ -26,8 +24,7 @@
             "is_default": false,
             "prefered": false,
             "sportsbook_id": 2,
-            "sport_id": 2,
-            "market_id": ""
+            "sport_id": 2
         }
     ]
 }

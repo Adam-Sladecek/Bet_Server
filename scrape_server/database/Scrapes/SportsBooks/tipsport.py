@@ -155,7 +155,7 @@ class TipsportScraper(Scraper):
                 sportsbook = self.sportsbook,
             )
 
-            return PriceModel(None, description, price)
+            return PriceModel(description=description, price=price)
         except Exception as ex:
             print(f"Exception in create_new_price description Tipsport: {str(ex)}.")
             return None

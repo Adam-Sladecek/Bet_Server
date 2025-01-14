@@ -35,6 +35,10 @@ class Event(models.Model):
     class Meta:
         app_label = 'database'
 
+    @property
+    def description(self) -> str:
+        return f"{self.home} vs. {self.away}"
+    
     def add_parent(self, parent: Event) -> None:
         if parent.sport != self.sport: 
             raise ValueError(f"Sport mismatch. Parent: {self.sport.name}, Event: {parent.sport.name}.")

@@ -73,7 +73,6 @@ class TestOpportunities(APITestCase):
             prefered=False,
             sportsbook= cls.default_sportsbook, 
             sport=cls.sport1, 
-            market_id='', 
         )
         cls.opportunity2 = Opportunity.objects.create(
             description='1X2 *1*', 
@@ -81,7 +80,6 @@ class TestOpportunities(APITestCase):
             prefered=False,
             sportsbook= cls.sportsbook, 
             sport=cls.sport1, 
-            market_id='', 
         )
         cls.opportunity3 = Opportunity.objects.create(
             description='1X2 *1*', 
@@ -89,7 +87,6 @@ class TestOpportunities(APITestCase):
             prefered=False,
             sportsbook= cls.sportsbook, 
             sport=cls.sport2, 
-            market_id='', 
         )
         cls.client = APIClient()
 
@@ -158,7 +155,6 @@ class TestEvents(APITestCase):
         # cls.sport2 = Sport.objects.create(name="Hockey")
         cls.event1 = Event.objects.create(
             event_id=0, 
-            league_id=0, 
             time='', 
             home='Real Madrid', 
             away='Fc Barcelona', 
@@ -172,13 +168,11 @@ class TestEvents(APITestCase):
             prefered=False,
             sportsbook= cls.default_sportsbook, 
             sport=cls.sport1, 
-            market_id='', 
         )
-        cls.odd11 = Price.objects.create(
-            odd_id=0, 
-            code=0, 
+        cls.price11 = Price.objects.create(
+            price_id=0, 
             movement=0, 
-            odd=1.1,
+            odds=1.1,
             is_default=cls.event1.is_default, 
             event= cls.event1, 
             sportsbook=cls.default_sportsbook, 
@@ -186,7 +180,6 @@ class TestEvents(APITestCase):
         )
         cls.event2 = Event.objects.create(
             event_id=1, 
-            league_id=0, 
             time='', 
             home='R. Madrid.', 
             away='Atl. Madrid', 
@@ -197,7 +190,6 @@ class TestEvents(APITestCase):
         )
         cls.event3 = Event.objects.create(
             event_id=1, 
-            league_id=0, 
             time='', 
             home='Real M.', 
             away='Atletico M.', 
@@ -223,8 +215,8 @@ class TestEvents(APITestCase):
         self.assertEqual(response.status_code, 200)
         event=Event.objects.get(id=self.event1.pk)
         self.assertTrue(event.selected)
-        odd=Price.objects.get(id=self.odd11.pk)
-        self.assertTrue(odd.selected)
+        price=Price.objects.get(id=self.price11.pk)
+        self.assertTrue(price.selected)
 
     def test_set_used_event(self): 
         response = self.client.post(reverse('used_event', kwargs={'pk':self.event1.pk, 'sbpk': self.sportsbook.pk}), data={}, content_type='application/json', **self.bearer_token)
@@ -244,21 +236,21 @@ class TestEvents(APITestCase):
         self.assertTrue(event1.used)
         self.assertTrue(event2.used)
 
-    def test_get_event_odds(self): 
-        file_path = 'scrape_server/database/Tests/test_objects/views/responses/odds.json'
+    def test_get_event_prices(self): 
+        file_path = 'scrape_server/database/Tests/test_objects/views/responses/prices.json'
         with open(file_path, 'r') as file:
             mock_response = json.load(file)
-        response = self.client.get(reverse('event_odds', kwargs={'pk':self.event1.pk}), data={}, content_type='application/json', **self.bearer_token)
+        response = self.client.get(reverse('event_prices', kwargs={'pk':self.event1.pk}), data={}, content_type='application/json', **self.bearer_token)
         self.assertEqual(response.status_code, 200)
         response_content = response.content
         json_data = json.loads(response_content.decode('utf-8'))
         self.assertEqual(mock_response, json_data)
 
-    def test_change_event_odds(self): 
-        response = self.client.post(reverse('event_odds', kwargs={'pk':self.event1.pk}), data=json.dumps({'ids':[self.odd11.pk]}), content_type='application/json', **self.bearer_token)
+    def test_change_event_prices(self): 
+        response = self.client.post(reverse('event_prices', kwargs={'pk':self.event1.pk}), data=json.dumps({'ids':[self.price11.pk]}), content_type='application/json', **self.bearer_token)
         self.assertEqual(response.status_code, 200)
-        odd=Price.objects.get(id=self.odd11.pk)
-        self.assertTrue(odd.selected)
+        price=Price.objects.get(id=self.price11.pk)
+        self.assertTrue(price.selected)
 
 class TestMarkets(APITestCase):
     @property

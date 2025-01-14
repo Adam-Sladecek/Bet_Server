@@ -12,8 +12,7 @@
                 "is_default": false,
                 "prefered": false,
                 "sportsbook_id": 2,
-                "sport_id": 1,
-                "market_id": ""
+                "sport_id": 1
             }
         }
     ]

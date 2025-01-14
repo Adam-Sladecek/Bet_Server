@@ -58,6 +58,9 @@ class BetfairScraper(Scraper):
             data = {"filter": {"eventIds": event_ids}, "maxResults": 1000, "marketProjection": ["EVENT", "RUNNER_DESCRIPTION"]}
             results = await self.post(session, url, self.get_headers(), data) 
 
+        if not results:
+            return []
+
         return [result for result in results if result['marketName'] in self.allowed_markets]
 
     async def gather_events(self, sports: list[Sport]) -> dict[int, list[object]]:
@@ -95,13 +98,12 @@ class BetfairScraper(Scraper):
         async with aiohttp.ClientSession() as session:
             response = await self.post(session, url, self.get_headers(), data)
         
-        return response
+        return response if response else []
 
     def map_events(self, data) -> list[Event]:
         events = []
         for sport_id, sport_data in data.items():
-            events = sport_data
-            for event in events:
+            for event in sport_data:
                 details = event.get('event', {})
                 names = details.get('name', '').split(' v ')
                 if len(names) == 2:
@@ -123,7 +125,7 @@ class BetfairScraper(Scraper):
         prices_to_update = []
         
         for event in events:
-            event_markets = [market for market in markets if market['event']['id'] == event.event_id]
+            event_markets = [market for market in markets if event.event_id == int(market.get('event', {}).get('id'))]
             if len(event_markets) == 0:
                 for price in event.prices.all():
                     price.locked = True
@@ -149,7 +151,7 @@ class BetfairScraper(Scraper):
 
             # Update existing prices
             for price in event.prices.all():
-                runner, marketbook_runner, _ = bet_dict.pop(price.price_id, (None, None))
+                runner, marketbook_runner, _ = bet_dict.pop(price.price_id, (None, None, None))
                 self.update_price(price, runner, marketbook_runner)
                 prices_to_update.append(price)
             
@@ -209,7 +211,7 @@ class BetfairScraper(Scraper):
                 event = event,
                 sportsbook = self.sportsbook,
             )    
-            return PriceModel(None, description, price)
+            return PriceModel(description=description, price=price)
         except Exception as ex:
             print(f"Exception in create_new_price Betfair: {str(ex)}.")
             return None

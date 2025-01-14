@@ -36,7 +36,7 @@ class EventHelper:
             Event.objects.bulk_create(new_events)
 
     def get_selected_events(self) -> list[Event]:
-        queryset = Event.objects.select_related('sport').prefetch_related( # ask LM if this is enough later
+        queryset = Event.objects.select_related('sport').prefetch_related(
             'prices',
             'children',
             'prices__children',
@@ -127,7 +127,7 @@ class ScrapeHelper:
         self.event_helper = EventHelper(Sportsbook.objects.get(is_default=True, selected=True))
 
     def send_updated_events(self, fetch_all: bool) -> None:
-        events, _ = self.event_helper.get_selected_events()
+        events = self.event_helper.get_selected_events()
         response = MatchOpportunityResponse.dataclass_from_models(events, fetch_all)
         asyncio.run(self.broadcast_data(DataType.MATCHDATA, response.dict))
 

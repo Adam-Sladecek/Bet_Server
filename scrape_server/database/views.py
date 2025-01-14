@@ -65,7 +65,7 @@ class OpportunityView(APIView):
     def get_opportunities_for_factory(self) -> OpportunityFactoryResponse: 
         parents = Opportunity.objects.select_related('sport', 'sportsbook')\
             .filter(is_default=True).order_by('sport__pk').all()
-        opportunities = Opportunity.objects.select_related('sport', 'sportsbook', 'parent')\
+        opportunities = Opportunity.objects.select_related('sport', 'sportsbook')\
             .filter(is_default=False, parent__isnull=True).order_by('sport__pk').all()
         return OpportunityFactoryResponse.data_class_from_models(parents, opportunities)
     
@@ -155,33 +155,33 @@ class EventView(APIView):
         try:
             data = json.loads(request.body)
             event_ids = data.get('ids', [])
-            self.update_selected_events_and_odds(event_ids)
+            self.update_selected_events_and_prices(event_ids)
             return Response({}, status=200)
         except Exception as e:
             return self.error_response(str(e))
 
     def get_default_events(self) -> EventResponse: 
-        events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('odds', 'children', 'children__sportsbook')\
+        events = Event.objects.select_related('sport', 'sportsbook').prefetch_related('prices', 'children', 'children__sportsbook')\
             .filter(is_default=True, used=False).order_by('-selected').all()
         response = EventResponse.dataclass_from_models(events)
         return response
     
-    def update_selected_events_and_odds(self, event_ids):
-        events = Event.objects.prefetch_related('odds').filter(is_default=True)
+    def update_selected_events_and_prices(self, event_ids):
+        events = Event.objects.prefetch_related('prices').filter(is_default=True)
         updated_events = []
-        updated_odds = []
+        updated_prices = []
 
         for event in events:
             is_selected = event.pk in event_ids
             event.selected = is_selected
             updated_events.append(event)
-            for odd in event.odds.all():
-                odd.selected = is_selected
-                updated_odds.append(odd)
+            for price in event.prices.all():
+                price.selected = is_selected
+                updated_prices.append(price)
 
         with transaction.atomic():
             Event.objects.bulk_update(updated_events, ['selected'])
-            Price.objects.bulk_update(updated_odds, ['selected'])
+            Price.objects.bulk_update(updated_prices, ['selected'])
 
     def error_response(self, message, status=400) -> Response:
         return Response({'message': message}, status=status)
@@ -199,7 +199,7 @@ class UsedEventView(APIView):
             return Response({'message': str(e)}, status=400)      
 
     def get_event_and_sportsbook(self, event_id: int, sportsbook_id: int) -> tuple[Event, Sportsbook]:
-        event = Event.objects.prefetch_related('odds', 'children').get(pk=event_id)
+        event = Event.objects.prefetch_related('children', 'children__sportsbook').get(pk=event_id)
         sportsbook = Sportsbook.objects.get(pk=sportsbook_id)
         return event, sportsbook
     
@@ -220,7 +220,7 @@ class UsedEventView(APIView):
             Event.objects.bulk_update(updated_children, ['used'])
 
 @method_decorator(csrf_exempt, name='dispatch')
-class EventOddsView(APIView):
+class EventPricesView(APIView):
     http_method_names = ['get', 'post']
     def get(self, request, pk: int):
         try:
@@ -235,33 +235,32 @@ class EventOddsView(APIView):
             ids = data.get('ids')
             if not isinstance(ids, list):
                 return self.error_response("Invalid data format.")
-            event = self.get_event_with_odds(pk)
-            self.update_selected_odds(event, ids)
+            event = self.get_event_with_prices(pk)
+            self.update_selected_prices(event, ids)
             return Response({}, status=200)
         except Exception as e:
             return self.error_response(str(e))
         
     def get_event_oppotunities(self, pk: int) -> PriceResponse:
         event = Event.objects.prefetch_related(
-            'odds',
-            'odds__sportsbook',
-            'odds__opportunity',
+            'prices',
+            'prices__opportunity',
         ).get(pk=pk)
-        odds = event.odds.order_by('-opportunity__prefered', '-selected').all()
-        return PriceResponse.dataclass_from_models(odds, event)  
+        prices = event.prices.order_by('-opportunity__prefered', '-selected').all()
+        return PriceResponse.dataclass_from_models(prices, event)  
 
-    def get_event_with_odds(self, pk: int) -> list[Event]:
-        return Event.objects.prefetch_related('odds').get(pk=pk)
+    def get_event_with_prices(self, pk: int) -> list[Event]:
+        return Event.objects.prefetch_related('prices').get(pk=pk)
 
-    def update_selected_odds(self, event: Event, selected_ids: list[int]):
-        odds_to_update = [
-            odd for odd in event.odds.all() if odd.selected != (odd.pk in selected_ids)
+    def update_selected_prices(self, event: Event, selected_ids: list[int]):
+        prices_to_update = [
+            price for price in event.prices.all() if price.selected != (price.pk in selected_ids)
         ]
-        for odd in odds_to_update:
-            odd.selected = odd.pk in selected_ids
+        for price in prices_to_update:
+            price.selected = price.pk in selected_ids
 
         with transaction.atomic():
-            Price.objects.bulk_update(odds_to_update, ['selected'])
+            Price.objects.bulk_update(prices_to_update, ['selected'])
 
     def error_response(self, message, status=400):
         return Response({'message': message}, status=status)  

@@ -5,45 +5,35 @@ from database.models import Price, Opportunity, Sport, Sportsbook, Event, Sports
 @dataclass(frozen=True)
 class EventModel: 
     id: int
-    event_id: int
-    league_id: int
     time: str
-    home: str
-    away: str
-    is_default: bool
+    description: str
     selected: bool
-    sportsbook_id: int
     sport_id: int
+    sportsbook_id: int
     available_sportsbooks: list[int]
-    odd_count: int
+    price_count: int
 
     @classmethod
     def dataclass_list_from_models(cls, events: list[Event]) -> list[EventModel]:
         return [
         cls(
             id=event.pk,
-            event_id=event.event_id,
-            league_id=event.league_id,
             time=event.time,
-            home=event.home,
-            away=event.away,
-            is_default=event.is_default,
+            description=event.description,
             selected=event.selected,
-            sportsbook_id=event.sportsbook.pk,
             sport_id=event.sport.pk,
+            sportsbook_id=event.sportsbook.pk,
             available_sportsbooks=[child.sportsbook.pk for child in event.children.all()],
-            odd_count=event.odds.count()
+            price_count=event.prices.count()
         )
-        for event in events
-        # if event.odds.count() > 0 and event.children.exists()
-        if event.children.exists()
+        for event in events if event.children.exists()
     ]
     
 @dataclass(frozen=True)
 class EventResponse: 
     events: list[EventModel]
     
-    @classmethod # prefetch sportsbook, sport, children, children__sportsbook
+    @classmethod # prefetch prices, children, children__sportsbook, sportsbook, sport
     def dataclass_from_models(cls, events: list[Event]) -> EventResponse:
         dataclasses = EventModel.dataclass_list_from_models(events)
         return cls(events=dataclasses)
@@ -66,16 +56,17 @@ class PriceResponse:
 
 @dataclass(frozen=True)
 class PriceModel:
-    id: int | None
-    description: str
-    price: Price | None
+    id: int = None
+    description: str = None
+    selected: bool = False
+    price: Price = None
 
     @classmethod
     def from_model(cls, price: Price, event: Event) -> PriceModel:
         return cls(
             id = price.pk, 
             description = price.opportunity.description.replace('*1*', event.home).replace('*2*', event.away),
-            price = None,
+            selected = price.selected,
         )
 
 @dataclass(frozen=True)
@@ -83,18 +74,18 @@ class MatchOpportunityResponse:
     opportunities: list[MatchOpportunity]
     update_all: bool
     match_ids: list[int]
-    odd_ids: list[int]
+    price_ids: list[int]
 
-    @classmethod # prefetch sport, children, odds, odds__opportunity, odds__children, odds__children__sportsbook
+    @classmethod # prefetch sport, children, prices, prices__opportunity, prices__children, prices__children__sportsbook
     def dataclass_from_models(cls, events: list[Event], fetch_all: bool) -> MatchOpportunityResponse:
-        odd_ids = set()
-        opportunities = MatchOpportunity.dataclass_list_from_models(events, odd_ids, fetch_all)
+        price_ids = set()
+        opportunities = MatchOpportunity.dataclass_list_from_models(events, price_ids, fetch_all)
         return cls(
             opportunities=opportunities, 
             update_all=fetch_all,
             match_ids=[event.pk for event in events],
-            odd_ids = list(odd_ids)
-            )
+            price_ids = list(price_ids)
+        )
     
     @property
     def dict(self) -> dict:
@@ -105,47 +96,45 @@ class MatchOpportunity:
     match_name: str
     opp_name: str
     match_id: int
-    time: str
-    parent: MatchOdd
-    child: MatchOdd
+    parent: MatchPrice
+    child: MatchPrice
     sport_id: int
     sportsbook_id: int
     ev: float
     stake: float
 
     @classmethod
-    def dataclass_list_from_models(cls, events: list[Event], odd_ids: set, fetch_all: bool) -> list[MatchOpportunity]:
+    def dataclass_list_from_models(cls, events: list[Event], price_ids: set, fetch_all: bool) -> list[MatchOpportunity]:
         result = []
         for event in events:
-            match_name=f"{event.home} vs. {event.away}"
+            match_name=event.description
             match_id=event.pk
             sport_id= event.sport.pk
             time = getattr(event.children.first(), 'time', event.time) 
-            for odd in event.odds.filter(selected=True, locked=False).order_by('id').all():
-                parent_odds = float(odd.odd)
-                parent = MatchOdd(odd.pk, parent_odds, odd.locked, odd.movement)
+            for price in event.prices.filter(selected=True, locked=False).order_by('id').all():
+                parent_odds = float(price.odds)
+                parent = MatchPrice(price.pk, parent_odds, price.locked, price.movement)
                 opp_name = (
-                    odd.opportunity.description.replace('*1*', event.home).replace('*2*', event.away)
-                    if odd.opportunity_id else '', # comma needs to be here for some reason 
+                    price.opportunity.description.replace('*1*', event.home).replace('*2*', event.away)
+                    if price.opportunity_id else '', # comma needs to be here for some reason 
                 )
 
-                should_update_parent = odd.should_be_updated()
-                for childOdd in odd.children.filter(event__used=False, locked=False).all():
-                    should_update_child = childOdd.should_be_updated()
-                    ev = childOdd.ev(parent_odds)
+                should_update_parent = price.should_be_updated()
+                for childPrice in price.children.filter(event__used=False, locked=False).all():
+                    should_update_child = childPrice.should_be_updated()
+                    ev = childPrice.ev(parent_odds)
                     if ev > 0: 
-                        odd_ids.add(childOdd.pk)
+                        price_ids.add(childPrice.pk)
                     if ev <= 0 or not (fetch_all or should_update_parent or should_update_child): 
                         continue
-                    child = MatchOdd(childOdd.pk, float(childOdd.odd), childOdd.locked, childOdd.movement)
-                    sportsbook_id = childOdd.sportsbook.pk
-                    stake = childOdd.stake(parent_odds)
+                    child = MatchPrice(childPrice.pk, float(childPrice.odds), childPrice.locked, childPrice.movement)
+                    sportsbook_id = childPrice.sportsbook.pk
+                    stake = childPrice.stake(parent_odds)
                     result.append(
                         cls(
                             match_name= match_name,
                             opp_name= opp_name, 
                             match_id= match_id,
-                            time= time,
                             parent= parent,
                             child= child,
                             sport_id = sport_id,
@@ -157,8 +146,8 @@ class MatchOpportunity:
         return result
 
 @dataclass(frozen=True)
-class MatchOdd:
-    odd_pk: int
+class MatchPrice:
+    price_pk: int
     odds: float
     locked: bool
     movement: int
@@ -209,7 +198,6 @@ class OpportunityDataClass:
     prefered: bool
     sportsbook_id: int
     sport_id: int
-    market_id: str
 
     @classmethod
     def dataclass_list_from_models(cls, opportunities: list[Opportunity]) -> list[OpportunityDataClass]:
@@ -221,7 +209,6 @@ class OpportunityDataClass:
                 prefered=opp.prefered, 
                 sportsbook_id=opp.sportsbook.pk,
                 sport_id=opp.sport.pk,
-                market_id=opp.market_id
             ) for opp in opportunities
         ]
     

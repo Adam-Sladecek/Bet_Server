@@ -185,8 +185,8 @@ class TestPriceHelper(TestCase):
             PriceModel(id=None, description='Vyhrá *2*', price=Price(price_id=2, movement=0, odds=1.8, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[0], sportsbook=cls.sportsbook2)),
             PriceModel(id=None, description='Vyhrá *1*', price=Price(price_id=3, movement=0, odds=2.1, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[1], sportsbook=cls.sportsbook2)),
             PriceModel(id=None, description='Vyhrá *1*', price=Price(price_id=4, movement=0, odds=2.3, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[2], sportsbook=cls.sportsbook2)),
-            PriceModel(id=None, description='Unknown opportunity', price=Price(price_id=5, movement=0, odds=1.8, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[2], sportsbook=cls.sportsbook2)), # this is here to assert that odd with no matching event opportunity will be created
-            PriceModel(id=None, description='Unknown opportunity', price=Price(price_id=6, movement=0, odds=2, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[1], sportsbook=cls.sportsbook2)), # this is here to assert that second odd with no matching opportunity will be created and that only one new opportunity will be added
+            PriceModel(id=None, description='Unknown opportunity', price=Price(price_id=5, movement=0, odds=1.8, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[2], sportsbook=cls.sportsbook2)), # this is here to assert that price with no matching event opportunity will be created
+            PriceModel(id=None, description='Unknown opportunity', price=Price(price_id=6, movement=0, odds=2, is_default=cls.sportsbook2.is_default, selected=False, locked=False, event=cls.events2[1], sportsbook=cls.sportsbook2)), # this is here to assert that second price with no matching opportunity will be created and that only one new opportunity will be added
         ]   
 
     def test_update_prices(self): 
@@ -197,7 +197,7 @@ class TestPriceHelper(TestCase):
         assert event.prices.count() == 2
         price_to_update= Price.objects.filter(sportsbook=self.sportsbook1, price_id=1).first()
         price_to_update.odds = 4
-        price_to_update.locked = True
+        price_to_update.locked = True   
         price_to_update.movement = 2
         self.price_helper.update_prices([], [price_to_update])
         Event.objects.filter(sportsbook=self.sportsbook1, event_id=3).delete()
@@ -339,7 +339,7 @@ class TestScrapeHelper(TestCase):
         price2.selected=True
         price2.save()
 
-        # opportunity should be sent only if event is selected, odd is selected and its odd movement is up or down or fetch_all is True
+        # opportunity should be sent only if event is selected, price is selected and its price movement is up or down or fetch_all is True
         for fetch_all in [False, True]:
             if fetch_all: 
                 file_path = 'scrape_server/database/Tests/test_objects/helpers/responses/send_updated_events_all.json'
@@ -414,7 +414,7 @@ class TestScrapeHelper(TestCase):
         self.assertEqual(json_response["opportunities"], [])
 
     @patch('database.Scrapes.helpers.ScrapeHelper.broadcast_data')
-    def test_send_updated_events_should_return_nothing_if_parent_odd_is_locked(self, mock_broadcast_data): 
+    def test_send_updated_events_should_return_nothing_if_parent_price_is_locked(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
         self.scrape_helper.link_events()
@@ -438,7 +438,7 @@ class TestScrapeHelper(TestCase):
         self.assertEqual(json_response["opportunities"], [])
 
     @patch('database.Scrapes.helpers.ScrapeHelper.broadcast_data')
-    def test_send_updated_events_should_return_nothing_if_child_odd_is_locked(self, mock_broadcast_data): 
+    def test_send_updated_events_should_return_nothing_if_child_price_is_locked(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
         self.scrape_helper.link_events()
@@ -466,7 +466,7 @@ class TestScrapeHelper(TestCase):
         self.assertEqual(json_response["opportunities"], [])    
 
     @patch('database.Scrapes.helpers.ScrapeHelper.broadcast_data')
-    def test_send_updated_events_should_return_nothing_if_odds_have_no_movement(self, mock_broadcast_data): 
+    def test_send_updated_events_should_return_nothing_if_prices_have_no_movement(self, mock_broadcast_data): 
         # Arrange
         self.run_updates()
         self.scrape_helper.link_events()
