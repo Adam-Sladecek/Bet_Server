@@ -110,7 +110,6 @@ class MatchOpportunity:
             match_name=event.description
             match_id=event.pk
             sport_id= event.sport.pk
-            time = getattr(event.children.first(), 'time', event.time) 
             for price in event.prices.filter(selected=True, locked=False).order_by('id').all():
                 parent_odds = float(price.odds)
                 parent = MatchPrice(price.pk, parent_odds, price.locked, price.movement)
