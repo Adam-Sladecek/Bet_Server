@@ -22,3 +22,5 @@ pytest
 pytest-django
 djangorestframework 
 djangorestframework-simplejwt
+uvicorn[standard]
+traitlets

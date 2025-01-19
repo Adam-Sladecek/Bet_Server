@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  web:
+    image: betserver
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=scrape_server.settings
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - SECRET_KEY=${SECRET_KEY}
+      - CONN_AGE=${CONN_AGE}
+      - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME}
+      - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
+      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+    command: >
+      sh -c "cd scrape_server &&
+             python manage.py migrate &&
+             python create_superuser.py &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+volumes:
+  postgres_data:
