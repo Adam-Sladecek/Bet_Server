@@ -10,7 +10,7 @@ class BetfairScraper(Scraper):
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]) -> None:
         super().__init__(sportsbook, sports)
-        self.session_token = "6HE+LtPHIb1MHEAOBubCWs6Heo07sgVPM3FK8k+fjFo="
+        self.session_token = "qNXSpNcL31zcMHZXpvaKPqepiWkv94ilagK9w0yWzg4="
         self.app_key = "WAVvPmAtlpnmt9Er" # Get from Betfair Developer Program
         
     def get_driver(self): pass
