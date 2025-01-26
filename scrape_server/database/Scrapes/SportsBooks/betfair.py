@@ -1,4 +1,7 @@
+import asyncio
+import requests
 from datetime import datetime
+import os
 import aiohttp
 from database.enums import Movement
 from database.models import Sport, Sportsbook, Event, Price
@@ -10,8 +13,9 @@ class BetfairScraper(Scraper):
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]) -> None:
         super().__init__(sportsbook, sports)
-        self.session_token = "qNXSpNcL31zcMHZXpvaKPqepiWkv94ilagK9w0yWzg4="
-        self.app_key = "WAVvPmAtlpnmt9Er" # Get from Betfair Developer Program
+        self.app_key = os.getenv("BETFAIR_APP_KEY")
+        self.session_token = None
+        asyncio.run(self.login())
         
     def get_driver(self): pass
     def close_driver(self): pass
@@ -34,7 +38,28 @@ class BetfairScraper(Scraper):
             '': 7, #table tennis
             '6': 8, #boxing
         }
-
+    
+    async def login(self) -> None:
+        url = 'https://identitysso-cert.betfair.com/api/certlogin'
+        username = os.getenv("BETFAIR_USERNAME")
+        password = os.getenv("BETFAIR_PASSWORD")
+        payload = f'username={username}&password={password}'
+        headers = {
+            'X-Application': self.app_key,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+        
+        try:
+            response = requests.post(url, headers=headers, data=payload, cert=('client-2048.crt', 'client-2048.key'))
+            if response.status_code != 200:
+                print(f"Login failed with status {response.status_code}: {response.text}")
+                return
+            response_json = response.json()
+            self.session_token = response_json.get('sessionToken')
+            print('Betfair login successful for user: ', username)
+        except Exception as ex:
+            print(f"Login failed with exception: {str(ex)}")
+        
     def refresh_prices(self) -> None:
         try:
             events = self.event_helper.get_selected_events()
