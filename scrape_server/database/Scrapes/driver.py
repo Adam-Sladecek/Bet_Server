@@ -6,8 +6,8 @@ import json
 
 class Driver: 
     def __init__(self, showBrowser: bool, url: str) -> None:
-        service = Service('chromedriver.exe', log_output=subprocess.DEVNULL)
-        service.creation_flags = subprocess.CREATE_NO_WINDOW
+        service = Service('/app/chromedriver.exe', log_output=subprocess.DEVNULL)
+        # service.creation_flags = subprocess.CREATE_NO_WINDOW
         options = Options()
         arguments = ['--no-sandbox']
         if not showBrowser: 
