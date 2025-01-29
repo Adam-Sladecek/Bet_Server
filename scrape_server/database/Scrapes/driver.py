@@ -6,30 +6,37 @@ import json
 
 class Driver: 
     def __init__(self, showBrowser: bool, url: str) -> None:
-        service = Service('/app/chromedriver.exe', log_output=subprocess.DEVNULL)
-        # service.creation_flags = subprocess.CREATE_NO_WINDOW
+        service = Service('/usr/local/bin/chromedriver')
         options = Options()
-        arguments = ['--no-sandbox']
+        
+        # Basic required options
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        
         if not showBrowser: 
-            arguments.extend([
-                '--headless=new', '--disable-gpu', '--log-level=3', '--disable-blink-features=AutomationControlled', '--disable-extensions', '--disable-popup-blocking', 
-                '--disable-translate', '--dns-prefetch-disable', '--start-maximized', '--window-size=1920,1080'
-            ])
-        arguments.extend([
-            '--show-capture=no', 'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', 
-            '--disable-dev-shm-usage', '--disable-software-rasterizer', '--disable-features=VizDisplayCompositor', '--mute-audio', '--remote-debugging-port=0', 
-            '--disable-notifications', '--output=/dev/null', '--disable-in-process-stack-traces', '--disable-logging', '--disable-crash-reporter'
-        ])
+            options.add_argument('--headless=new')
+            options.add_argument('--window-size=1920,1080')
+        
+        # Additional options for stability
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-notifications')
+        options.add_argument('--disable-logging')
+        options.add_argument(f'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        # Experimental options
+        options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
+        options.add_experimental_option('prefs', {
+            'profile.managed_default_content_settings.images': 2
+        })
 
-        for argument in arguments: 
-            options.add_argument(argument)
-
-        options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation']) 
-        prefs = {'profile.managed_default_content_settings.images': 2}
-        options.add_experimental_option('prefs', prefs)
-        driver = webdriver.Chrome(service= service, options = options)
-        self.driver = driver
-        self.driver.get(url)
+        try:
+            self.driver = webdriver.Chrome(service=service, options=options)
+            self.driver.get(url)
+        except Exception as e:
+            print(f"Driver initialization error: {str(e)}")
+            raise
 
     async def execute_script(self, url: str): 
         try:
@@ -51,11 +58,13 @@ class Driver:
             """
             self.driver.execute_script(script)
             response_data = self.driver.execute_script("return window.responseData;")
-
             return json.loads(response_data)
-        
         except Exception as ex:
+            print(f"Script execution error: {str(ex)}")
             return None 
 
     def close(self):
-        self.driver.quit()
+        try:
+            self.driver.quit()
+        except Exception as e:
+            print(f"Driver close error: {str(e)}")
