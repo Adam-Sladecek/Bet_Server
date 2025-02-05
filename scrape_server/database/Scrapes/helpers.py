@@ -131,6 +131,14 @@ class ScrapeHelper:
         response = MatchOpportunityResponse.dataclass_from_models(events, fetch_all)
         asyncio.run(self.broadcast_data(DataType.MATCHDATA, response.dict))
 
+    def unselect_events(self) -> None:
+        events = Event.objects.filter(selected=True).all()
+        for event in events:
+            event.selected = False
+
+        with transaction.atomic():
+            Event.objects.bulk_update(events, ['selected'])
+
     def clear_unused_events(self) -> None:
         unused_sportsbooks = Sportsbook.objects.filter(selected=False).all()
         sb_ids = [sb.pk for sb in unused_sportsbooks]

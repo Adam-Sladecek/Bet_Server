@@ -24,7 +24,8 @@ class ScrapeService:
         self.number_of_sbs = number_of_sbs
         self.scrape_helper = ScrapeHelper()
         self.scrape_helper.clear_unused_events()
-            
+        self.scrape_helper.unselect_events()
+
     def get_sportsbook_data(self, sportsbook: Sportsbook) -> None: 
         try:
             command_queue = self.all_command_queues[sportsbook.pk]
