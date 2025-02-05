@@ -3,12 +3,14 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 import subprocess
 import json 
+import os
 
 class Driver: 
     def __init__(self, showBrowser: bool, url: str) -> None:
-        service = Service('/usr/local/bin/chromedriver')
+        chromedriver_path = '/usr/local/bin/chromedriver' if os.path.exists('/usr/local/bin/chromedriver') else 'chromedriver.exe'
+        service = Service(chromedriver_path)
         options = Options()
-        
+
         # Basic required options
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')

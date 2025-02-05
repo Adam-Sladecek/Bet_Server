@@ -50,7 +50,11 @@ class BetfairScraper(Scraper):
         }
 
         try:
-            response = requests.post(url, headers=headers, data=payload, cert=('/app/client-2048.crt', '/app/client-2048.key'))
+            cert_prefix = '/app/' if os.path.exists('/app/') else ''
+            cert_path = f'{cert_prefix}client-2048.crt'
+            key_path = f'{cert_prefix}client-2048.key'
+            
+            response = requests.post(url, headers=headers, data=payload, cert=(cert_path, key_path))
             if response.status_code != 200:
                 print(f"Login failed with status {response.status_code}: {response.text}")
                 return
