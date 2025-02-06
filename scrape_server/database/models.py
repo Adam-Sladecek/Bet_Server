@@ -8,6 +8,9 @@ class Sport(models.Model):
     class Meta:
         app_label = 'database'
 
+    def __str__(self) -> str:
+        return self.name
+
 class Sportsbook(models.Model):
     name = models.CharField(max_length=30, unique=True)
     is_default = models.BooleanField(default=False)
@@ -15,12 +18,18 @@ class Sportsbook(models.Model):
     class Meta:
         app_label = 'database'
 
+    def __str__(self) -> str:
+        return self.name
+
 class SportsbookMarket(models.Model):
     value = models.CharField(max_length=50)
     sportsbook = models.ForeignKey('Sportsbook', on_delete=models.CASCADE, related_name='markets')
     class Meta:
         app_label = 'database'
-        
+
+    def __str__(self) -> str:
+        return f"({self.sportsbook.name}) {self.value}"
+
 class Event(models.Model):
     event_id = models.IntegerField()
     time = models.CharField(max_length=60)
@@ -35,9 +44,13 @@ class Event(models.Model):
     class Meta:
         app_label = 'database'
 
+    def __str__(self) -> str:
+        return f"({self.sportsbook.name}) {self.home} vs. {self.away}"
+
     @property
     def description(self) -> str:
         return f"{self.home} vs. {self.away}"
+
     
     def add_parent(self, parent: Event) -> None:
         if parent.sport != self.sport: 
@@ -67,9 +80,14 @@ class Price(models.Model):
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', default=None)
     class Meta:
         app_label = 'database'
+        
+    def __str__(self) -> str:
+        description = self.opportunity.description.replace('*1*', self.event.home).replace('*2*', self.event.away)
+        return f"({self.sportsbook.name}): {self.event.home} vs. {self.event.away}, {description} -- {self.odds}"
 
     def add_parent(self, parent: Price) -> None:
         if not parent.is_default: 
+
             raise ValueError(f"Parent must be from default sportsbook.")
         self.parent = parent
 
@@ -105,9 +123,13 @@ class Opportunity(models.Model):
             models.Index(fields=['sportsbook_id', 'sport_id']),
         ]
 
+    def __str__(self) -> str:
+        return f"({self.sportsbook.name}) {self.description}"
+
     def add_parent(self, parent: Opportunity) -> None:
         if self.is_default: 
             raise ValueError(f"Child can not be from default sportsbook.")
+
         if parent.sport != self.sport: 
             raise ValueError(f"Sport mismatch. Parent: {self.sport.name}, Opportunity: {parent.sport.name}.")
         if not parent.is_default: 
