@@ -5,33 +5,19 @@ services:
     image: betserver
     build:
       context: .
-      dockerfile: ./Dockerfile
     ports:
       - "8000:8000"
-    environment:
-      - DJANGO_SETTINGS_MODULE=scrape_server.settings
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - BETFAIR_USERNAME=${BETFAIR_USERNAME}
-      - BETFAIR_PASSWORD=${BETFAIR_PASSWORD}
-      - BETFAIR_APP_KEY=${BETFAIR_APP_KEY}
-      - DB_HOST=db
-      - DB_PORT=5432
-      - SECRET_KEY=${SECRET_KEY}
-      - CONN_AGE=${CONN_AGE}
-      - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME}
-      - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
-      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
-    depends_on:
-      - db
+    command: ["sh", "-c", "chmod +x /app/start.sh && /app/start.sh"]
     volumes:
       - .:/app
-    command: >
-      sh -c "cd scrape_server &&
-             python manage.py migrate &&
-             python create_superuser.py &&
-             python manage.py runserver 0.0.0.0:8000"
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app:/app/scrape_server
+      - DJANGO_SETTINGS_MODULE=scrape_server.settings
+    depends_on:
+      - db
 
   db:
     image: postgres:15

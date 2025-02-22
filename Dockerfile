@@ -1,16 +1,12 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.10-slim
+FROM python:3.11.4-slim-bullseye
 
-EXPOSE 8000
-
-# Keeps Python from generating .pyc files in the container
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PORT=8000
 ENV DISPLAY=:99
-
-# Set work directory
+ENV PATH="/usr/local/bin:${PATH}"
+ENV CHROME_PATH="/usr/bin/google-chrome"
 WORKDIR /app
 
 # Install essential system dependencies and build tools
@@ -42,21 +38,10 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
     && chmod +x /usr/local/bin/chromedriver \
     && rm -rf chromedriver-linux64.zip chromedriver-linux64
 
-# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install wheel && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install -r requirements.txt
 
-# Copy TLS certificates and chromedriver with correct permissions
-COPY client-2048.crt client-2048.key /app/
-RUN chmod 600 /app/client-2048.*
-
-# Copy project files
 COPY . .
 
-# Add these before the CMD line
-ENV PATH="/usr/local/bin:${PATH}"
-ENV CHROME_PATH="/usr/bin/google-chrome"
-
-CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x16 & cd scrape_server && python manage.py migrate && python create_superuser.py && python start.py"]
+EXPOSE ${PORT}

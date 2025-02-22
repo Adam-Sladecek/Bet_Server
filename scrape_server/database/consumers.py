@@ -1,14 +1,12 @@
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
-from django.conf import settings
+from channels.middleware import BaseMiddleware
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AnonymousUser
 from enum import Enum
-from jwt import decode as jwt_decode, ExpiredSignatureError, InvalidTokenError
 import json
 from queue import Queue
-from rest_framework_simplejwt.tokens import UntypedToken
+from rest_framework_simplejwt.tokens import AccessToken
 import threading
 
 from database.enums import Command, DataType, TaskState
@@ -16,37 +14,49 @@ from database.Scrapes import scrape_fn
 
 User = get_user_model()
 
-@database_sync_to_async
-def get_user(user_id):
-    try:
-        return User.objects.get(id=user_id)
-    except User.DoesNotExist:
-        return AnonymousUser()
-    
-class JWTAuthMiddleware:
-    """ Custom middleware for WebSocket JWT Authentication """
-    def __init__(self, inner):
-        self.inner = inner
-
+class JWTAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
-        query_string = dict((x.split('=') for x in scope['query_string'].decode().split('&') if '=' in x))
-        token = query_string.get('token')
-        scope['user'] = AnonymousUser()
+        try:
+            token = self.get_token_from_scope(scope)
+            
+            if token is None:
+                scope['error'] = 'provide an auth token'
+            else:
+                user_id = await self.get_user_from_token(token) 
+                if user_id:
+                    scope['user_id'] = user_id
+                else:
+                    scope['error'] = 'Invalid token'
+            
+            return await super().__call__(scope, receive, send)
+        except Exception as e:
+            print(f"WebSocket authentication error: {str(e)}")
+            scope['error'] = str(e)
+            return await super().__call__(scope, receive, send)
+
+    def get_token_from_scope(self, scope):
+        # Try to get token from query string first
+        query_string = scope.get('query_string', b'').decode('utf-8')
+        if 'token=' in query_string:
+            return query_string.split('token=')[1].split('&')[0]
+            
+        # Fallback to authorization header
+        headers = dict(scope.get("headers", []))
+        auth_header = headers.get(b'authorization', b'').decode('utf-8')
         
-        if token:
+        if auth_header.startswith('Bearer '):
+            return auth_header.split(' ')[1]
+        
+        return None
+        
+    @database_sync_to_async
+    def get_user_from_token(self, token):
             try:
-                UntypedToken(token)
-                decoded_data = jwt_decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-                user_id = decoded_data.get('user_id')
-                scope['user'] = await get_user(user_id)
-            except (ExpiredSignatureError, InvalidTokenError, KeyError):
-                pass
-
-        return await self.inner(scope, receive, send)
+                access_token = AccessToken(token)
+                return access_token['user_id']
+            except:
+                return None
     
-def JWTAuthMiddlewareStack(inner):
-    return JWTAuthMiddleware(inner)
-
 scrape_task_running = False
 scrape_thread = None
 scrape_event = None
@@ -56,7 +66,7 @@ import_queue = None
 class ScrapeConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.group_name = 'scrape_updates'
-        if self.scope['user'].is_authenticated:
+        if self.scope.get('user_id') is not None:
             await self.accept()
             global scrape_task_running, send_all_event
             await self.channel_layer.group_add(self.group_name, self.channel_name)
@@ -69,12 +79,13 @@ class ScrapeConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive(self, text_data):
-        data = json.loads(text_data)
-        action = data.get('action')
-        if action in ['start', 'end', 'import', 'send_all']:
-            await getattr(self, f"run_{action}")()
-        else:
-            await self.send_message(DataType.ERROR, "Invalid action")
+        if self.scope.get('user_id') is not None:
+            data = json.loads(text_data)
+            action = data.get('action')
+            if action in ['start', 'end', 'import', 'send_all']:
+                await getattr(self, f"run_{action}")()
+            else:
+                await self.send_message(DataType.ERROR, "Invalid action")
 
     async def run_start(self):
         try:
