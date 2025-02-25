@@ -12,10 +12,6 @@ services:
       - .:/app
     env_file:
       - .env
-    environment:
-      - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/app:/app/scrape_server
-      - DJANGO_SETTINGS_MODULE=scrape_server.settings
     depends_on:
       - db
 

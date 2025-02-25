@@ -7,6 +7,8 @@ ENV PORT=8000
 ENV DISPLAY=:99
 ENV PATH="/usr/local/bin:${PATH}"
 ENV CHROME_PATH="/usr/bin/google-chrome"
+ENV PYTHONPATH=/app:/app/scrape_server
+ENV DJANGO_SETTINGS_MODULE=scrape_server.settings
 WORKDIR /app
 
 # Install essential system dependencies and build tools
@@ -43,5 +45,7 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 COPY . .
+
+CMD ["sh", "-c", "chmod +x /app/start.sh && /app/start.sh"]
 
 EXPOSE ${PORT}
