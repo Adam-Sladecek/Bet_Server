@@ -6,7 +6,7 @@ services:
     build:
       context: .
     ports:
-      - "8000:8000"
+      - "80:8080"
     command: ["sh", "-c", "chmod +x /app/start.sh && /app/start.sh"]
     volumes:
       - .:/app
