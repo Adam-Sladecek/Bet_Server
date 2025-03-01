@@ -159,6 +159,6 @@ resource "aws_iam_role_policy_attachment" "ecr_read" {
 
 # IAM instance profile for EC2 instance
 resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "django_ec2_complete_profile_3"
+  name = "django_ec2_complete_profile_4"
   role = aws_iam_role.ec2_role.name
 }
