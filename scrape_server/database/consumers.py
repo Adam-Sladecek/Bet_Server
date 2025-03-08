@@ -162,3 +162,11 @@ async def broadcast_message(data_type, data):
             'data': data,
         }
     )    
+
+def get_user(user_id):
+    # Implementation depends on your application logic
+    from django.contrib.auth.models import User
+    try:
+        return User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return None    
