@@ -1,7 +1,7 @@
 import os
 import aiohttp
 import django
-os.environ['DJANGO_SETTINGS_MODULE'] = 'scrape_server.settings'
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'scrape_server.settings')
 django.setup()
 
 from django.test import TestCase
