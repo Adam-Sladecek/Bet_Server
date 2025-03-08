@@ -39,6 +39,5 @@ jobs:
         pip install -r requirements.txt
     
     - name: Run tests
-      working-directory: ./scrape_server
       run: |
-        pytest -vv
+        pytest scrape_server -vv
