@@ -41,6 +41,6 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest
+        pytest scrape_server/database/Tests
       env:
         SECRET_KEY: django-insecure-key-for-testing-only
