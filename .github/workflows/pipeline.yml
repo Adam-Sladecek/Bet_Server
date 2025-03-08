@@ -32,4 +32,4 @@ jobs:
         POSTGRES_HOST: localhost
         POSTGRES_PORT: 5432
       run: |
-        python scrape_server/manage.py test
+        pytest scrape_server/database/Tests
