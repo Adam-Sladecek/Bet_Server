@@ -1,8 +1,3 @@
-import os
-import django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'scrape_server.settings')
-django.setup()
-
 from django.test import TestCase
 from django.contrib.auth.models import User
 from channels.testing import WebsocketCommunicator

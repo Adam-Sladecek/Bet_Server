@@ -1,8 +1,3 @@
-import os
-import django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'scrape_server.settings')
-django.setup()
-
 from django.test import TestCase
 import json 
 import queue
