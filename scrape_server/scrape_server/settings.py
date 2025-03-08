@@ -115,11 +115,11 @@ WSGI_APPLICATION = 'scrape_server.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.getenv("POSTGRES_DB", ''),
-        'USER': os.getenv("POSTGRES_USER", ''),
-        'PASSWORD': os.getenv("POSTGRES_PASSWORD", ''),
-        'HOST': os.getenv("POSTGRES_HOST", ''),
-        'PORT': os.getenv("POSTGRES_PORT", ''),
+        'NAME': os.getenv("POSTGRES_DB", 'postgres'),
+        'USER': os.getenv("POSTGRES_USER", 'postgres'),
+        'PASSWORD': os.getenv("POSTGRES_PASSWORD", 'postgres'),
+        'HOST': os.getenv("POSTGRES_HOST", 'localhost'),
+        'PORT': os.getenv("POSTGRES_PORT", '5432'),
         "CONN_MAX_AGE": int(os.getenv("CONN_AGE", 0)),
     }
 }
