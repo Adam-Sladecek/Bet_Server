@@ -1,15 +1,13 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
 FROM python:3.11.4-slim-bullseye
 
+EXPOSE 8000
+
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV PORT=8080
+ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:99
-ENV PATH="/usr/local/bin:${PATH}"
 ENV CHROME_PATH="/usr/bin/google-chrome"
-ENV PYTHONPATH=/app:/app/scrape_server
-ENV DJANGO_SETTINGS_MODULE=scrape_server.settings
-WORKDIR /app
 
 # Install essential system dependencies and build tools
 RUN apt-get update && apt-get install -y \
@@ -27,6 +25,12 @@ RUN apt-get update && apt-get install -y \
     xvfb \
     && rm -rf /var/lib/apt/lists/*
 
+# Install pip
+RUN pip install --no-cache-dir --upgrade pip
+
+COPY requirements.txt /
+RUN pip install --no-cache-dir -r /requirements.txt
+
 # Install Chrome and ChromeDriver
 RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list \
@@ -40,12 +44,10 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
     && chmod +x /usr/local/bin/chromedriver \
     && rm -rf chromedriver-linux64.zip chromedriver-linux64
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
 
-COPY . .
+WORKDIR /app
+COPY . /app
 
-CMD ["sh", "-c", "chmod +x /app/start.sh && /app/start.sh"]
+ENV PYTHONPATH=/app
 
-EXPOSE ${PORT}
+# CMD ["gunicorn", "--bind", "0.0.0.0:8000", "scrape_server.wsgi:application"]

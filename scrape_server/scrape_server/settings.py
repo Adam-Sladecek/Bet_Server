@@ -20,10 +20,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY", 'default-key-for-testing-only')
+SECRET_KEY = os.environ.get("SECRET_KEY", 'changeme')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = bool(int(os.environ.get("DEBUG", 0)))
 
 SILKY_AUTHENTICATION = True
 
@@ -83,11 +83,18 @@ MIDDLEWARE = [
     'silk.middleware.SilkyMiddleware',
 ]
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = []
+ALLOWED_HOSTS.extend(
+    filter(
+        None,
+        os.environ.get("ALLOWED_HOSTS", "").split(",")
+    )
+)
+
 CORS_ALLOWED_ORIGINS = ["http://localhost:4200"]
 CORS_ORIGIN_ALLOW_ALL = True
 CSRF_TRUSTED_ORIGINS= ['http://localhost:4200']
-
+  
 ROOT_URLCONF = 'scrape_server.urls'
 
 TEMPLATES = [
@@ -115,12 +122,12 @@ WSGI_APPLICATION = 'scrape_server.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.getenv("POSTGRES_DB", 'postgres'),
-        'USER': os.getenv("POSTGRES_USER", 'postgres'),
-        'PASSWORD': os.getenv("POSTGRES_PASSWORD", 'postgres'),
-        'HOST': os.getenv("POSTGRES_HOST", 'localhost'),
-        'PORT': os.getenv("POSTGRES_PORT", '5432'),
-        "CONN_MAX_AGE": int(os.getenv("CONN_AGE", 0)),
+        'NAME': os.environ.get("POSTGRES_DB", 'postgres'),
+        'USER': os.environ.get("POSTGRES_USER", 'postgres'),
+        'PASSWORD': os.environ.get("POSTGRES_PASSWORD", 'postgres'),
+        'HOST': os.environ.get("POSTGRES_HOST", 'localhost'),
+        'PORT': os.environ.get("POSTGRES_PORT", '5432'),
+        "CONN_MAX_AGE": int(os.environ.get("CONN_AGE", 0)),
     }
 }
 

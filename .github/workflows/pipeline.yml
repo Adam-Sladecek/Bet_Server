@@ -1,4 +1,4 @@
-name: Django Tests
+name: BetServer Pipeline
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  run-tests:
     runs-on: ubuntu-latest
 
     strategy:

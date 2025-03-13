@@ -13,7 +13,7 @@ class BetfairScraper(Scraper):
     
     def __init__(self, sportsbook: Sportsbook, sports: list[Sport]) -> None:
         super().__init__(sportsbook, sports)
-        self.app_key = os.getenv("BETFAIR_APP_KEY")
+        self.app_key = os.environ.get("BETFAIR_APP_KEY")
         self.session_token = None
         asyncio.run(self.login())
         
@@ -41,8 +41,8 @@ class BetfairScraper(Scraper):
     
     async def login(self) -> None:
         url = 'https://identitysso-cert.betfair.com/api/certlogin'
-        username = os.getenv("BETFAIR_USERNAME")
-        password = os.getenv("BETFAIR_PASSWORD")
+        username = os.environ.get("BETFAIR_USERNAME")
+        password = os.environ.get("BETFAIR_PASSWORD")
         payload = f'username={username}&password={password}'
         headers = {
             'X-Application': self.app_key,

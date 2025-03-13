@@ -208,3 +208,6 @@ tfplan
 .vscode/
 *.swp
 *.swo
+.DS_Store
+static
+media

@@ -2,14 +2,24 @@ version: '3.8'
 
 services:
   web:
-    image: betserver
     build:
       context: .
+    volumes:
+      - ./scrape_server:/app
     ports:
-      - "80:8080"
-    command: ["sh", "-c", "chmod +x /app/start.sh && /app/start.sh"]
+      - "8000:8000"
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    environment:
+      - DEBUG=1
+      - POSTGRES_HOST=localhost
+      - POSTGRES_DB=ev_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123456
     depends_on:
-      - db
+      database:
+        condition: service_healthy
 
   db:
     image: postgres:15
